@@ -3751,7 +3751,7 @@ function _applyFiltersSET() {
             var rsiOn    = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
 
             var isBuyNow = rvol >= 1.5 && turtleDist <= 0.5;
-            var isAccPos = accDays > distDays && accDays >= 2;   // Acc days มากกว่า Dist days
+            var isAccPos = accDays > distDays && accDays >= 4;   // Acc days มากกว่า Dist days (เกณฑ์เดียวกับ badge ACC{n}d ในตาราง)
 
             // ── Buyable Uptrend: ขาขึ้น (S2) + ยังไม่ extended + RR/เงินยังดี ──
             var inzone   = row.dataset.inzone === 'true';
@@ -3893,7 +3893,7 @@ function _updatePresetCountsSET() {
         var canslim = d.canslim === 'true';
         var accDays = parseInt(d.accDays || '0');
         var distDays = parseInt(d.distDays || '0');
-        var accPos = accDays > distDays && accDays >= 2;
+        var accPos = accDays > distDays && accDays >= 4;   // เกณฑ์เดียวกับ badge ACC{n}d ในตาราง
         var launcher = parseInt(d.launcher || '0');
         var insideBar = d.insideBar === 'true';
         var vsrg = d.volsurge === 'true';
