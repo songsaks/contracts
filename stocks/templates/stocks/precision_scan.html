@@ -1072,6 +1072,17 @@
 </div>
 {% endif %}
 
+<!-- ระบบแนะนำหุ้นเดิม (ก่อนมี Trade Flow) — พับเก็บไว้เป็นค่าเริ่มต้น เพื่อไม่ให้มีคำแนะนำหลายชุดขัดกันเองบนหน้าเดียว
+     Trade Flow (5 ขั้น) เป็นระบบหลักที่ใช้แนะนำหุ้นตอนนี้ ดูรายละเอียดได้ด้านล่าง -->
+{% if top5_qualified or top5_buy %}
+<details class="mb-3">
+    <summary class="small text-muted fw-semibold" style="cursor:pointer;">
+        <i class="fas fa-box-archive me-1"></i> ระบบแนะนำหุ้นแบบเดิม (ก่อน Trade Flow) — คลิกเพื่อดู
+    </summary>
+    <div class="small text-muted mt-2 mb-2" style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:8px;padding:8px 12px;">
+        <i class="fas fa-circle-info me-1"></i> รายชื่อในนี้คำนวณด้วยสูตรคะแนนคนละชุดจาก Trade Flow ด้านล่าง อาจไม่ตรงกัน — แนะนำให้ยึด Trade Flow เป็นหลัก ใช้ส่วนนี้เป็นข้อมูลอ้างอิงเสริมเท่านั้น
+    </div>
+
 <!-- TOP 5 ผ่านเกณฑ์ครบทุกข้อ -->
 {% if top5_qualified %}
 <div class="col-12 mb-3">
@@ -1259,7 +1270,9 @@
     </div>
 </div>
 {% endif %}
-    
+</details>
+{% endif %}
+
 <!-- LEADING SECTORS BAR (v3) -->
 {% if top_sectors %}
 <div class="col-12 mb-3">
