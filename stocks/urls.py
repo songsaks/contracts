@@ -37,6 +37,7 @@ urlpatterns = [
     path('macro/', views.macro_economy, name='macro'),
     path('momentum/', views.momentum_scanner, name='momentum_scanner'),
     path('momentum/precision/', views.precision_momentum_scanner, name='precision_momentum_scanner'),
+    path('momentum/turnaround/', views.turnaround_scanner, name='turnaround_scanner'),
     path('momentum/precision/ai/', views.precision_scan_ai_analysis, name='precision_scan_ai_analysis'),
     path('momentum/precision/report/', views.precision_scan_report, name='precision_scan_report'),
     path('momentum/precision/watchlist/', views.scan_watchlist_view, name='scan_watchlist_view'),

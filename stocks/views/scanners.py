@@ -7031,3 +7031,33 @@ def api_backtest_presets_universe(request):
     return _JR(payload)
 
 
+@login_required
+def turnaround_scanner(request):
+    """
+    Turnaround Scanner (SET) — หาหุ้น "รอกลับตัว" แทนหุ้นแรงส่งที่ Trade Flow เน้นอยู่
+    ไม่รันสแกนใหม่ ใช้ผล Precision Scan รอบล่าสุดของผู้ใช้ (ประหยัด ไม่ดึงราคาซ้ำ)
+    แบ่งเป็น 2 กลุ่ม:
+      - ยืนยันแล้ว: wyckoff_selling_climax=True (Volume พุ่ง+แท่งแดงยาวหลังขาลง + Automatic Rally ยืนยัน)
+      - เฝ้าดู: RSI<35 และห่างจาก 52w high ≥20% แต่ยังไม่เกิด Selling Climax — อาจกำลังจะเกิดในไม่ช้า
+    """
+    latest_run = (PrecisionScanCandidate.objects
+                  .filter(user=request.user, market='SET')
+                  .order_by('-scan_run').values_list('scan_run', flat=True).first())
+
+    confirmed, watchlist = [], []
+    if latest_run:
+        base_qs = PrecisionScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_run)
+        confirmed = list(base_qs.filter(wyckoff_selling_climax=True).order_by('-upside_to_high'))
+        watchlist = list(base_qs.filter(
+            wyckoff_selling_climax=False, rsi__lt=35, upside_to_high__gte=20
+        ).order_by('-upside_to_high')[:30])
+
+    context = {
+        'latest_run': latest_run,
+        'confirmed': confirmed,
+        'watchlist': watchlist,
+        'has_scanned': bool(latest_run),
+    }
+    return render(request, 'stocks/turnaround_scanner.html', context)
+
+

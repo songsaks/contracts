@@ -48,6 +48,9 @@
         <a href="{% url 'stocks:minervini_sepa_scanner' %}" class="btn d-inline-flex align-items-center gap-2" style="background:#0f172a; color:white; border:none;">
             <span style="font-size:1rem;">🦅</span> SEPA Mode
         </a>
+        <a href="{% url 'stocks:turnaround_scanner' %}" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8); color:white; border:none;" title="หาหุ้นรอกลับตัว (Selling Climax) แทนหุ้นแรงส่งที่ Trade Flow เน้น">
+            <i class="fas fa-rotate-left"></i> Turnaround Scanner
+        </a>
         <a href="{% url 'stocks:refresh_market_caps' %}?next={{ request.path }}" class="btn btn-outline-warning d-inline-flex align-items-center gap-2" 
            style="background: linear-gradient(135deg, #fbbf24, #d97706); color: white; border: none; font-size:0.85rem;">
             <i class="fas fa-list-ol"></i> อัปเดตอันดับ Market Cap
