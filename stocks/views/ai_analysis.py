@@ -2332,3 +2332,132 @@ def mark_daily_agent_report_read(request, pk):
     return JsonResponse({'success': True})
 
 
+@login_required
+def stock_ai_advisor(request):
+    """
+    หน้าให้พิมพ์ชื่อหุ้น แล้วดึงข้อมูลล่าสุดจาก PrecisionScanCandidate (Stage2, SEPA/VCP/CANSLIM,
+    Wyckoff Spring/Upthrust/Selling Climax/Effort-Result, Trend Template, Sector Confirmation, RR ฯลฯ)
+    ไปให้ Gemini สังเคราะห์เป็นคำอธิบาย + คำแนะนำเชิงเทคนิค (ไม่ใช่คำแนะนำการลงทุนที่รับรองผล)
+    """
+    return render(request, 'stocks/stock_ai_advisor.html', {})
+
+
+@login_required
+def api_stock_ai_advisor(request):
+    """AJAX endpoint: รับ symbol แล้วคืน analysis text จาก Gemini"""
+    from django.http import JsonResponse
+
+    symbol = (request.GET.get('symbol') or '').strip().upper()
+    if not symbol:
+        return JsonResponse({'error': 'กรุณาระบุชื่อหุ้น'}, status=400)
+
+    api_key = getattr(settings, "GEMINI_API_KEY", None)
+    if not api_key:
+        return JsonResponse({'error': 'ไม่พบ GEMINI_API_KEY'}, status=500)
+
+    stock = (PrecisionScanCandidate.objects
+             .filter(user=request.user, market='SET', symbol=symbol)
+             .order_by('-scan_run').first())
+    if not stock:
+        return JsonResponse({
+            'error': f'ไม่พบข้อมูล {symbol} ในผล Precision Scan ล่าสุด — กรุณารัน Precision Scan ก่อน',
+        }, status=404)
+
+    # Backtest reference (best-effort — ไม่ให้ล้มทั้งหมดถ้าดึงราคาไม่สำเร็จ)
+    backtest_text = "  (ไม่สามารถดึงข้อมูล backtest ได้)"
+    try:
+        from stocks.utils import run_all_presets_backtest
+        sym_bk = symbol if symbol.endswith('.BK') else f"{symbol}.BK"
+        df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=15)
+        if df is not None and not df.empty:
+            results = [r for r in run_all_presets_backtest(df) if r.get('trades_count')]
+            if results:
+                results.sort(key=lambda x: -(x.get('win_rate_pct') or 0))
+                backtest_text = "\n".join(
+                    "  - {p}: Win {w}% ({n} trades, avg {a}%{low})".format(
+                        p=r['preset'], w=r.get('win_rate_pct'), n=r.get('trades_count'),
+                        a=r.get('avg_return_pct'), low=' — sample น้อย ไม่ควรเชื่อมาก' if r.get('low_sample') else '')
+                    for r in results
+                )
+            else:
+                backtest_text = "  (ไม่มีสัญญาณ preset ใดในประวัติ 3 ปีของหุ้นนี้)"
+    except Exception:
+        pass
+
+    def _yn(v):
+        return "ใช่" if v else "ไม่"
+
+    signals = (
+        "Stage 2 (ขาขึ้นยืนยัน): {stage2}\n"
+        "SEPA (Stage2+RS≥70): {sepa} | RS Rating: {rs}\n"
+        "VCP Setup: {vcp} | CAN SLIM: {canslim} | Pocket Pivot: {pp}\n"
+        "CMF: {cmf} | RVOL: {rvol}x | Vol Surge: {volsurge}\n"
+        "ACC Days: {acc} / DIST Days: {dist} (ใน 10 วันล่าสุด)\n"
+        "Trend Template (Minervini 8 ข้อ): {tt}/8 (ผ่านครบ: {ttpass})\n"
+        "Sector Confirmation: {secconf} ({secpct}% ของกลุ่ม {sector} อยู่ Stage2)\n"
+        "Cheat Entry (Livermore): {cheat}\n"
+        "Wyckoff Spring: {spring} | Wyckoff Upthrust (เตือนแจกจ่าย): {upthrust}\n"
+        "Wyckoff Selling Climax (Phase A): {climax}\n"
+        "Wyckoff Effort-vs-Result Warning: {erwarn}\n"
+        "RSI: {rsi} | ADX: {adx}\n"
+    ).format(
+        stage2=_yn(stock.stage2), sepa=_yn(stock.stage2 and (stock.rs_rating or 0) >= 70), rs=stock.rs_rating,
+        vcp=_yn(getattr(stock, 'vcp_setup', False)), canslim=_yn(stock.is_canslim), pp=_yn(stock.pocket_pivot),
+        cmf=stock.cmf, rvol=stock.rvol, volsurge=_yn(stock.is_volume_surge),
+        acc=stock.acc_days, dist=stock.dist_days,
+        tt=stock.trend_template_score, ttpass=_yn(stock.trend_template_passed),
+        secconf=_yn(stock.sector_confirmed), secpct=stock.sector_strength_pct, sector=stock.sector,
+        cheat=_yn(stock.cheat_entry),
+        spring=_yn(stock.wyckoff_spring), upthrust=_yn(stock.wyckoff_upthrust),
+        climax=_yn(stock.wyckoff_selling_climax), erwarn=_yn(stock.wyckoff_effort_result_warning),
+        rsi=stock.rsi, adx=stock.adx,
+    )
+
+    trade_plan = (
+        "ราคาปัจจุบัน: ฿{price}\n"
+        "โซนเข้าซื้อ (Demand Zone): ฿{dz_end} - ฿{dz_start}\n"
+        "Stop Loss: ฿{sl}\n"
+        "เป้าหมาย (Supply Zone): ฿{tp}\n"
+        "Risk/Reward Ratio: 1:{rr}\n"
+    ).format(
+        price=stock.price, dz_end=stock.demand_zone_end, dz_start=stock.demand_zone_start,
+        sl=stock.stop_loss, tp=stock.supply_zone_start, rr=stock.risk_reward_ratio,
+    )
+
+    prompt = (
+        "คุณคือผู้ช่วยวิเคราะห์หุ้นเทคนิค ใช้กรอบ Trend Following (Weinstein) + SEPA (Minervini)"
+        " + Wyckoff + Livermore ที่ระบบสแกนหุ้นคำนวณไว้ล่วงหน้าแล้ว\n\n"
+        f"หุ้น: {symbol} (สแกนล่าสุด {stock.scan_run.strftime('%d/%m/%Y %H:%M')})\n\n"
+        "=== สัญญาณทางเทคนิค ===\n" + signals + "\n"
+        "=== แผนราคา (จากระบบสแกน) ===\n" + trade_plan + "\n"
+        "=== Backtest 3 ปี ของแต่ละ Preset (รวมสัญญาณทั้งหมดในอดีตของหุ้นนี้) ===\n" + backtest_text + "\n\n"
+        "สรุปให้ผู้ใช้ในหัวข้อต่อไปนี้ (ภาษาไทย กระชับ):\n\n"
+        "## 📋 สรุปภาพรวม\n- หุ้นตัวนี้อยู่ในสถานะไหน (สะสม/กำลังวิ่ง/แจกจ่าย/เสี่ยงกลับตัว) พร้อมเหตุผลจากสัญญาณข้างต้น\n\n"
+        "## ✅ จุดแข็ง\n- สัญญาณบวกที่มีอยู่ 2-4 ข้อ\n\n"
+        "## ⚠️ ความเสี่ยง/สิ่งที่ต้องระวัง\n- สัญญาณลบหรือคำเตือน (RR ต่ำ, Upthrust, E-R Warning, sample น้อยของ backtest ฯลฯ)\n\n"
+        "## 🎯 คำแนะนำเชิงเทคนิค\n"
+        "- ระบุว่าเข้าเงื่อนไข 'พิจารณาเข้าซื้อ', 'เฝ้าดู/รอจังหวะ', หรือ 'ควรระวัง/ไม่เหมาะเข้าตอนนี้' พร้อมเหตุผล\n"
+        "- ถ้ามี Upthrust หรือ E-R Warning ให้เตือนชัดเจนแม้สัญญาณอื่นจะดูดี\n\n"
+        "**สำคัญ**: นี่คือการสังเคราะห์สัญญาณทางเทคนิคที่มีอยู่ในระบบเท่านั้น ไม่ใช่คำแนะนำการลงทุนที่รับประกันผลตอบแทน "
+        "ห้ามใช้คำที่ฟังดูเป็นการรับประกันกำไร ให้ลงท้ายด้วยข้อความเตือนว่าผู้ใช้ควรพิจารณาความเสี่ยงและตั้ง Stop Loss เอง\n"
+        "จัดรูปแบบ Markdown"
+    )
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        if not response.text:
+            return JsonResponse({'error': 'AI ไม่ตอบกลับ'}, status=500)
+        return JsonResponse({
+            'status': 'success',
+            'symbol': symbol,
+            'analysis': response.text,
+            'scan_run': stock.scan_run.strftime('%d/%m/%Y %H:%M'),
+        })
+    except Exception as e:
+        err = str(e)
+        if "API_KEY_INVALID" in err:
+            return JsonResponse({'error': 'GEMINI_API_KEY ไม่ถูกต้อง'}, status=500)
+        return JsonResponse({'error': f'Gemini error: {err}'}, status=500)
+
+
