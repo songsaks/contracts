@@ -404,30 +404,35 @@ def detect_cheat_entry(df, lookback=15):
 
 # ----------------------------------------------------------------------
 # detect_wyckoff_spring — จับสัญญาณ Spring (Wyckoff Phase C) พร้อมแยกประเภทตาม Volume
-# ราคาหลุดต่ำกว่าแนวรับของฐานสะสมช่วงสั้นๆ (false breakdown) แล้วดีดกลับขึ้นมายืนเหนือแนวรับ
-# ภายในไม่กี่วัน พร้อม volume ยืนยันตอนดีดกลับ (Law of Effort vs Result)
+# และตรวจ Secondary Test สำหรับ Type 2
 #
 # แยกตาม volume วันที่หลุดแนวรับ (breakdown day) เป็น 3 ประเภทตามตำรา Wyckoff:
-#   - Type 3 (low volume, ratio<0.7): แรงขายหมดแล้ว — เชื่อถือได้สูงสุด ถือเป็น Spring ทันที
-#   - Type 2 (moderate, 0.7-1.5): ยังมี floating supply — ต้องรอ Secondary Test ก่อนถึงจะเชื่อได้
-#     (ยังไม่ implement การตรวจ Secondary Test แบบหลายวันในเวอร์ชันนี้ จึงยังไม่ยืนยันเป็น Spring)
+#   - Type 3 (low volume, ratio<0.7): แรงขายหมดแล้ว — เชื่อถือได้สูงสุด ถือเป็น Spring ทันทีที่ดีดกลับ
+#     พร้อม volume ยืนยัน ไม่ต้องรอ Secondary Test
+#   - Type 2 (moderate, 0.7-1.5): ยังมี floating supply — ต้องรอ Secondary Test ก่อน คือราคาย่อลงมา
+#     ทดสอบใกล้ breakdown low อีกครั้งด้วย volume ที่แห้งกว่าตอน breakdown ชัดเจน แล้วไม่หลุด low เดิม
+#     (ไม่นับ new low ที่ต่ำกว่า breakdown low เกิน 2%) ถึงจะยืนยันเป็น Spring ได้
 #   - Type 1 (high volume, ratio>1.5): แรงขายหนักจริง (Terminal Shakeout/หลุดจริง) — ไม่ถือเป็น Spring เด็ดขาด
 # ----------------------------------------------------------------------
-def detect_wyckoff_spring(df, lookback=20, recent_days=3):
-    if df is None or len(df) < lookback + recent_days + 5:
+def detect_wyckoff_spring(df, lookback=20, recent_days=3, secondary_test_window=15):
+    total_needed = lookback + secondary_test_window + recent_days + 5
+    if df is None or len(df) < total_needed:
         return False, {}
-    prior = df.iloc[-(lookback + recent_days + 5):-recent_days]
+
+    prior = df.iloc[-total_needed:-(secondary_test_window + recent_days)]
     support = float(prior['Low'].min())
-    recent = df.tail(recent_days)
     avg_vol = float(df['Volume'].tail(50).mean()) if len(df) >= 50 else float(df['Volume'].mean())
 
-    broke_below_mask = recent['Low'] < support
+    # หน้าต่างค้นหา breakdown day: ตั้งแต่ช่วง secondary test window จนถึงวันนี้
+    search_window = df.tail(secondary_test_window + recent_days)
+    broke_below_mask = search_window['Low'] < support
     if not bool(broke_below_mask.any()):
         return False, {}
 
-    # วันที่ทำ Low ต่ำสุดในช่วงที่หลุดแนวรับ = breakdown day ตามตำรา
-    breakdown_idx = recent.loc[broke_below_mask, 'Low'].idxmin()
-    breakdown_vol = float(recent.loc[breakdown_idx, 'Volume'])
+    # breakdown day ตัวแรกสุดที่หลุดแนวรับ (จุดเริ่ม Spring event ตามตำรา)
+    breakdown_idx = search_window.loc[broke_below_mask].index[0]
+    breakdown_low = float(df.loc[breakdown_idx, 'Low'])
+    breakdown_vol = float(df.loc[breakdown_idx, 'Volume'])
     breakdown_vol_ratio = breakdown_vol / avg_vol if avg_vol > 0 else 1.0
 
     if breakdown_vol_ratio > 1.5:
@@ -442,17 +447,39 @@ def detect_wyckoff_spring(df, lookback=20, recent_days=3):
     reclaimed = last_close > support
     vol_confirm = last_vol > avg_vol
 
-    # ยืนยันเป็น Spring ที่ใช้เข้าซื้อได้ทันทีเฉพาะ Type 3 เท่านั้น (ตามตำรา ไม่ต้องรอ Secondary Test)
-    # Type 2 ต้องรอ Secondary Test ก่อน (ยังไม่ implement) และ Type 1 ห้ามใช้เป็น Spring เด็ดขาด
-    is_spring = spring_type == 'type3_low_vol' and reclaimed and vol_confirm
-
-    return bool(is_spring), {
+    info = {
         'support': round(support, 4),
         'reclaimed_close': round(last_close, 4),
         'vol_confirm': vol_confirm,
         'spring_type': spring_type,
         'breakdown_vol_ratio': round(breakdown_vol_ratio, 2),
     }
+
+    if spring_type == 'type1_high_vol':
+        return False, info
+
+    if spring_type == 'type3_low_vol':
+        # Type 3: ไม่ต้องรอ Secondary Test เข้าซื้อได้ทันทีที่ดีดกลับพร้อม volume ยืนยัน
+        is_spring = reclaimed and vol_confirm
+        return bool(is_spring), info
+
+    # Type 2: ต้องหา Secondary Test — วันหลัง breakdown ที่ราคาย่อกลับมาใกล้ breakdown_low อีกครั้ง
+    # (ไม่ต่ำกว่าเดิมเกิน 2%) ด้วย volume ที่แห้งกว่า breakdown day ชัดเจน (<70% ของ breakdown volume)
+    after_breakdown = df.loc[df.index > breakdown_idx]
+    if after_breakdown.empty:
+        return False, info
+
+    near_low_mask = after_breakdown['Low'] <= breakdown_low * 1.02          # ย่อมาทดสอบใกล้ low เดิม
+    holds_low_mask = after_breakdown['Low'] >= breakdown_low * 0.98         # แต่ไม่หลุด low เดิมไปมาก (new low)
+    dry_vol_mask = after_breakdown['Volume'] < breakdown_vol * 0.7          # volume แห้งกว่า breakdown ชัดเจน
+    secondary_test_mask = near_low_mask & holds_low_mask & dry_vol_mask
+    secondary_test_found = bool(secondary_test_mask.any())
+    info['secondary_test_found'] = secondary_test_found
+
+    is_spring = secondary_test_found and reclaimed and vol_confirm
+    if is_spring:
+        info['spring_type'] = 'type2_secondary_test_confirmed'
+    return bool(is_spring), info
 
 
 # ----------------------------------------------------------------------
