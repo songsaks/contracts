@@ -1,5 +1,7 @@
 from django.contrib import messages
 from django.core.cache import cache
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
 from stocks.models import StockAlertConfig, StockAlertEvent
 from stocks.alert_engine import evaluate_user_alerts
 
@@ -38,19 +40,25 @@ def stock_alerts_processor(request):
         )
         if unread_events:
             for event in unread_events:
-                msg_html = f"<strong>[{event.symbol}]</strong> {event.message}"
+                # escape ข้อมูลที่ผู้ใช้กรอกเอง (symbol, message มี p.symbol ผสมอยู่) ก่อนประกอบกับ
+                # <strong> ที่เราควบคุมเอง แล้วค่อย mark_safe ทั้งก้อน — กัน stored XSS ถ้ามีคนตั้งชื่อ
+                # symbol ในพอร์ตเป็น payload (เช่น <script>) ป้องกันไม่ให้ไปโดน render เป็น HTML จริง
+                safe_symbol = escape(event.symbol)
+                safe_message = escape(event.message)
+                safe_type_label = escape(event.get_alert_type_display())
+                msg_html = f"<strong>[{safe_symbol}]</strong> {safe_message}"
                 if event.alert_type in (StockAlertEvent.AlertType.STOP_LOSS, StockAlertEvent.AlertType.TRAILING_EXIT):
-                    messages.error(request, f"🩸 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
+                    messages.error(request, mark_safe(f"🩸 <strong>{safe_type_label}</strong>: {msg_html}"))
                 elif event.alert_type == StockAlertEvent.AlertType.DISTRIBUTION_WARNING:
-                    messages.warning(request, f"⚠️ <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
+                    messages.warning(request, mark_safe(f"⚠️ <strong>{safe_type_label}</strong>: {msg_html}"))
                 elif event.alert_type in (StockAlertEvent.AlertType.TP_PARTIAL, StockAlertEvent.AlertType.TAKE_PROFIT):
-                    messages.success(request, f"💵 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
+                    messages.success(request, mark_safe(f"💵 <strong>{safe_type_label}</strong>: {msg_html}"))
                 elif event.alert_type == StockAlertEvent.AlertType.BREAKOUT:
-                    messages.success(request, f"🚀 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
+                    messages.success(request, mark_safe(f"🚀 <strong>{safe_type_label}</strong>: {msg_html}"))
                 elif event.alert_type == StockAlertEvent.AlertType.REALLOCATE:
-                    messages.info(request, f"🔄 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
+                    messages.info(request, mark_safe(f"🔄 <strong>{safe_type_label}</strong>: {msg_html}"))
                 else:
-                    messages.info(request, f"🔔 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
+                    messages.info(request, mark_safe(f"🔔 <strong>{safe_type_label}</strong>: {msg_html}"))
 
             cache.set(msg_cache_key, True, timeout=120)
 

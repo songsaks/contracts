@@ -224,7 +224,7 @@
                 {% for message in messages %}
                 <div
                     class="p-4 rounded-md shadow-sm {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
-                    {{ message }}
+                    {{ message|safe }}
                 </div>
                 {% endfor %}
             </div>
