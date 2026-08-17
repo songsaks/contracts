@@ -193,8 +193,15 @@ def evaluate_user_alerts(user, config):
             continue
 
         latest_scan = _latest_scan(p.symbol, p.market)
+        used_fallback = False
         if not latest_scan:
-            continue
+            # ไม่มีข้อมูลใน PrecisionScanCandidate เลย (เช่น ถูกกรองออกด้วย RS pre-filter ของ scanner
+            # ตั้งแต่ต้น) — คำนวณสัญญาณพื้นฐานสดจากราคาตรงแทน ดีกว่าข้ามหุ้นตัวนี้ไปเงียบๆ ไม่แจ้งอะไรเลย
+            from stocks.utils import compute_fallback_alert_signals
+            latest_scan = compute_fallback_alert_signals(p.symbol, p.market)
+            used_fallback = True
+            if not latest_scan:
+                continue
 
         entry_price = float(p.entry_price or 0)
         # ถือว่า "มีกำไรจริง" ถ้าราคาปัจจุบันสูงกว่าต้นทุนที่ถือ (ไม่ใช่แค่ถึงโซนเทคนิคของสแกนเนอร์)
@@ -251,13 +258,14 @@ def evaluate_user_alerts(user, config):
         # ไม่ส่งเป็น "ขายทำกำไร" เพราะจะทำให้เข้าใจผิดว่ามีกำไร — ข้ามไปเช็คเงื่อนไข SL ต่อแทน
         elif config.alert_stop_loss and latest_scan.stop_loss and price <= latest_scan.stop_loss:
             sell_qty = _recommended_sell_qty(p.quantity, p.market, pct=1.0)
+            fallback_note = " (⚠️ ประเมินจากราคาสด ไม่มีข้อมูล Precision Scan ของหุ้นนี้ — SL คำนวณแบบ ATR คร่าวๆ)" if used_fallback else ""
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
                 strategy=strategy_label, price=price, reference_level=latest_scan.stop_loss,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุดจุดตัดขาดทุน (SL) ที่ "
                     f"{latest_scan.stop_loss:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอสทั้งหมด "
-                    f"({sell_qty:,} หุ้น)"
+                    f"({sell_qty:,} หุ้น){fallback_note}"
                 ),
             ))
             weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุดจุดตัดขาดทุน (SL) ที่ {latest_scan.stop_loss:.2f}'})
@@ -271,6 +279,7 @@ def evaluate_user_alerts(user, config):
                 cache_key = f"stockalert_distwarn_{user.id}_{p.symbol}"
                 if not cache.get(cache_key):
                     reasons_txt = ', '.join(signals['reversal_reasons'])
+                    fallback_note = " (⚠️ ประเมินจากราคาสด ไม่มีข้อมูล Precision Scan ของหุ้นนี้)" if used_fallback else ""
                     new_events.append(StockAlertEvent(
                         user=user, symbol=p.symbol, market=p.market,
                         alert_type=StockAlertEvent.AlertType.DISTRIBUTION_WARNING,
@@ -278,7 +287,7 @@ def evaluate_user_alerts(user, config):
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เริ่มมีสัญญาณกระจายขาย/กลับตัว "
                             f"({signals['reversal_score']}/8: {reasons_txt}) — {signals['stage_label']} "
-                            f"ยังไม่ถึงจุดตัดขาดทุน แต่ควรจับตาใกล้ชิด พิจารณาลดสถานะล่วงหน้าถ้ายังไม่มั่นใจ"
+                            f"ยังไม่ถึงจุดตัดขาดทุน แต่ควรจับตาใกล้ชิด พิจารณาลดสถานะล่วงหน้าถ้ายังไม่มั่นใจ{fallback_note}"
                         ),
                     ))
                     cache.set(cache_key, True, timeout=12 * 60 * 60)

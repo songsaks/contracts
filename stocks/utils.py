@@ -685,6 +685,111 @@ def detect_effort_result_divergence(df, window=5):
 
 
 # ----------------------------------------------------------------------
+# compute_fallback_alert_signals — คำนวณสัญญาณพื้นฐานสดจากราคาตรง (ไม่ผ่าน scanner)
+# ใช้เมื่อหุ้นในพอร์ตไม่มีข้อมูลใน PrecisionScanCandidate เลย (เช่น ถูกกรองออกด้วย RS pre-filter
+# ของ scanner ตั้งแต่ต้น — ไม่ใช่ว่าไม่มีสัญญาณ แต่ไม่เคยถูกวิเคราะห์เลย) เพื่อให้ alert engine
+# ยังเตือน SL/reversal ได้แทนที่จะข้ามหุ้นตัวนั้นไปเงียบๆ
+#
+# ไม่ครบเท่าผล scan เต็มรูปแบบ (ไม่มี demand/supply zone, RS rating, pattern score) แต่พอสำหรับ
+# SL (ATR-based) + reversal warning (stage2/CMF/MACD/RSI + Wyckoff ทั้ง 4 ตัว)
+# ----------------------------------------------------------------------
+def compute_fallback_alert_signals(symbol, market='SET'):
+    import types
+
+    sym_bk = symbol if (symbol.endswith('.BK') or market != 'SET') else f"{symbol}.BK"
+    try:
+        df = yf.Ticker(sym_bk).history(period="1y", interval="1d", timeout=15)
+    except Exception:
+        return None
+    if df is None or len(df) < 60:
+        return None
+
+    price = float(df['Close'].iloc[-1])
+
+    rsi_s = ta.rsi(df['Close'], length=14)
+    rsi = float(rsi_s.iloc[-1]) if rsi_s is not None and pd.notna(rsi_s.iloc[-1]) else 50.0
+
+    adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+    adx = 0.0
+    if adx_df is not None and not adx_df.empty:
+        adx_col = [c for c in adx_df.columns if c.startswith('ADX_')]
+        if adx_col and pd.notna(adx_df[adx_col[0]].iloc[-1]):
+            adx = float(adx_df[adx_col[0]].iloc[-1])
+
+    sma150 = ta.sma(df['Close'], length=150)
+    stage2 = False
+    if sma150 is not None:
+        s = sma150.dropna()
+        if len(s) >= 20:
+            stage2 = bool(price > float(s.iloc[-1]) and float(s.iloc[-1]) > float(s.iloc[-20]))
+
+    ema20 = ta.ema(df['Close'], length=20)
+    ema20_rising = False
+    if ema20 is not None:
+        e = ema20.dropna()
+        if len(e) >= 6 and float(e.iloc[-6]) > 0:
+            ema20_rising = float(e.iloc[-1]) > float(e.iloc[-6]) * 1.001
+
+    macd_df = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+    macd_hist, macd_cross = 0.0, False
+    if macd_df is not None and not macd_df.empty:
+        hist_col = [c for c in macd_df.columns if c.startswith('MACDh')]
+        if hist_col:
+            h = macd_df[hist_col[0]].dropna()
+            if len(h) >= 2:
+                macd_hist = float(h.iloc[-1])
+                macd_cross = float(h.iloc[-2]) < 0 <= macd_hist
+
+    avg_vol20 = float(df['Volume'].tail(20).mean())
+    last_vol = float(df['Volume'].iloc[-1])
+    rvol = last_vol / avg_vol20 if avg_vol20 > 0 else 1.0
+    rvol_bullish = price >= float(df['Open'].iloc[-1])
+
+    cmf = None
+    try:
+        hi, lo, cl, vo = df['High'].tail(20), df['Low'].tail(20), df['Close'].tail(20), df['Volume'].tail(20)
+        rng = (hi - lo).replace(0, np.nan)
+        mfv = ((cl - lo) - (hi - cl)) / rng * vo
+        if vo.sum() > 0:
+            cmf = float(mfv.sum() / vo.sum())
+    except Exception:
+        pass
+
+    year_high = float(df['High'].tail(252).max())
+    is_52w_bo = year_high > 0 and price >= year_high * 0.99
+
+    stop_loss = None
+    try:
+        atr = ta.atr(df['High'], df['Low'], df['Close'], length=14)
+        if atr is not None and pd.notna(atr.iloc[-1]):
+            stop_loss = round(price - 2.5 * float(atr.iloc[-1]), 4)
+    except Exception:
+        pass
+
+    spring, _ = detect_wyckoff_spring(df)
+    upthrust, _ = detect_wyckoff_upthrust(df)
+    climax, _ = detect_selling_climax(df)
+    er_warn, _ = detect_effort_result_divergence(df)
+
+    return types.SimpleNamespace(
+        symbol=symbol, market=market, price=round(price, 4),
+        rsi=round(rsi, 2), adx=round(adx, 2), stage2=stage2, ema20_rising=ema20_rising,
+        hh_hl_structure=False, macd_histogram=round(macd_hist, 4), macd_crossover=macd_cross,
+        cmf=round(cmf, 4) if cmf is not None else None, rvol=round(rvol, 2), rvol_bullish=rvol_bullish,
+        is_52w_breakout=is_52w_bo, stop_loss=stop_loss,
+        demand_zone_start=None, demand_zone_end=None, supply_zone_start=None,
+        risk_reward_ratio=0, zone_proximity=999, technical_score=0,
+        erc_volume_confirmed=False, price_pattern_score=0, rel_momentum_3m=0.0, rel_momentum_1m=0.0,
+        year_high=year_high, bb_squeeze=False, ema20_aligned=False, rs_rating=0, eps_growth=0, rev_growth=0,
+        ema20_slope=0.0, ehlers_fisher=None, ehlers_fisher_trigger=None,
+        pocket_pivot=False,
+        wyckoff_spring=spring, wyckoff_upthrust=upthrust, wyckoff_selling_climax=climax,
+        wyckoff_effort_result_warning=er_warn,
+        is_fallback=True,
+    )
+
+
+# ----------------------------------------------------------------------
 # calculate_trailing_stop — คำนวณ Trailing Stop Loss
 # ใช้ป้องกันความเสี่ยงหลังจากซื้อหุ้น โดยตั้ง stop loss ตาม %
 # ของราคาสูงสุดที่เคยทำได้นับตั้งแต่ซื้อ
