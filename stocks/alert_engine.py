@@ -277,13 +277,13 @@ def evaluate_user_alerts(user, config):
                         strategy=strategy_label, price=price, reference_level=latest_scan.stop_loss,
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เริ่มมีสัญญาณกระจายขาย/กลับตัว "
-                            f"({signals['reversal_score']}/5: {reasons_txt}) — {signals['stage_label']} "
+                            f"({signals['reversal_score']}/8: {reasons_txt}) — {signals['stage_label']} "
                             f"ยังไม่ถึงจุดตัดขาดทุน แต่ควรจับตาใกล้ชิด พิจารณาลดสถานะล่วงหน้าถ้ายังไม่มั่นใจ"
                         ),
                     ))
                     cache.set(cache_key, True, timeout=12 * 60 * 60)
 
-        if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot):
+        if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring):
             # เตือนแฝงถ้าหุ้นตัวเดียวกันมี Reversal Score สูงพร้อมกัน — Pocket Pivot ที่เกิดขณะเทรนด์กำลังอ่อนแอ
             # เชื่อถือได้น้อยกว่า Pocket Pivot ที่เกิดในเทรนด์ Stage 2 แข็งแรง (อาจเป็นแค่เด้งสั้นๆ ไม่ใช่กลับมาสะสมจริง)
             from stocks.views.base import _compute_signals
@@ -291,7 +291,7 @@ def evaluate_user_alerts(user, config):
             reversal_caveat = ""
             if _signals['reversal_score'] >= 3:
                 reversal_caveat = (
-                    f" ⚠️ ระวัง: หุ้นนี้มีสัญญาณกระจายขายร่วมด้วย ({_signals['reversal_score']}/5) — "
+                    f" ⚠️ ระวัง: หุ้นนี้มีสัญญาณกระจายขายร่วมด้วย ({_signals['reversal_score']}/8) — "
                     f"อาจเป็นการเด้งชั่วคราว ไม่ใช่สัญญาณกลับตัวจริง ควรรอดูยืนยันเพิ่มก่อนซื้อเพิ่ม"
                 )
 
@@ -330,13 +330,13 @@ def evaluate_user_alerts(user, config):
                 strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
-                    f"{'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot'} "
+                    f"{'เบรค 52w High' if latest_scan.is_52w_breakout else 'Wyckoff Spring 🌀' if latest_scan.wyckoff_spring else 'Pocket Pivot'} "
                     f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{reversal_caveat}{reasons_msg}"
                 ),
             ))
             strong_candidates.append({
                 'symbol': p.symbol, 'market': p.market,
-                'reason': 'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot',
+                'reason': 'เบรค 52w High' if latest_scan.is_52w_breakout else 'Wyckoff Spring' if latest_scan.wyckoff_spring else 'Pocket Pivot',
                 'score': latest_scan.technical_score,
             })
         # ====== Buy Zone Add — เตือนสะสม/ซื้อเพิ่ม เมื่อหุ้นในพอร์ตย่อลงมาอยู่ในโซนได้เปรียบ (IN ZONE) ======

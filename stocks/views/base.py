@@ -145,6 +145,10 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
     # v8 Fisher Transform
     fisher       = getattr(prec, 'ehlers_fisher', None)
     fisher_trig  = getattr(prec, 'ehlers_fisher_trigger', None)
+    # v10 Wyckoff signals
+    wyckoff_spring   = getattr(prec, 'wyckoff_spring', False)
+    wyckoff_upthrust = getattr(prec, 'wyckoff_upthrust', False)
+    wyckoff_er_warn  = getattr(prec, 'wyckoff_effort_result_warning', False)
 
     # ── BUY SCORE ─────────────────────────────────────────────────────
     # base technical: technical_score คือผลลัพธ์จาก tech analyzer (max 100)
@@ -254,10 +258,15 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
             buy += 5
             buy_reasons.append('Fisher ตัดขึ้น')
 
+    # ── v10 Wyckoff Spring (max 15) — หลุดแนวรับฐานสะสมแล้วดีดกลับพร้อม volume ยืนยัน
+    if wyckoff_spring:
+        buy += 15
+        buy_reasons.append('Wyckoff Spring 🌀')
+
     buy_score = max(0, min(100, buy))
 
-    # ── REVERSAL SCORE (0-5): ตรวจจับการเปลี่ยนแปลงจากขาขึ้น → Distribution/ขาลง ──
-    # แต่ละเงื่อนไขให้ 1 คะแนน รวม 5 คะแนน (≥3 = REVERSAL ALERT)
+    # ── REVERSAL SCORE (0-8): ตรวจจับการเปลี่ยนแปลงจากขาขึ้น → Distribution/ขาลง ──
+    # แต่ละเงื่อนไขให้ 1 คะแนน รวม 8 คะแนน (≥3 = REVERSAL ALERT, ≥4 = DISTRIBUTION)
     rev_pts = 0
     rev_reasons = []
 
@@ -291,6 +300,17 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
         if fisher < fisher_trig and fisher > 1.0:
             rev_pts += 1
             rev_reasons.append('Fisher ↓')
+
+    # 7. Wyckoff Upthrust — ทะลุแนวต้านฐานแจกจ่ายหลอกๆ แล้วร่วงกลับพร้อม volume ยืนยันแรงขาย
+    #    เป็นสัญญาณเตือนก่อนราคาจะร่วงจริง เร็วกว่า SL แบบราคาล้วน จึงให้น้ำหนักเท่าสัญญาณยืนยันอื่น
+    if wyckoff_upthrust:
+        rev_pts += 1
+        rev_reasons.append('Wyckoff Upthrust ⚠️')
+
+    # 8. Effort vs Result — Volume พุ่งผิดปกติแต่ราคาแทบไม่ขยับ/ลง (อาจมีคนแอบขายเงียบๆ)
+    if wyckoff_er_warn:
+        rev_pts += 1
+        rev_reasons.append('Effort-Result ⚠️')
 
     # ── SELL SCORE ────────────────────────────────────────────────────
     sell = 0
