@@ -76,9 +76,9 @@
                                 {% for top_stock in sec.top_stocks %}
                                 
                                 {% if market == 'US' %}
-                                <a href="{% url 'us_momentum_quick_analysis' top_stock.symbol %}" target="_blank" 
+                                <a href="{% url 'stocks:us_momentum_quick_analysis' top_stock.symbol %}" target="_blank" 
                                 {% else %}
-                                <a href="{% url 'momentum_quick_analysis' top_stock.symbol %}" target="_blank" 
+                                <a href="{% url 'stocks:momentum_quick_analysis' top_stock.symbol %}" target="_blank" 
                                 {% endif %}
                                    class="badge text-decoration-none" 
                                    style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:0.75rem;">
