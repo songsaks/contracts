@@ -2139,6 +2139,55 @@ def precision_momentum_scanner(request):
                             stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
                             rel_1m = round(stock_1m - set_1m_return, 2)
 
+
+
+                        # ====== Advanced Precision Bonus/Penalty ======
+                        from stocks.utils import detect_vcp_pattern
+                        vcp = detect_vcp_pattern(df)
+                        vcp_setup_flag = vcp.get('setup', False)
+                        vcp_tightness_val = vcp.get('tightness', 999.0)
+                        
+                        inside_bar_flag = False
+                        if len(df) >= 2:
+                            c0 = df.iloc[-1]
+                            c1 = df.iloc[-2]
+                            inside_bar_flag = c0['High'] <= c1['High'] and c0['Low'] >= c1['Low']
+
+                        if vcp_setup_flag:
+                            integrated_score += 10
+                            if vcp_tightness_val <= 10:
+                                integrated_score += 5
+                        
+                        # Pocket Pivot
+                        if pp_at_ma50_flag:
+                            integrated_score += 15
+                        elif pocket_pivot_flag:
+                            integrated_score += 5
+                            
+                        # Turtle Breakout (จ่อเบรค)
+                        turtle_dist = tech.get('turtle_dist_pct', 99.0)
+                        if turtle_dist <= 2.0:
+                            integrated_score += 10
+                            
+                        # Wyckoff Dynamics
+                        if wyckoff_spring_flag:
+                            integrated_score += 10
+                        if wyckoff_upthrust_flag:
+                            integrated_score -= 20
+                        if wyckoff_er_warning_flag:
+                            _is_bear = (not rvol_bullish) or (tech.get('dist_days', 0) >= 3) or (tech.get('cmf', 0) < -0.1)
+                            if _is_bear:
+                                integrated_score -= 15
+                            else:
+                                integrated_score += 10
+                        if wyckoff_selling_climax_flag:
+                            integrated_score += 5
+                            
+                        # Inside Bar
+                        if inside_bar_flag:
+                            integrated_score += 5
+                            
+                        integrated_score = min(max(integrated_score, 0), 100)
                         # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
                         return {
                             'symbol': symbol,
@@ -2198,7 +2247,7 @@ def precision_momentum_scanner(request):
                             'ichimoku_chikou_ok': ichimoku_chikou_ok,
                             'ichimoku_score': ichimoku_score_val,
                             # ====== VCP Detection ======
-                            'vcp': detect_vcp_pattern(df),
+                            'vcp': vcp,
                             # ====== Launcher Data (v10) ======
                             'launcher_score': tech.get('launcher_score', 0),
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
@@ -5128,6 +5177,55 @@ def us_precision_scanner(request):
                             stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
                             rel_1m = round(stock_1m - set_1m_return, 2)
 
+
+
+                        # ====== Advanced Precision Bonus/Penalty ======
+                        from stocks.utils import detect_vcp_pattern
+                        vcp = detect_vcp_pattern(df)
+                        vcp_setup_flag = vcp.get('setup', False)
+                        vcp_tightness_val = vcp.get('tightness', 999.0)
+                        
+                        inside_bar_flag = False
+                        if len(df) >= 2:
+                            c0 = df.iloc[-1]
+                            c1 = df.iloc[-2]
+                            inside_bar_flag = c0['High'] <= c1['High'] and c0['Low'] >= c1['Low']
+
+                        if vcp_setup_flag:
+                            integrated_score += 10
+                            if vcp_tightness_val <= 10:
+                                integrated_score += 5
+                        
+                        # Pocket Pivot
+                        if pp_at_ma50_flag:
+                            integrated_score += 15
+                        elif pocket_pivot_flag:
+                            integrated_score += 5
+                            
+                        # Turtle Breakout (จ่อเบรค)
+                        turtle_dist = tech.get('turtle_dist_pct', 99.0)
+                        if turtle_dist <= 2.0:
+                            integrated_score += 10
+                            
+                        # Wyckoff Dynamics
+                        if wyckoff_spring_flag:
+                            integrated_score += 10
+                        if wyckoff_upthrust_flag:
+                            integrated_score -= 20
+                        if wyckoff_er_warning_flag:
+                            _is_bear = (not rvol_bullish) or (tech.get('dist_days', 0) >= 3) or (tech.get('cmf', 0) < -0.1)
+                            if _is_bear:
+                                integrated_score -= 15
+                            else:
+                                integrated_score += 10
+                        if wyckoff_selling_climax_flag:
+                            integrated_score += 5
+                            
+                        # Inside Bar
+                        if inside_bar_flag:
+                            integrated_score += 5
+                            
+                        integrated_score = min(max(integrated_score, 0), 100)
                         # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
                         return {
                             'symbol': symbol,
@@ -5187,7 +5285,7 @@ def us_precision_scanner(request):
                             'ichimoku_chikou_ok': ichimoku_chikou_ok,
                             'ichimoku_score': ichimoku_score_val,
                             # ====== VCP Detection ======
-                            'vcp': detect_vcp_pattern(df),
+                            'vcp': vcp,
                             # ====== Launcher Data (v10) ======
                             'launcher_score': tech.get('launcher_score', 0),
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
