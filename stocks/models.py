@@ -469,6 +469,44 @@ class PrecisionScanCandidate(models.Model):
         return f"{self.symbol} - Score: {self.technical_score} (run: {self.scan_run})"
 
     @property
+    def badge_analysis_summary(self):
+        """วิเคราะห์ป้าย Badge อัตโนมัติเป็นข้อความสั้นๆ"""
+        # 1. Absorption (ซุ่มเก็บของ)
+        if getattr(self, 'wyckoff_effort_result_warning', False) and self.stage2 and (getattr(self, 'vcp_setup', False) or getattr(self, 'sector_confirmed', False) or (self.rs_rating or 0) >= 70):
+            return "🥷 ซุ่มเก็บของ (Absorption) - รายใหญ่รับของ Vol สูงแต่ราคาไม่ตก เตรียมเบรคเอาต์"
+            
+        # 2. Distribution (แจกจ่าย/อันตราย)
+        if getattr(self, 'wyckoff_effort_result_warning', False) or getattr(self, 'wyckoff_upthrust', False) or getattr(self, 'wyckoff_selling_climax', False):
+            if not self.stage2 and (self.rs_rating or 0) < 50:
+                return "⚠️ สัญญาณอันตราย (Distribution) - มีแรงเทขายกดดัน ระวังไหลลงต่อ"
+            elif self.supply_zone_start and self.price >= self.supply_zone_start * 0.95:
+                return "⚠️ ระวังการแจกจ่าย (Distribution) - เกิดสัญญาณเตือนที่แนวต้านหลัก"
+            else:
+                return "⚠️ ระวังการแจกจ่าย (Distribution) - ราคาไม่ไปตาม Vol ที่เข้ามา"
+                
+        # 3. Ready to break (VCP + Launcher)
+        if getattr(self, 'vcp_setup', False) and self.launcher_score >= 70:
+            return "🚀 เตรียมระเบิด (Ready to Break) - ราคาบีบตัวแน่น (VCP) พร้อมยิง"
+            
+        # 4. Pocket Pivot
+        if getattr(self, 'pocket_pivot', False) and getattr(self, 'is_volume_surge', False):
+            return "🔥 มีแรงซื้อมหาศาล (Volume Surge + PP) - Smart Money ดันราคา"
+            
+        # 5. Turtle Breakout
+        if self.turtle_dist_pct <= 2.0:
+            return "🐢 จ่อเบรค (Turtle Breakout) - ราคาจ่อทะลุ High เดิม จับตาดู Vol"
+            
+        # 6. Buy Zone
+        if self.demand_zone_start and self.demand_zone_end and self.demand_zone_end <= self.price <= self.demand_zone_start:
+            return "🎯 โซนเข้าซื้อ (Buy Zone) - ราคาลงมาพักตัวในโซนรับความเสี่ยงต่ำ"
+            
+        # 7. Strong Trend
+        if self.stage2 and (self.rs_rating or 0) >= 80:
+            return "📈 กำลังวิ่ง (Strong Uptrend) - หุ้นแข็งแกร่งกว่าตลาด (RS สูง)"
+            
+        return ""
+
+    @property
     def breakout_price(self):
         """จุดเบรก Standard Breakout = 20-Day High (Turtle DC20)
         คำนวณย้อนจาก turtle_dist_pct ที่เก็บไว้ตอน scan: high20 = price × (1 + dist%/100)"""
