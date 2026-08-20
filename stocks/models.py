@@ -471,21 +471,26 @@ class PrecisionScanCandidate(models.Model):
     @property
     def badge_analysis_summary(self):
         """วิเคราะห์ป้าย Badge อัตโนมัติเป็นข้อความสั้นๆ"""
-        # 1. Absorption (ซุ่มเก็บของ)
-        if getattr(self, 'wyckoff_effort_result_warning', False) and self.stage2 and (getattr(self, 'vcp_setup', False) or getattr(self, 'sector_confirmed', False) or (self.rs_rating or 0) >= 70):
-            return "🥷 ซุ่มเก็บของ (Absorption) - รายใหญ่รับของ Vol สูงแต่ราคาไม่ตก เตรียมเบรคเอาต์"
+        is_er = getattr(self, 'wyckoff_effort_result_warning', False)
+        is_bear_vol = getattr(self, 'rvol_bullish', True) == False or getattr(self, 'dist_days', 0) >= 3 or getattr(self, 'cmf', 0) < -0.1
+        
+        # 1. Upthrust / Selling Climax
+        if getattr(self, 'wyckoff_upthrust', False):
+            return "⚠️ Upthrust (Distribution) - เบรคหลอกแล้วโดนตบกลับ ระวังการแจกจ่าย!"
+        if getattr(self, 'wyckoff_selling_climax', False):
+            return "🅰️ Selling Climax - แรงขายพีคสุด อาจเด้งสั้นแต่ต้องสร้างฐานอีกนาน"
             
-        # 2. Distribution (แจกจ่าย/อันตราย)
-        if getattr(self, 'wyckoff_effort_result_warning', False) or getattr(self, 'wyckoff_upthrust', False) or getattr(self, 'wyckoff_selling_climax', False):
-            if not self.stage2 and (self.rs_rating or 0) < 50:
-                return "⚠️ สัญญาณอันตราย (Distribution) - มีแรงเทขายกดดัน ระวังไหลลงต่อ"
+        # 2. E-R Warning (Bearish vs Bullish)
+        if is_er:
+            if is_bear_vol:
+                return "⚠️ แรงขายกดดัน (Distribution) - Vol ออกเยอะในวันลง (E-R) ระวังหลุดแนวรับ"
+            elif self.stage2 and (getattr(self, 'vcp_setup', False) or (self.rs_rating or 0) >= 70):
+                return "🥷 ซุ่มเก็บของ (Absorption) - รายใหญ่รับของ Vol สูงแต่ราคาไม่ตก เตรียมเบรคเอาต์"
             elif self.supply_zone_start and self.price >= self.supply_zone_start * 0.95:
-                return "⚠️ ระวังการแจกจ่าย (Distribution) - เกิดสัญญาณเตือนที่แนวต้านหลัก"
-            else:
-                return "⚠️ ระวังการแจกจ่าย (Distribution) - ราคาไม่ไปตาม Vol ที่เข้ามา"
+                return "⚠️ ระวังการแจกจ่าย (Distribution) - เกิด E-R ที่แนวต้านหลัก"
                 
         # 3. Ready to break (VCP + Launcher)
-        if getattr(self, 'vcp_setup', False) and self.launcher_score >= 70:
+        if getattr(self, 'vcp_setup', False) and getattr(self, 'launcher_score', 0) >= 70:
             return "🚀 เตรียมระเบิด (Ready to Break) - ราคาบีบตัวแน่น (VCP) พร้อมยิง"
             
         # 4. Pocket Pivot
@@ -493,7 +498,7 @@ class PrecisionScanCandidate(models.Model):
             return "🔥 มีแรงซื้อมหาศาล (Volume Surge + PP) - Smart Money ดันราคา"
             
         # 5. Turtle Breakout
-        if self.turtle_dist_pct <= 2.0:
+        if getattr(self, 'turtle_dist_pct', 99) <= 2.0:
             return "🐢 จ่อเบรค (Turtle Breakout) - ราคาจ่อทะลุ High เดิม จับตาดู Vol"
             
         # 6. Buy Zone
