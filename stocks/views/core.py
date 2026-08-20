@@ -395,17 +395,26 @@ def analyze(request, symbol):
 
         # ====== เตรียมข้อมูลกราฟราคาและวอลลุ่ม ======
         # Prepare Chart Data (Price & Volume)
+        import math
+        import json
         chart_labels = []
         chart_values = []
         chart_volumes = []
         if not history.empty:
-            # แสดงเฉพาะ 90 วันล่าสุด
             history_subset = history.tail(90)
             chart_labels = [d.strftime('%Y-%m-%d') for d in history_subset.index]
-            chart_values = [round(float(v), 2) for v in history_subset['Close'].values]
-            chart_volumes = [int(v) for v in history_subset['Volume'].values]
-
-        # ====== เตรียมข้อมูลข่าว - แปลง timestamp ให้อ่านได้ ======
+            for v in history_subset['Close'].values:
+                try:
+                    val = float(v)
+                    chart_values.append(round(val, 2) if not math.isnan(val) else None)
+                except:
+                    chart_values.append(None)
+            for v in history_subset['Volume'].values:
+                try:
+                    val = float(v)
+                    chart_volumes.append(int(val) if not math.isnan(val) else None)
+                except:
+                    chart_volumes.append(None)
         # Prepare News Data (Convert timestamp to readable)
         from datetime import datetime
         news_list = data.get('news', [])
@@ -486,9 +495,9 @@ def analyze(request, symbol):
             'symbol': symbol,
             'info': info,
             'analysis': analysis_text,
-            'chart_labels': chart_labels,
-            'chart_values': chart_values,
-            'chart_volumes': chart_volumes,
+            'chart_labels': json.dumps(chart_labels),
+            'chart_values': json.dumps(chart_values),
+            'chart_volumes': json.dumps(chart_volumes),
             'fifty_two_week_high': fifty_two_week_high,
             'recent_resistance': recent_resistance,
             'recent_support': recent_support,
