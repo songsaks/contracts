@@ -3063,3 +3063,45 @@ def classify_ehlers_pattern(lrsi, fisher, trig, price, ss):
 
 
 
+def calculate_volume_profile(df, bins=50):
+    import numpy as np
+    import pandas as pd
+    if df is None or len(df) < 50:
+        return None, None
+    vp_df = df.tail(120).copy()
+    if 'High' not in vp_df or 'Low' not in vp_df or 'Volume' not in vp_df:
+        return None, None
+    vp_df['Typical_Price'] = (vp_df['High'] + vp_df['Low'] + vp_df['Close']) / 3
+    min_p = vp_df['Typical_Price'].min()
+    max_p = vp_df['Typical_Price'].max()
+    if max_p == min_p:
+        return None, None
+    bin_size = (max_p - min_p) / bins
+    vp_bins = np.linspace(min_p, max_p, bins)
+    inds = np.digitize(vp_df['Typical_Price'], vp_bins)
+    volume_by_bin = np.zeros(bins + 1)
+    for i in range(len(vp_df)):
+        vol = vp_df['Volume'].iloc[i]
+        idx = inds[i]
+        if idx <= bins:
+            volume_by_bin[idx] += vol
+        else:
+            volume_by_bin[bins] += vol
+    poc_idx = np.argmax(volume_by_bin)
+    if poc_idx == 0:
+        poc_price = min_p
+    elif poc_idx >= bins:
+        poc_price = max_p
+    else:
+        poc_price = vp_bins[poc_idx-1] + (bin_size / 2)
+        
+    current_price = float(df['Close'].iloc[-1])
+    margin = poc_price * 0.02 # 2% margin
+    if current_price > poc_price + margin:
+        vp_status = 'Breakout POC'
+    elif current_price < poc_price - margin:
+        vp_status = 'Below POC'
+    else:
+        vp_status = 'At POC'
+        
+    return poc_price, vp_status

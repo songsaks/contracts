@@ -440,6 +440,8 @@ class PrecisionScanCandidate(models.Model):
     ichimoku_above_kumo = models.BooleanField(default=False)      # ราคาอยู่เหนือ Kumo (SpanA & SpanB)
     ichimoku_tk_cross   = models.BooleanField(default=False)      # Tenkan ตัด Kijun ขึ้น ใน 5 แท่งล่าสุด
     ichimoku_kumo_green = models.BooleanField(default=False)      # Kumo อนาคตเป็นสีเขียว (SpanA > SpanB)
+    vp_poc_price = models.FloatField(null=True, blank=True)
+    vp_status = models.CharField(max_length=20, blank=True)
     ichimoku_chikou_ok  = models.BooleanField(default=False)      # Chikou อยู่เหนือราคา 26 แท่งก่อน
     ichimoku_score      = models.IntegerField(default=0)          # คะแนนรวม Ichimoku (0-4)
 
