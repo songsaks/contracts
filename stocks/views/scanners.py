@@ -4584,53 +4584,55 @@ def us_momentum_crew_page(request, symbol):
 @login_required
 def us_precision_scanner(request):
     """
-    US Precision Momentum Scanner - Nasdaq & S&P 500
-    - market='US' filter on all DB queries
-    - Background scanning to prevent timeouts
+    US Precision Momentum Scanner - กรองคุณภาพสูงกว่า momentum_scanner
+    ปรับปรุงจาก momentum_scanner:
+    1. ERC ต้องมี Body + Volume > 1.5x avg (ทั้งสองเงื่อนไข)
+    2. ADX >= 20 (กรองเทรนด์แข็งแกร่งเท่านั้น)
+    3. Liquidity filter: avg 20d volume >= 500,000 หุ้น
+    4. Supply target = 52-week high เสมอ
+    5. ATR-based stop loss
+    6. Direction-aware RVOL scoring
+    7. เก็บประวัติ scan 3 รอบล่าสุด
+    8. is_new_entry flag (หุ้นใหม่ vs ยังอยู่จากรอบก่อน)
     """
-    from django.utils import timezone as tz
-    from yahooquery import Ticker as YQTicker
-
-    from stocks.models import PrecisionScanCandidate
-    from stocks.utils import analyze_momentum_technical_v2
-
-    # AJAX status polling
+    # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
         from django.core.cache import cache as _cp
         from django.http import JsonResponse as _JR
-        _key = f'us_precision_scan_{request.user.id}'
+        _key = f'precision_scan_{request.user.id}'
         _st = _cp.get(_key, {'state': 'idle'})
         if _st.get('state') == 'done':
             _cp.delete(_key)
         return _JR(_st)
+    from django.utils import timezone as tz
+    from yahooquery import Ticker as YQTicker
+    from stocks.utils import analyze_momentum_technical_v2, get_top_ranked_symbols
 
-    scan_symbols = list(
-        ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
-    )
-    # If symbols are missing or deactivated (e.g. by Thai refresh bug), re-seed them
-    if len(scan_symbols) < 100:
-        _seed_us_symbols()
-        scan_symbols = list(
-            ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
-        )
+    # โหลด symbols เบื้องต้นแบบรวดเร็ว (ดึงจาก Cache/DB เดิม) สำหรับใช้ใน context ของ GET request
+    scan_symbols = get_top_ranked_symbols(market='US', limit=400, auto_refresh=False)
 
-    if request.method == "POST" or request.GET.get('scan') == 'true':
+    if request.method == "POST" and request.POST.get('action') == 'scan':
         import threading
 
         from django.core.cache import cache as _cache_bg
-        user_id = request.user.id
-        cache_key = f'us_precision_scan_{user_id}'
+
+        user_id   = request.user.id
+        cache_key = f'precision_scan_{user_id}'
+        
+        # เก็บหน้าที่ต้องกลับไปหลังสแกนเสร็จ
+        raw_next = request.POST.get('next_url')
+        next_url = 'stocks:minervini_sepa_scanner' if raw_next == 'sepa' else 'stocks:precision_momentum_scanner'
 
         # cache.add() เป็น atomic lock - กัน double-submit เปิด background thread ซ้อนกัน
         _init_status = {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}
-        if not _cache_bg.add(cache_key, _init_status, timeout=1200):
+        if not _cache_bg.add(cache_key, _init_status, timeout=900):
             _cur = _cache_bg.get(cache_key) or {}
             if _cur.get('state') == 'running':
-                return redirect('stocks:us_precision_scanner')
+                return redirect(next_url)
             # key ค้างจากรอบก่อน (done/idle) - เขียนทับแล้วสแกนต่อ
-            _cache_bg.set(cache_key, _init_status, timeout=1200)
+            _cache_bg.set(cache_key, _init_status, timeout=900)
 
-        def _run_us_scan_bg(uid, ckey, sym_list):
+        def _run_precision_bg(uid, ckey):
             try:
                 import django
                 django.setup()
@@ -4639,134 +4641,173 @@ def us_precision_scanner(request):
                 from datetime import time as _dtime
                 from datetime import timedelta as _td
 
-                import pandas as pd
                 import pandas_ta as ta
                 import pytz as _pytz
-                import requests
-                import yfinance as yf
                 from django.contrib.auth import get_user_model
-                from django.core.cache import cache as _cache_inner
+                from django.core.cache import cache as _cache
+                from django.utils import timezone as tz
+                from yahooquery import Ticker as YQTicker
 
-                # Create a session with timeout to prevent hanging
-                _session = requests.Session()
-                _session.mount("https://", requests.adapters.HTTPAdapter(max_retries=2))
-                _session.mount("http://", requests.adapters.HTTPAdapter(max_retries=2))
-                # Patch yfinance to use this session with a timeout if needed, 
-                # but usually passing session to Ticker is enough.
-                
+                from stocks.models import PrecisionScanCandidate
+
+                from stocks.utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS, refresh_all_thai_symbols as _RATS
+                sym_list = _GTRS(market='US', limit=400, auto_refresh=True)
+                if not sym_list:
+                    try:
+                        _RATS()
+                    except Exception:
+                        pass
+                    sym_list = _GTRS(market='US', limit=400, auto_refresh=True)
+
+
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
                 scan_run_time = tz.now()
 
-                _ny_tz = _pytz.timezone('America/New_York')
-                _now_ny = _dt.now(_ny_tz)
-                
-                # yfinance end date is exclusive. To include today's data, we must set end to tomorrow.
-                scan_end_date  = _now_ny.date()
-                scan_end_str   = (scan_end_date + _td(days=1)).strftime('%Y-%m-%d')
-                scan_start_str = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')
-                spy_start_str  = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')  # ใช้เท่ากับ stock เพื่อ RS เทียบกันถูกต้อง
+                # ====== Pin Scan Date ======
+                _bkk_tz = _pytz.timezone('Asia/Bangkok')
+                _now_bkk = _dt.now(_bkk_tz)
+                # yfinance download end= is exclusive. To include today's data, use tomorrow.
+                scan_end_date  = _now_bkk.date() + _td(days=1)
+                scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
+                scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
+                set_start_str  = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # ใช้เท่ากับ stock เพื่อ RS เทียบกันถูกต้อง
 
-                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'Benchmarks…'}, timeout=1200)
+                prev_run = (
+                    PrecisionScanCandidate.objects
+                    .filter(user=user, market='US')
+                    .values_list('scan_run', flat=True)
+                    .order_by('-scan_run')
+                    .distinct()
+                    .first()
+                )
+                prev_symbols = set()
+                if prev_run:
+                    prev_symbols = set(
+                        PrecisionScanCandidate.objects
+                        .filter(user=user, scan_run=prev_run)
+                        .values_list('symbol', flat=True)
+                    )
 
-                # Previous symbols
-                prev_run = PrecisionScanCandidate.objects.filter(user=user, market='US').order_by('-scan_run').values_list('scan_run', flat=True).distinct().first()
-                prev_symbols = set(PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run=prev_run).values_list('symbol', flat=True)) if prev_run else set()
-
-                # SPY
-                import logging as _lg; _us_log = _lg.getLogger('stocks.us_scan')
-                spy_1m = spy_3m = 0.0
+                # ====== SET Index ======
+                set_1m_return = 0.0
+                set_3m_return = 0.0
                 try:
-                    spy_df = yf.download("SPY", start=spy_start_str, end=scan_end_str, interval="1d", progress=False)
+                    spy_df = yf.download("SPY", start=set_start_str, end=scan_end_str, interval="1d", progress=False)
                     if spy_df is not None and not spy_df.empty:
-                        if isinstance(spy_df.columns, pd.MultiIndex): spy_df.columns = spy_df.columns.droplevel(1)
-                        c = spy_df['Close'].dropna()
-                        if len(c) >= 66:
-                            spy_1m = float((c.iloc[-1] - c.iloc[-22])/c.iloc[-22]*100)
-                            spy_3m = float((c.iloc[-1] - c.iloc[-66])/c.iloc[-66]*100)
+                        if isinstance(spy_df.columns, pd.MultiIndex):
+                            spy_df.columns = spy_df.columns.droplevel(1)
+                        set_close = spy_df['Close'].dropna()
+                        if len(set_close) >= 66:
+                            set_1m_return = float((set_close.iloc[-1] - set_close.iloc[-22]) / set_close.iloc[-22] * 100)
+                            set_3m_return = float((set_close.iloc[-1] - set_close.iloc[-66]) / set_close.iloc[-66] * 100)
+                    import logging; logging.getLogger('stocks').info(f"[Precision] SET Index: 1m={set_1m_return:.2f}% 3m={set_3m_return:.2f}%")
                 except Exception as e:
-                    _us_log.warning(f"[US Scan] SPY fetch failed: {e}")
+                    import logging; logging.getLogger('stocks').warning(f"[Precision] SET Index fetch failed: {e}")
 
-                # RS Rating (Bulk Fetch for speed)
+
+                # ====== Phase 1: Fast Screening with YahooQuery (Institutional Speed) ======
                 total_syms = len(sym_list)
-                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'Fetching RS Data (Bulk)…'}, timeout=1200)
+                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'ดึงข้อมูล RS Rating...'}, timeout=900)
+                
+                from yahooquery import Ticker as _TQ
                 rs_returns_all = {}
-                try:
-                    from yahooquery import Ticker as _TQ
-                    chunk_size = 80
-                    for i in range(0, len(sym_list), chunk_size):
-                        chunk = sym_list[i : i + chunk_size]
-                        _cache_inner.set(ckey, {'state': 'running', 'progress': 5 + int((i/total_syms)*15), 'total': total_syms, 'phase': f'Fetching RS Data ({i//chunk_size + 1})…'}, timeout=900)
-                        try:
-                            tq = _TQ(chunk)
-                            tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
-                            if tq_hist is not None and not tq_hist.empty:
-                                if isinstance(tq_hist.index, pd.MultiIndex):
-                                    for symbol in chunk:
-                                        try:
-                                            if symbol in tq_hist.index.get_level_values(0):
-                                                _close = tq_hist.loc[symbol]['adjclose'].dropna()
-                                                if len(_close) >= 66:
-                                                    ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
-                                                    rs_returns_all[symbol] = ret
-                                        except Exception: continue
-                        except Exception as e:
-                            _us_log.warning(f"[US Scan] RS chunk error: {e}")
-                except Exception as e:
-                    _us_log.error(f"[US Scan] Bulk RS fetch failed: {e}")
+                
+                # Fetch history in chunks of 80 to prevent hangs
+                import logging; logger = logging.getLogger('stocks')
+                chunk_size = 80
+                for i in range(0, len(sym_list), chunk_size):
+                    chunk = sym_list[i : i + chunk_size]
+                    chunk_bk = chunk
+                    _cache.set(ckey, {'state': 'running', 'progress': 5 + int((i/total_syms)*15), 'total': total_syms, 'phase': f'Phase 1: โหลดข้อมูลกลุ่ม {i//chunk_size + 1}...'}, timeout=900)
+                    try:
+                        tq = _TQ(chunk_bk)
+                        tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                        if tq_hist is not None and not tq_hist.empty:
+                            if isinstance(tq_hist.index, pd.MultiIndex):
+                                for symbol in chunk:
+                                    try:
+                                        s_bk = symbol
+                                        if s_bk in tq_hist.index.get_level_values(0):
+                                            _close = tq_hist.loc[s_bk]['adjclose'].dropna()
+                                            if len(_close) >= 66:
+                                                ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                                                rs_returns_all[symbol] = ret
+                                    except Exception: continue
+                    except Exception as e:
+                        logger.error(f"RS Chunk Error at {i}: {e}")
 
                 # FAILSAFE: If results are empty or too small, force evaluation of a subset
                 if len(rs_returns_all) < 10:
+                    import logging; logging.getLogger('stocks').warning(f"[Precision] Data recovery mode: Only {len(rs_returns_all)} found. Force fallback.")
+                    # Use at least top 50 symbols to ensure some results
                     for s in sym_list[:100]:
-                        if s not in rs_returns_all: rs_returns_all[s] = 0.0
+                        if s not in rs_returns_all: rs_returns_all[s] = 0.0 # Dummy score to pass filter
 
-                rs_map = {}
+                rs_ratings_map = {}
                 if rs_returns_all:
-                    ser = pd.Series(rs_returns_all)
-                    rs_map = (ser.rank(pct=True)*99).clip(0,99).astype(int).to_dict()
+                    _rs_ser = pd.Series(rs_returns_all)
+                    rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
 
-                # Main Scan
-                results_to_process = [s for s in sym_list if rs_map.get(s, 0) >= 60]
-                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(results_to_process), 'phase': 'Technical Scan…'}, timeout=1200)
-                
-                results = []
-                def _scan_one(symbol):
+                # Phase 2: เจาะลึกหุ้นที่เข้ารอบ (ผ่อนปรนให้หุ้นที่มี RS >= 45 หลุดเข้าประเมินเชิงลึก เพื่อความยืดหยุ่นของ Early Accumulation)
+                results_to_process = [s for s in sym_list if rs_ratings_map.get(s, 0) >= 45]
+                if not results_to_process:
+                    # Fallback: ถ้าไม่มีข้อมูล RS เพียงพอ ให้ใช้ทุกหุ้นที่อยู่ใน rs_ratings_map หรือ top 50
+                    results_to_process = [s for s in sym_list if s in rs_ratings_map] or sym_list[:50]
+                    import logging; logging.getLogger('stocks').warning(f"[Precision] RS filter returned 0 — fallback to {len(results_to_process)} symbols")
+
+                def _process_precision_scan(symbol):
                     try:
-                        rs_v = rs_map.get(symbol, 0)
-                        if rs_v < 60: return None
+                        # ใช้ yf.Ticker().history() แทน yf.download() เพราะ yf.download() 
+                        # มีบั๊ก Thread-safety กรองข้อมูลข้าม Symbol กันเมื่อรันใน ThreadPool 
+                        ticker_obj = yf.Ticker(symbol)
+                        df = ticker_obj.history(start=scan_start_str, end=scan_end_str, interval="1d")
 
-                        try:
-                            ticker_obj = yf.Ticker(symbol)
-                            df = ticker_obj.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                        if df is None or df.empty:
+                            try:
+                                yq = YQTicker(symbol)
+                                df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                                if isinstance(df, pd.DataFrame) and not df.empty:
+                                    df = df.reset_index()
+                                    if 'date' in df.columns:
+                                        df.set_index('date', inplace=True)
+                                    if 'symbol' in df.columns:
+                                        df.drop(columns=['symbol'], inplace=True)
+                                    df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
+                                                       'close': 'Close', 'volume': 'Volume'}, inplace=True)
+                            except Exception:
+                                pass
 
-                            if df is None or df.empty:
-                                try:
-                                    yq = YQTicker(symbol)
-                                    df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
-                                    if isinstance(df, pd.DataFrame) and not df.empty:
-                                        df = df.reset_index()
-                                        if 'date' in df.columns:
-                                            df.set_index('date', inplace=True)
-                                        if 'symbol' in df.columns:
-                                            df.drop(columns=['symbol'], inplace=True)
-                                        df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
-                                                           'close': 'Close', 'volume': 'Volume'}, inplace=True)
-                                except Exception:
-                                    pass
-                        except Exception:
-                            df = None
+                        if df is None or df.empty:
+                            return None
 
-                        if df is None or df.empty: return None
-                        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
-                        df = df.dropna(subset=['Close','High'])
-                        if len(df) < 200: return None
-                        
-                        av20 = float(df['Volume'].tail(20).mean())
-                        if av20 < 500_000: return None  # ลด threshold จาก 1M → 500K รับ mid-cap growth
-                        
-                        current_p = float(df['Close'].iloc[-1])
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.droplevel(1)
+
+                        df = df.dropna(subset=['Close', 'High'])
+                        if len(df) < 200:
+                            return None
+
+                        # ====== Liquidity & Quality Filters (Institutional Grade) ======
+                        avg_vol_20 = float(df['Volume'].tail(20).mean())
+                        avg_close_20 = float(df['Close'].tail(20).mean())
+                        avg_turnover_20 = avg_vol_20 * avg_close_20
+                
+                        import logging as _lg; _scan_log = _lg.getLogger('stocks.scan')
+                        current_price = float(df['Close'].iloc[-1])
+
+                        # 1. Turnover >= 10M THB
+                        if avg_turnover_20 < 10_000_000:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Turnover ฿{avg_turnover_20/1e6:.1f}M < 10M")
+                            return None
+
+                        # 2. Minimum Price >= 1.00
+                        if current_price < 1.00:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 1.00")
+                            return None
 
                         # ====== Early Accumulation (Pre-Breakout Volume Surge & Tightness) ======
+                        # เช็คว่ามี Volume พุ่งสูง หรือ ราคากำลังบีบตัว (VCP) หรือ ปริมาณการซื้อขายแห้ง (VDU)
                         early_accumulation = False
                         try:
                             if len(df) >= 20:
@@ -4775,48 +4816,77 @@ def us_precision_scanner(request):
                                     vol_i = float(df['Volume'].iloc[i])
                                     close_i = float(df['Close'].iloc[i])
                                     open_i = float(df['Open'].iloc[i])
-                                    if close_i > open_i and vol_i >= (av20 * 2.5):
+                                    if close_i > open_i and vol_i >= (avg_vol_20 * 2.5):
                                         early_accumulation = True
                                         break
                                 
                                 # 2. Check Price Tightness (SD < 2.5%) -> VCP / Coiling
                                 if not early_accumulation:
                                     std_5 = float(df['Close'].tail(5).std())
-                                    tightness = (std_5 / current_p * 100) if current_p > 0 else 99
+                                    tightness = (std_5 / current_price * 100) if current_price > 0 else 99
                                     if tightness <= 2.5:
                                         early_accumulation = True
                                         
-                                # 3. Check Volume Dry Up (VDU)
+                                # 3. Check Volume Dry Up (VDU) -> แรงขายหมด
                                 if not early_accumulation:
                                     vol_3d_avg = float(df['Volume'].tail(3).mean())
-                                    if vol_3d_avg < av20 * 0.5:
+                                    if vol_3d_avg < avg_vol_20 * 0.5:
                                         early_accumulation = True
                         except Exception:
                             pass
 
-                        rs_v = rs_map.get(symbol, 0)
-                        if rs_v < 60 and not early_accumulation: return None
-                        
-                        # Indicators
-                        df['EMA200'] = ta.ema(df['Close'], length=200)
-                        df['EMA50']  = ta.ema(df['Close'], length=50)
-                        df['RSI']    = ta.rsi(df['Close'], length=14)
-                        adx_d = ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                        if adx_d is not None and not adx_d.empty: df = pd.concat([df, adx_d], axis=1)
-                        df['MFI'] = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
-                        
-                        year_h = float(df['High'].tail(252).max())
-                        
-                        if current_p < year_h * 0.65 and not early_accumulation: return None
-                        adx_v = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
-                        if adx_v < 15 and not early_accumulation: return None
+                        # 3. RS Rating >= 60 (อนุโลมถ้ามี Early Accumulation)
+                        rs_val = rs_ratings_map.get(symbol, None)
+                        if rs_val is not None and rs_val < 60 and not early_accumulation:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: RS {rs_val} < 60")
+                            return None
 
+                        # ====== คำนวณ Indicators ======
+                        df['EMA200'] = ta.ema(df['Close'], length=200)
+                        df['EMA50'] = ta.ema(df['Close'], length=50)
+                        df['RSI'] = ta.rsi(df['Close'], length=14)
+                        adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                        if adx_df is not None and not adx_df.empty:
+                            df = pd.concat([df, adx_df], axis=1)
+                        mfi_series = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                        df['MFI'] = mfi_series
+
+                        last_row = df.iloc[-1]
+                        current_price = float(last_row['Close'])
+                        ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
+                        year_high = float(df['High'].tail(252).max())
+
+                        # ====== ADX Filter ======
+                        adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
+                        if adx_val < 15 and not early_accumulation:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: ADX {adx_val:.1f} < 15")
+                            return None
+
+                        # ====== Trend Template Filter ======
+                        near_high  = current_price >= year_high * 0.65
+                        if not near_high and not early_accumulation:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 65% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
+                            return None
+
+                        import logging; logger = logging.getLogger('stocks')
+                        logger.debug(f"[Precision] MATCH: {symbol} (ADX:{adx_val:.1f})")
+
+                        # ====== Precision Technical Analysis (v3) ======
                         tech = analyze_momentum_technical_v2(df)
+                        integrated_score = tech['score']
+                        rvol         = tech['rvol']
+                        rsi          = tech['rsi']
+                        rvol_bullish = tech['rvol_bullish']
+                        sd_zone      = tech['sd_zone']
+                        ema20_aligned_flag = tech.get('ema20_aligned', False)
+                        ema20_slope_val    = tech.get('ema20_slope', 0.0)
+                        ema20_rising_flag  = tech.get('ema20_rising', False)
+                        hh_hl_flag         = tech.get('hh_hl_structure', False)
 
                         mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
 
-                        # MACD (12,26,9)
-                        macd_hist_val = None
+                        # ====== MACD (12,26,9) - histogram + bullish crossover detection ======
+                        macd_hist_val  = None
                         macd_cross_val = False
                         try:
                             macd_df = ta.macd(df['Close'], fast=12, slow=26, signal=9)
@@ -4824,17 +4894,22 @@ def us_precision_scanner(request):
                                 hist_col = [c for c in macd_df.columns if 'h' in c.lower() or 'hist' in c.lower()]
                                 macd_col = [c for c in macd_df.columns if c.lower().startswith('macd_')]
                                 sig_col  = [c for c in macd_df.columns if 'macds' in c.lower() or 'signal' in c.lower()]
-                                if hist_col: macd_hist_val = float(macd_df[hist_col[0]].iloc[-1]) if pd.notna(macd_df[hist_col[0]].iloc[-1]) else None
+                                if hist_col:
+                                    macd_hist_val = float(macd_df[hist_col[0]].iloc[-1]) if pd.notna(macd_df[hist_col[0]].iloc[-1]) else None
+                                # Bullish crossover = MACD line crosses above signal line in last 3 bars
                                 if macd_col and sig_col:
                                     m_ser = macd_df[macd_col[0]].dropna()
                                     s_ser = macd_df[sig_col[0]].dropna()
                                     if len(m_ser) >= 4 and len(s_ser) >= 4:
+                                        # Check if MACD crossed above signal in last 3 candles
                                         for i in range(-3, 0):
                                             if m_ser.iloc[i-1] <= s_ser.iloc[i-1] and m_ser.iloc[i] > s_ser.iloc[i]:
-                                                macd_cross_val = True; break
-                        except: pass
+                                                macd_cross_val = True
+                                                break
+                        except Exception:
+                            pass
 
-                        # Bollinger Bands Squeeze
+                        # ====== Bollinger Bands Squeeze - bandwidth in bottom 20th pct (pending breakout) ======
                         bb_squeeze_flag = False
                         try:
                             bb_df = ta.bbands(df['Close'], length=20, std=2)
@@ -4847,12 +4922,15 @@ def us_precision_scanner(request):
                                     bbl = bb_df[lower_col[0]].dropna()
                                     bbm = bb_df[mid_col[0]].dropna()
                                     if len(bbu) >= 20:
-                                        bw = (bbu - bbl) / bbm
+                                        bw = (bbu - bbl) / bbm  # bandwidth ratio
                                         pct20 = bw.quantile(0.20)
-                                        if float(bw.iloc[-1]) <= float(pct20): bb_squeeze_flag = True
-                        except: pass
+                                        if float(bw.iloc[-1]) <= float(pct20):
+                                            bb_squeeze_flag = True
+                        except Exception:
+                            pass
 
-                        # Stage 2 (Weinstein)
+                        # ====== Stage 2 (Weinstein): price > SMA150 AND SMA150 rising ======
+                        # Stage 2 = markup phase - หุ้นที่ผ่าน filter นี้อยู่ในช่วงที่ดีที่สุดสำหรับการซื้อ
                         stage2_flag = False
                         try:
                             sma150 = ta.sma(df['Close'], length=150)
@@ -4860,117 +4938,238 @@ def us_precision_scanner(request):
                                 sma150_clean = sma150.dropna()
                                 if len(sma150_clean) >= 20:
                                     sma150_cur = float(sma150_clean.iloc[-1])
-                                    sma150_4w  = float(sma150_clean.iloc[-20])
-                                    stage2_flag = (current_p > sma150_cur) and (sma150_cur > sma150_4w)
-                        except: pass
+                                    sma150_4w  = float(sma150_clean.iloc[-20])  # ~4 สัปดาห์ก่อน
+                                    stage2_flag = (current_price > sma150_cur) and (sma150_cur > sma150_4w)
+                        except Exception:
+                            pass
 
-                        # Moving averages for Kacher/Morales exit rule (SMA10/SMA50)
+                        # ====== Fundamental Data (bulk-fetched after all threads complete) ======
+                        # ตัวแปรเหล่านี้ไม่ถูกใช้ใน thread - bulk enrichment เป็นตัวทำใน step 2
+
+                        # ====== Supply & Demand Zone ======
+                        entry_strat = ""
+                        dz_start = None
+                        dz_end = None
+                        sz_start = None
+                        sz_end = None
+                        sl_price = None
+                        rr_val = None
+                        erc_vol_confirmed = False
+                        zone_target_src = '52w'
+
+                        if sd_zone:
+                            entry_strat = sd_zone['type']
+                            dz_start = sd_zone['start']
+                            dz_end = sd_zone['end']
+                            sz_start = sd_zone['target']
+                            sz_end = sd_zone['target'] * 1.02
+                            sl_price = sd_zone['stop_loss']
+                            rr_val = sd_zone['rr_ratio']
+                            erc_vol_confirmed = sd_zone.get('erc_volume_confirmed', False)
+                            zone_target_src = sd_zone.get('zone_target_source', '52w')
+
+                        prox_val = 999.0
+                        if dz_start:
+                            if current_price <= dz_start:
+                                prox_val = 0.0
+                            else:
+                                prox_val = ((current_price - dz_start) / dz_start) * 100
+
+                        gap_to_high = ((year_high - current_price) / current_price) * 100
+
+                        # ====== Pocket Pivot (Morales & Kacher) ======
+                        # Up-day volume > highest down-day volume in prior 10 sessions
+                        # ====== Moving averages for Kacher/Morales exit rule (SMA10/SMA50) ======
                         ma10_val = ma50_val = 0.0
                         try:
                             _sma10 = ta.sma(df['Close'], length=10)
                             _sma50 = ta.sma(df['Close'], length=50)
                             if _sma10 is not None and pd.notna(_sma10.iloc[-1]): ma10_val = float(_sma10.iloc[-1])
                             if _sma50 is not None and pd.notna(_sma50.iloc[-1]): ma50_val = float(_sma50.iloc[-1])
-                        except: pass
+                        except Exception:
+                            pass
 
-                        # Pocket Pivot
                         pocket_pivot_flag = False
-                        pp_at_ma50_flag = False
+                        pp_at_ma50_flag = False   # PP แท้ตามตำรา Dr.K: เด้งจากแนวรับ SMA50 ในฐาน
                         try:
                             if len(df) >= 14:
                                 closes = df['Close'].values
                                 volumes = df['Volume'].values
                                 for _i in [-1, -2]:
-                                    if float(closes[_i]) <= float(closes[_i - 1]): continue
+                                    if float(closes[_i]) <= float(closes[_i - 1]):
+                                        continue  # not an up day
                                     _start = len(volumes) + _i - 10
                                     _end   = len(volumes) + _i
-                                    if _start < 1: continue
+                                    if _start < 1:
+                                        continue
                                     _prior_c = closes[_start:_end]
                                     _prior_v = volumes[_start:_end]
                                     _prior_prev_c = closes[_start - 1:_end - 1]
                                     _down_mask = _prior_c < _prior_prev_c
-                                    if not _down_mask.any(): continue
+                                    if not _down_mask.any():
+                                        continue
                                     _max_down_vol = float(_prior_v[_down_mask].max())
                                     if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
                                         pocket_pivot_flag = True
-                                        # PP-at-MA50 (⭐): ยืนเหนือ SMA50 ไม่เกิน 8% + CMF ≥ 0
-                                        # (กันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution)
+                                        # PP-at-MA50 (⭐): ต้องครบ 3 เงื่อนไข —
+                                        #   1) ราคายืนเหนือ SMA50 ไม่เกิน 8% (เด้งจากแนวรับในฐาน)
+                                        #   2) CMF ≥ 0 (เงินสถาบันไม่ได้กำลังกระจายของ)
+                                        # ป้องกันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution
                                         _pp_cmf = tech.get('cmf', 0.0) or 0.0
                                         if ma50_val > 0 and _pp_cmf >= 0:
                                             _pp_close = float(closes[_i])
                                             if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
                                                 pp_at_ma50_flag = True
                                         break
-                        except: pass
+                        except Exception:
+                            pass
 
-                        # Volume Dry-Up (VDU)
+                        # Wyckoff Spring + Upthrust + Effort-vs-Result divergence + Selling Climax (Phase A)
+                        wyckoff_spring_flag = False
+                        wyckoff_upthrust_flag = False
+                        wyckoff_er_warning_flag = False
+                        wyckoff_selling_climax_flag = False
+                        try:
+                            from stocks.utils import (
+                                detect_effort_result_divergence,
+                                detect_selling_climax,
+                                detect_wyckoff_spring,
+                                detect_wyckoff_upthrust,
+                            )
+                            wyckoff_spring_flag, _ = detect_wyckoff_spring(df)
+                            wyckoff_upthrust_flag, _ = detect_wyckoff_upthrust(df)
+                            wyckoff_er_warning_flag, _ = detect_effort_result_divergence(df)
+                            wyckoff_selling_climax_flag, _ = detect_selling_climax(df)
+                        except Exception:
+                            pass
+
+                        # Minervini Trend Template (8 ข้อเต็ม) + Cheat Entry
+                        tt_score_val = 0
+                        tt_passed_flag = False
+                        cheat_entry_flag = False
+                        try:
+                            from stocks.utils import check_trend_template, detect_cheat_entry
+                            _tt = check_trend_template(df, rs_ratings_map.get(symbol, 0))
+                            tt_score_val = _tt.get('score', 0)
+                            tt_passed_flag = _tt.get('passed', False)
+                            cheat_entry_flag = detect_cheat_entry(df)
+                        except Exception:
+                            pass
+
+                        # ====== Volume Dry-Up (VDU): เงียบสะสม - volume ลด 3 วันติด + ต่ำกว่า median 70% (ป้องกัน volume spike) ======
                         vdu_flag = False
                         try:
                             if len(df) >= 4:
                                 _vols = df['Volume'].tail(4).values.astype(float)
-                                _avg20 = float(df['Volume'].tail(20).mean())
+                                _median20 = float(df['Volume'].tail(20).median())
                                 _declining = (_vols[-1] < _vols[-2]) and (_vols[-2] < _vols[-3])
-                                _quiet     = _vols[-1] < _avg20 * 0.7
+                                _quiet     = _vols[-1] < _median20 * 0.7
                                 vdu_flag   = _declining and _quiet
-                        except: pass
+                        except Exception:
+                            pass
 
-                        # Ichimoku Score
-                        ichimoku_score_val = 0
+                        # ====== Ichimoku Cloud ======
                         ichimoku_above_kumo = False
-                        ichimoku_tk_cross = False
+                        ichimoku_tk_cross   = False
                         ichimoku_kumo_green = False
-                        ichimoku_chikou_ok = False
+                        ichimoku_chikou_ok  = False
+                        ichimoku_score_val  = 0
                         try:
                             if len(df) >= 52:
-                                _h9 = df['High'].rolling(9).max(); _l9 = df['Low'].rolling(9).min()
-                                _h26 = df['High'].rolling(26).max(); _l26 = df['Low'].rolling(26).min()
-                                _h52 = df['High'].rolling(52).max(); _l52 = df['Low'].rolling(52).min()
-                                _tenkan = (_h9 + _l9) / 2; _kijun = (_h26 + _l26) / 2
-                                _span_a = ((_tenkan + _kijun) / 2).shift(26); _span_b = ((_h52 + _l52) / 2).shift(26)
-                                _sa_cur = float(_span_a.iloc[-1]); _sb_cur = float(_span_b.iloc[-1])
-                                ichimoku_above_kumo = current_p > max(_sa_cur, _sb_cur) > 0
+                                _h9  = df['High'].rolling(9).max()
+                                _l9  = df['Low'].rolling(9).min()
+                                _h26 = df['High'].rolling(26).max()
+                                _l26 = df['Low'].rolling(26).min()
+                                _h52 = df['High'].rolling(52).max()
+                                _l52 = df['Low'].rolling(52).min()
+                                _tenkan = (_h9  + _l9)  / 2
+                                _kijun  = (_h26 + _l26) / 2
+                                _span_a = ((_tenkan + _kijun) / 2).shift(26)
+                                _span_b = ((_h52   + _l52)  / 2).shift(26)
+                                _sa_cur = float(_span_a.iloc[-1]) if pd.notna(_span_a.iloc[-1]) else 0
+                                _sb_cur = float(_span_b.iloc[-1]) if pd.notna(_span_b.iloc[-1]) else 0
+                                # 1) Price above Kumo
+                                ichimoku_above_kumo = current_price > max(_sa_cur, _sb_cur) > 0
+                                # 2) TK Cross bullish in last 5 bars
                                 for _i in range(-5, 0):
-                                    if _tenkan.iloc[_i-1] <= _kijun.iloc[_i-1] and _tenkan.iloc[_i] > _kijun.iloc[_i]:
-                                        ichimoku_tk_cross = True; break
-                                ichimoku_kumo_green = _sa_cur > _sb_cur > 0
-                                ichimoku_chikou_ok = current_p > float(df['Close'].iloc[-27]) if len(df) >= 27 else False
-                                ichimoku_score_val = sum([ichimoku_above_kumo, ichimoku_tk_cross, ichimoku_kumo_green, ichimoku_chikou_ok])
-                        except: pass
+                                    if (_tenkan.iloc[_i-1] <= _kijun.iloc[_i-1]
+                                            and _tenkan.iloc[_i] > _kijun.iloc[_i]):
+                                        ichimoku_tk_cross = True
+                                        break
+                                # 3) Future Kumo green (SpanA > SpanB at current shifted position)
+                                ichimoku_kumo_green = _sa_cur > _sb_cur and _sa_cur > 0
+                                # 4) Chikou Span clear (current close > close 26 bars ago)
+                                if len(df) >= 27:
+                                    ichimoku_chikou_ok = float(df['Close'].iloc[-1]) > float(df['Close'].iloc[-27])
+                                ichimoku_score_val = sum([ichimoku_above_kumo, ichimoku_tk_cross,
+                                                         ichimoku_kumo_green, ichimoku_chikou_ok])
+                        except Exception:
+                            pass
 
-                        # Price Pattern detection
-                        try:
-                            pattern_result = detect_price_pattern(df)
-                            pattern_name = pattern_result['name']
-                            pattern_score = pattern_result['score']
-                        except:
-                            pattern_name = "None"
-                            pattern_score = 0
+                        # Price Pattern detection (ใช้ df ที่มีอยู่แล้ว)
+                        pattern_result = detect_price_pattern(df)
+                        pattern_name  = pattern_result['name']
+                        pattern_score = pattern_result['score']
 
+                        close_series = df['Close'].dropna()
+                        rel_1m = rel_3m = 0.0
+                        stock_3m_ret = 0.0
+                        if len(close_series) >= 66:
+                            stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                            stock_3m = float((close_series.iloc[-1] - close_series.iloc[-66]) / close_series.iloc[-66] * 100)
+                            stock_3m_ret = stock_3m
+                            rel_1m = round(stock_1m - set_1m_return, 2)
+                            rel_3m = round(stock_3m - set_3m_return, 2)
+                        elif len(close_series) >= 22:
+                            stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                            rel_1m = round(stock_1m - set_1m_return, 2)
+
+                        # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
                         return {
-                            'symbol': symbol, 'price': round(current_p, 2),
-                            'rsi': round(tech['rsi'], 2), 'adx': round(adx_v, 2), 'mfi': round(mfi_val, 2),
-                            'rvol': round(tech['rvol'], 2), 'technical_score': int(tech['score']),
-                            'avg_volume_20d': round(av20, 0), 'rvol_bullish': tech['rvol_bullish'],
-                            'erc_volume_confirmed': tech.get('erc_volume_confirmed', False),
-                            'zone_target_src': tech.get('zone_target_source', '52w'),
-                            'entry_strat': tech['sd_zone']['type'] if tech['sd_zone'] else '',
-                            'dz_start': tech['sd_zone']['start'] if tech['sd_zone'] else None,
-                            'dz_end': tech['sd_zone']['end'] if tech['sd_zone'] else None,
-                            'sz_start': tech['sd_zone']['target'] if tech['sd_zone'] else None,
-                            'sz_end': (tech['sd_zone']['target']*1.02) if tech['sd_zone'] else None,
-                            'sl_price': tech['sd_zone']['stop_loss'] if tech['sd_zone'] else None,
-                            'rr_val': tech['sd_zone']['rr_ratio'] if tech['sd_zone'] else None,
-                            'year_high': round(year_h, 2), 'upside_to_high': round((year_h-current_p)/current_p*100, 2),
-                            'prox_val': round(0.0 if current_p <= (tech['sd_zone']['start'] or 0) else ((current_p - tech['sd_zone']['start']) / tech['sd_zone']['start']) * 100, 2) if tech['sd_zone'] else 999,
-                            'rel_1m': round(float((df['Close'].iloc[-1]-df['Close'].iloc[-22])/df['Close'].iloc[-22]*100) - spy_1m, 2) if len(df)>=22 else 0,
-                            'rel_3m': round(float((df['Close'].iloc[-1]-df['Close'].iloc[-66])/df['Close'].iloc[-66]*100) - spy_3m, 2) if len(df)>=66 else 0,
+                            'symbol': symbol,
+                            'price': round(current_price, 2),
+                            'rsi': round(rsi, 2),
+                            'adx': round(adx_val, 2),
+                            'mfi': round(mfi_val, 2),
+                            'rvol': round(rvol, 2),
+                            'technical_score': int(integrated_score),
+                            'avg_volume_20d': round(avg_vol_20, 0),
+                            'rvol_bullish': rvol_bullish,
+                            'erc_volume_confirmed': erc_vol_confirmed,
+                            'zone_target_src': zone_target_src,
+                            'entry_strat': entry_strat,
+                            'dz_start': dz_start,
+                            'dz_end': dz_end,
+                            'sz_start': sz_start,
+                            'sz_end': sz_end,
+                            'sl_price': sl_price,
+                            'rr_val': rr_val,
+                            'year_high': round(year_high, 2),
+                            'upside_to_high': round(gap_to_high, 2),
+                            'prox_val': round(prox_val, 2),
+                            'pattern_name': pattern_name,
+                            'pattern_score': pattern_score,
+                            'rel_1m': rel_1m,
+                            'rel_3m': rel_3m,
                             'macd_histogram': round(macd_hist_val, 4) if macd_hist_val is not None else None,
-                            'macd_crossover': macd_cross_val, 'bb_squeeze': bb_squeeze_flag, 'stage2': stage2_flag, 'rs_rating': rs_v,
-                            'ema20_aligned': tech.get('ema20_aligned', False), 'ema20_rising': tech.get('ema20_rising', False),
-                            'ema20_slope': tech.get('ema20_slope', 0.0),
-                            'hh_hl_structure': tech.get('hh_hl_structure', False),
+                            'macd_crossover': macd_cross_val,
+                            'bb_squeeze': bb_squeeze_flag,
+                            'ema20_aligned': ema20_aligned_flag,
+                            'ema20_slope': round(ema20_slope_val, 3),
+                            'ema20_rising': ema20_rising_flag,
+                            'hh_hl_structure': hh_hl_flag,
+                            'stock_3m_ret': stock_3m_ret,
+                            'rs_rating': rs_ratings_map.get(symbol, 0),
+                            'stage2': stage2_flag,
                             'pocket_pivot': pocket_pivot_flag,
                             'pp_at_ma50': pp_at_ma50_flag,
+                            'wyckoff_spring': wyckoff_spring_flag,
+                            'wyckoff_upthrust': wyckoff_upthrust_flag,
+                            'wyckoff_effort_result_warning': wyckoff_er_warning_flag,
+                            'wyckoff_selling_climax': wyckoff_selling_climax_flag,
+                            'trend_template_score': tt_score_val,
+                            'trend_template_passed': tt_passed_flag,
+                            'cheat_entry': cheat_entry_flag,
                             'ma10': round(ma10_val, 2),
                             'ma50': round(ma50_val, 2),
                             'vdu_near_zone': vdu_flag,
@@ -4978,11 +5177,14 @@ def us_precision_scanner(request):
                             'is_52w_breakout': tech.get('is_52w_breakout', False),
                             'volume_surge': tech.get('volume_surge', 1.0),
                             'is_volume_surge': tech.get('is_volume_surge', False),
-                            'ichimoku_above_kumo': ichimoku_above_kumo, 'ichimoku_tk_cross': ichimoku_tk_cross,
-                            'ichimoku_kumo_green': ichimoku_kumo_green, 'ichimoku_chikou_ok': ichimoku_chikou_ok,
+                            'ichimoku_above_kumo': ichimoku_above_kumo,
+                            'ichimoku_tk_cross': ichimoku_tk_cross,
+                            'ichimoku_kumo_green': ichimoku_kumo_green,
+                            'ichimoku_chikou_ok': ichimoku_chikou_ok,
                             'ichimoku_score': ichimoku_score_val,
-                            'price_pattern': pattern_name, 'price_pattern_score': pattern_score,
+                            # ====== VCP Detection ======
                             'vcp': detect_vcp_pattern(df),
+                            # ====== Launcher Data (v10) ======
                             'launcher_score': tech.get('launcher_score', 0),
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
                             'is_explosive': tech.get('is_explosive', False),
@@ -4991,73 +5193,149 @@ def us_precision_scanner(request):
                             'inside_bar': tech.get('inside_bar', False),
                             'acc_days': tech.get('acc_days', 0),
                             'dist_days': tech.get('dist_days', 0),
+
                             # ====== John Ehlers Indicators (v12) ======
-                            'ehlers_supersmoother': tech.get('ehlers_supersmoother', current_p),
+                            'ehlers_supersmoother': tech.get('ehlers_supersmoother', current_price),
                             'ehlers_laguerre_rsi': tech.get('ehlers_laguerre_rsi', 0.5),
                             'ehlers_fisher': tech.get('ehlers_fisher', 0.0),
                             'ehlers_fisher_trigger': tech.get('ehlers_fisher_trigger', 0.0),
-                            'ehlers_itl_daily': tech.get('ehlers_itl_daily', current_p),
-                            'ehlers_itl_weekly': tech.get('ehlers_itl_weekly', current_p),
+                            'ehlers_itl_daily': tech.get('ehlers_itl_daily', current_price),
+                            'ehlers_itl_weekly': tech.get('ehlers_itl_weekly', current_price),
                             'ehlers_itl_bullish': tech.get('ehlers_itl_bullish', False),
                         }
+
                     except Exception as e:
                         import logging
-                        logging.getLogger('stocks').exception(f"[US Precision] Error scanning {symbol}: {e}")
+                        logging.getLogger('stocks').exception(f"[Precision] Error scanning {symbol}: {e}")
                         return None
 
-                count = 0
-                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:  # ลดจาก 10→5 ป้องกัน rate limit
-                    futs = {ex.submit(_scan_one, s): s for s in results_to_process}
-                    for f in concurrent.futures.as_completed(futs):
-                        try:
-                            r = f.result()
-                            if r: results.append(r)
-                        except: pass
-                        count += 1
-                        if count % 10 == 0 or count == len(results_to_process):
-                            _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': len(results_to_process), 'phase': f'Technical Scan ({count}/{len(results_to_process)})…'}, timeout=1200)
+
+                # ====== Phase 2: Deep Scan (only for candidates) ======
+                _cache.set(ckey, {'state': 'running', 'progress': 25, 'total': 100, 'phase': f'สแกนละเอียด (จำนวน {len(results_to_process)} ตัว)...'}, timeout=900)
+                
+                results = []
+                done_count = 0
+                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+                    futures = [executor.submit(_process_precision_scan, sym) for sym in results_to_process]
+                    for future in concurrent.futures.as_completed(futures):
+                        res = future.result()
+                        if res:
+                            results.append(res)
+                        done_count += 1
+                        _cache.set(ckey, {'state': 'running', 'progress': 25 + int((done_count/len(results_to_process))*70), 
+                                          'total': 100, 'phase': f'สแกนละเอียด {done_count}/{len(results_to_process)}...'}, timeout=900)
 
                 if results:
-                    _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': len(results_to_process), 'phase': f'Enriching Fundamentals ({len(results)} matches)…'}, timeout=1200)
-                    matched = [r['symbol'] for r in results]
-                    fund = {}
+                    scan_df = pd.DataFrame(results)
+                    if 'rs_rating' not in scan_df.columns:
+                        scan_df['rs_rating'] = 0
+
+                    _cache.set(ckey, {'state': 'running', 'progress': 95, 'total': 100, 'phase': 'ดึงข้อมูล Fundamental…'}, timeout=900)
+
+                    # ====== Bulk Fundamental Enrichment ======
+                    matched_symbols = [r['symbol'] for r in results]
+                    symbols_bk = matched_symbols
+                    fund_data = {}
                     try:
-                        yqa = YQTicker(matched)
-                        mods = yqa.get_modules('financialData summaryProfile')
-                        for k, d in mods.items():
-                            if isinstance(d, dict):
-                                p = d.get('summaryProfile', {}); fd = d.get('financialData', {})
-                                fund[k.upper()] = {
-                                    'sector': p.get('sector') or 'Unknown',
-                                    'eps': float(fd.get('earningsQuarterlyGrowth',0) or 0)*100,
-                                    'rev': float(fd.get('revenueGrowth',0) or 0)*100
-                                }
-                    except: pass
-                    
-                    bulk = []
-                    for r in results:
-                        f = fund.get(r['symbol'].upper(), {'sector':'N/A','eps':0,'rev':0})
-                        bulk.append(PrecisionScanCandidate(
-                            user=user, market='US', scan_run=scan_run_time, symbol=r['symbol'], symbol_bk=r['symbol'],
-                            sector=f['sector'], price=r['price'], rsi=r['rsi'], adx=r['adx'], mfi=r['mfi'], rvol=r['rvol'],
-                            eps_growth=round(f['eps'], 2), rev_growth=round(f['rev'], 2),
-                            technical_score=r['technical_score'], rs_rating=r['rs_rating'],
-                            avg_volume_20d=r['avg_volume_20d'], rvol_bullish=r['rvol_bullish'],
-                            erc_volume_confirmed=r['erc_volume_confirmed'], zone_target_source=r['zone_target_src'],
-                            is_new_entry=(r['symbol'] not in prev_symbols), entry_strategy=r['entry_strat'],
-                            demand_zone_start=r['dz_start'], demand_zone_end=r['dz_end'],
-                            supply_zone_start=r['sz_start'], supply_zone_end=r['sz_end'],
-                            stop_loss=r['sl_price'], risk_reward_ratio=r['rr_val'],
-                            year_high=r['year_high'], upside_to_high=r['upside_to_high'],
-                            zone_proximity=r['prox_val'], rel_momentum_1m=r['rel_1m'], rel_momentum_3m=r['rel_3m'],
-                            price_pattern=r.get('price_pattern', 'None'),
-                            price_pattern_score=r.get('price_pattern_score', 0),
-                            macd_histogram=r.get('macd_histogram'),
-                            macd_crossover=r['macd_crossover'], bb_squeeze=r['bb_squeeze'],
-                            ema20_aligned=r['ema20_aligned'], ema20_slope=r.get('ema20_slope', 0.0), ema20_rising=r['ema20_rising'],
-                            hh_hl_structure=r['hh_hl_structure'], stage2=r['stage2'],
+                        yq_all = YQTicker(symbols_bk)
+                        modules = yq_all.get_modules('financialData summaryProfile defaultKeyStatistics')
+                        for sym_bk, data in modules.items():
+                            if not isinstance(data, dict):
+                                continue
+                            clean_sym = sym_bk
+                            profile  = data.get('summaryProfile', {})
+                            fin_data = data.get('financialData', {})
+                            keystat  = data.get('defaultKeyStatistics', {})
+                            sector   = (
+                                profile.get('sector')
+                                or data.get('assetProfile', {}).get('sector')
+                                or 'Unknown'
+                            )
+                            eps_g = keystat.get('earningsQuarterlyGrowth') or fin_data.get('earningsGrowth') or 0.0
+                            eps_growth = float(eps_g) * 100
+                            rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
+                            fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth}
+                    except Exception as e:
+                        print(f"[Precision] Bulk Fundamental fetch failed: {e}")
+
+                    # ====== Sector Confirmation (Livermore "Leading Sisters") ======
+                    # หุ้นกลุ่มเดียวกันควรขยับไปด้วยกัน — ถ้าหุ้นตัวนำวิ่งเดี่ยวๆ แต่กลุ่มไม่ขยับ มีโอกาสเป็นสัญญาณหลอกสูงขึ้น
+                    sector_stage2_ratio = {}
+                    try:
+                        from collections import defaultdict
+                        _sec_total = defaultdict(int)
+                        _sec_stage2 = defaultdict(int)
+                        for _rec in scan_df.to_dict('records'):
+                            _sec = fund_data.get(_rec['symbol'], {}).get('sector') or 'Unknown'
+                            _sec_total[_sec] += 1
+                            if _rec.get('stage2'):
+                                _sec_stage2[_sec] += 1
+                        for _sec, _tot in _sec_total.items():
+                            sector_stage2_ratio[_sec] = round(_sec_stage2[_sec] / _tot * 100, 1) if _tot else 0.0
+                    except Exception:
+                        pass
+
+                    # ====== Bulk Create ======
+                    bulk_candidates = []
+                    for r in scan_df.to_dict('records'):
+                        sym = r['symbol']
+                        f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
+                        _sec = f.get('sector') or 'Unknown'
+                        _sec_pct = sector_stage2_ratio.get(_sec, 0.0)
+                        bulk_candidates.append(PrecisionScanCandidate(
+                            user=user,
+                            market='US',
+                            scan_run=scan_run_time,
+                            symbol=sym,
+                            symbol_bk=sym,
+                            sector=_sec,
+                            trend_template_score=r.get('trend_template_score', 0),
+                            trend_template_passed=r.get('trend_template_passed', False),
+                            cheat_entry=r.get('cheat_entry', False),
+                            sector_confirmed=_sec_pct >= 30.0,
+                            sector_strength_pct=_sec_pct,
+                            price=r['price'],
+                            rsi=r['rsi'],
+                            adx=r['adx'],
+                            mfi=r['mfi'],
+                            rvol=r['rvol'],
+                            eps_growth=round(f.get('eps_growth', 0), 2),
+                            rev_growth=round(f.get('rev_growth', 0), 2),
+                            technical_score=r['technical_score'],
+                            rs_rating=r['rs_rating'],
+                            avg_volume_20d=r['avg_volume_20d'],
+                            rvol_bullish=r['rvol_bullish'],
+                            erc_volume_confirmed=r['erc_volume_confirmed'],
+                            zone_target_source=r['zone_target_src'],
+                            is_new_entry=(sym not in prev_symbols),
+                            entry_strategy=r['entry_strat'],
+                            demand_zone_start=r['dz_start'],
+                            demand_zone_end=r['dz_end'],
+                            supply_zone_start=r['sz_start'],
+                            supply_zone_end=r['sz_end'],
+                            stop_loss=r['sl_price'],
+                            risk_reward_ratio=r['rr_val'],
+                            year_high=r['year_high'],
+                            upside_to_high=r['upside_to_high'],
+                            zone_proximity=r['prox_val'],
+                            price_pattern=r['pattern_name'],
+                            price_pattern_score=r['pattern_score'],
+                            rel_momentum_1m=r['rel_1m'],
+                            rel_momentum_3m=r['rel_3m'],
+                            macd_histogram=r['macd_histogram'],
+                            macd_crossover=r['macd_crossover'],
+                            bb_squeeze=r['bb_squeeze'],
+                            ema20_aligned=r['ema20_aligned'],
+                            ema20_slope=r.get('ema20_slope', 0.0),
+                            ema20_rising=r.get('ema20_rising', False),
+                            hh_hl_structure=r.get('hh_hl_structure', False),
+                            stage2=r.get('stage2', False),
                             pocket_pivot=r.get('pocket_pivot', False),
                             pp_at_ma50=r.get('pp_at_ma50', False),
+                            wyckoff_spring=r.get('wyckoff_spring', False),
+                            wyckoff_upthrust=r.get('wyckoff_upthrust', False),
+                            wyckoff_effort_result_warning=r.get('wyckoff_effort_result_warning', False),
+                            wyckoff_selling_climax=r.get('wyckoff_selling_climax', False),
                             ma10=r.get('ma10', 0.0),
                             ma50=r.get('ma50', 0.0),
                             vdu_near_zone=r.get('vdu_near_zone', False),
@@ -5070,16 +5348,18 @@ def us_precision_scanner(request):
                             ichimoku_kumo_green=r.get('ichimoku_kumo_green', False),
                             ichimoku_chikou_ok=r.get('ichimoku_chikou_ok', False),
                             ichimoku_score=r.get('ichimoku_score', 0),
+                            # VCP v9
                             vcp_setup=r.get('vcp', {}).get('setup', False),
                             vcp_contractions=r.get('vcp', {}).get('contractions', 0),
                             vcp_tightness=r.get('vcp', {}).get('tightness', 0.0),
                             vcp_vdu=r.get('vcp', {}).get('vdu_confirmed', False),
+                            base_length_weeks=r.get('vcp', {}).get('base_length_weeks', 0),
+                            # Launcher v10
                             launcher_score=r.get('launcher_score', 0),
                             turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
                             is_explosive=r.get('is_explosive', False),
                             tightness_idx=r.get('tightness_idx', 99.0),
                             # Pre-Breakout Signals v13
-                            base_length_weeks=r.get('vcp', {}).get('base_length_weeks', 0),
                             inside_bar=r.get('inside_bar', False),
                             acc_days=r.get('acc_days', 0),
                             dist_days=r.get('dist_days', 0),
@@ -5092,195 +5372,592 @@ def us_precision_scanner(request):
                             ehlers_itl_weekly=r.get('ehlers_itl_weekly', None),
                             ehlers_itl_bullish=r.get('ehlers_itl_bullish', False),
                         ))
-                    PrecisionScanCandidate.objects.bulk_create(bulk)
-                    
-                    runs = list(PrecisionScanCandidate.objects.filter(user=user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').distinct())
-                    if len(runs) > 3: PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run__in=runs[3:]).delete()
 
-                _cache_inner.set(ckey, {'state': 'done'}, timeout=300)
-            except Exception as e:
-                import traceback
-                with open('us_scan_error.txt', 'w') as err_file:
-                    err_file.write(traceback.format_exc())
-                _cache_inner.set(ckey, {'state': 'done', 'error': str(e)}, timeout=300)
+                    if bulk_candidates:
+                        PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
 
-        t = threading.Thread(target=_run_us_scan_bg, args=(user_id, cache_key, scan_symbols), daemon=True)
-        t.start()
-        return redirect('stocks:us_precision_scanner')
+                # เก็บ 3 รอบล่าสุด
+                distinct_runs = (
+                    PrecisionScanCandidate.objects
+                    .filter(user=user, market='US')
+                    .values_list('scan_run', flat=True)
+                    .order_by('-scan_run')
+                    .distinct()
+                )
+                runs_list = list(distinct_runs)
+                if len(runs_list) > 3:
+                    old_runs = runs_list[3:]
+                    PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run__in=old_runs).delete()
 
-    # Selection & Rendering
+                _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
+
+            except Exception as _bg_err:
+                import logging
+                logging.getLogger('stocks').exception(f"[PrecisionBG] Error: {_bg_err}")
+                from django.core.cache import cache as _ec
+                _ec.set(ckey, {'state': 'idle'}, timeout=60)
+
+        # เปิด background thread แล้ว return ทันที
+        _t = threading.Thread(
+            target=_run_precision_bg,
+            args=(user_id, cache_key),
+            daemon=True
+        )
+        _t.start()
+
+        # Redirect กลับหน้าที่ส่งมา (เช่น SEPA) - next_url resolve ไว้แล้วด้านบน
+        return redirect(next_url)
+
+    # ====== จัดเรียงผลลัพธ์ ======
     sort_by = request.GET.get('sort', 'score')
-    valid_sorts = {
-        'symbol':'symbol','score':'-technical_score','price':'-price',
-        'rsi':'-rsi','rvol':'-rvol','adx':'-adx','prox':'zone_proximity','rs':'-rs_rating',
-        'launcher': '-launcher_score',
-        'cmf': '-cmf',
+    valid_db_sorts = {
+        'symbol': 'symbol',
+        'score': '-technical_score',
+        'price': '-price',
+        'rsi': '-rsi',
+        'rvol': '-rvol',
+        'adx': '-adx',
+        'prox': 'zone_proximity',
+        'round_rr': '-risk_reward_ratio',
+        'rs': '-rs_rating',          # RS Rating (Minervini Relative Strength)
+        'launcher': '-launcher_score', # Explosive Launcher Score
+        'cmf': '-cmf',                # Chaikin Money Flow (Institutional Accumulation)
     }
-    order = valid_sorts.get(sort_by, '-technical_score')
-    
-    all_runs = list(PrecisionScanCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').distinct())
-    try: run_idx = int(request.GET.get('run_idx', 0))
-    except: run_idx = 0
-    run_idx = max(0, min(run_idx, len(all_runs)-1)) if all_runs else 0
-    
+    use_db_sort = sort_by in valid_db_sorts
+    order_field = valid_db_sorts.get(sort_by, '-technical_score')
+
+    # รายชื่อ scan runs ทั้งหมด (index 0 = ล่าสุด)
+    all_runs = list(
+        PrecisionScanCandidate.objects
+        .filter(user=request.user, market='US')
+        .values_list('scan_run', flat=True)
+        .order_by('-scan_run')
+        .distinct()
+    )
+
+    # เลือกรอบสแกนตาม ?run_idx= (0 = ล่าสุด, 1 = ก่อนหน้า, ...)
+    try:
+        run_idx = int(request.GET.get('run_idx', 0))
+    except (ValueError, TypeError):
+        run_idx = 0
+    run_idx = max(0, min(run_idx, len(all_runs) - 1)) if all_runs else 0
+
     candidates = []
     scanned_at = None
-    top5_buy = []
-    top5_qualified = []
-    top_sectors = []
-    scan_insights = []
-
     if all_runs:
-        sel_run = all_runs[run_idx]
-        candidates = list(PrecisionScanCandidate.objects.filter(user=request.user, market='US', scan_run=sel_run).order_by(order))
-        scanned_at = sel_run
-        
-        # Live prices
+        selected_run = all_runs[run_idx]
+        qs = PrecisionScanCandidate.objects.filter(user=request.user, scan_run=selected_run, market='US')
+        if use_db_sort:
+            qs = qs.order_by(order_field)
+        candidates = list(qs)
+        scanned_at = selected_run
+
+        # ====== Live Price Fetch (ถ้าตลาดเปิด) - แสดงราคาปัจจุบันคู่กับราคา close เมื่อวาน ======
+        # Indicator ยังคำนวณจาก settled close (คงที่), live price ใช้แสดงเท่านั้น
         from datetime import datetime as _ldt
         from datetime import time as _ldtime
 
         import pytz as _lpytz
-        _lny = _lpytz.timezone('America/New_York')
-        _lnow = _ldt.now(_lny)
+        _lbkk = _lpytz.timezone('Asia/Bangkok')
+        _lnow = _ldt.now(_lbkk)
         _lt = _lnow.time()
-        _lmarket_open = _lnow.weekday()<5 and _ldtime(9,30)<=_lt<=_ldtime(16,0)
-        
-        lp_map = {}
-        lpc_map = {}
+        # Live price: เฉพาะช่วงที่ตลาด SET ซื้อขายจริง (ไม่รวม midday break 12:30-14:30)
+        _lmarket_open = (
+            _lnow.weekday() < 5 and
+            (_ldtime(10, 0) <= _lt <= _ldtime(12, 30) or
+             _ldtime(14, 30) <= _lt <= _ldtime(16, 30))
+        )
+        live_prices = {}
+        live_mcaps  = {}
+        live_prev_closes = {}
         if candidates:
             try:
                 # แคชผล fetch ไว้ - กันยิง yfinance เท่าจำนวนหุ้นทุกครั้งที่ refresh หน้า
                 # ตลาดเปิด: 60s (ราคาขยับ), ตลาดปิด: 10 นาที (ราคา close ไม่เปลี่ยน)
                 from django.core.cache import cache as _lp_cache
-                _lp_key = f'precision_live_us_{request.user.id}_{run_idx}'
+                _lp_key = f'precision_live_set_{request.user.id}_{run_idx}'
                 _lp_cached = _lp_cache.get(_lp_key)
                 if _lp_cached:
-                    if isinstance(_lp_cached, tuple) and len(_lp_cached) == 2:
-                        lp_map, lpc_map = _lp_cached
-                    elif isinstance(_lp_cached, dict):
-                        lp_map = _lp_cached
-                        lpc_map = {}
+                    if isinstance(_lp_cached, tuple) and len(_lp_cached) == 3:
+                        live_prices, live_mcaps, live_prev_closes = _lp_cached
+                    elif isinstance(_lp_cached, tuple) and len(_lp_cached) == 2:
+                        live_prices, live_mcaps = _lp_cached
+                        live_prev_closes = {}
                     else:
-                        lp_map, lpc_map = {}, {}
+                        live_prices, live_mcaps, live_prev_closes = {}, {}, {}
                 else:
-                    import concurrent.futures as lcf
-                    def _glp(s):
+                    import concurrent.futures as _lcf
+                    def _get_live(sym):
                         try:
-                            fi = yf.Ticker(s).fast_info
-                            p = getattr(fi, 'last_price', None)
+                            full_sym = sym
+                            # Use fast_info for quick price/mcap without downloading full history
+                            fi = yf.Ticker(full_sym).fast_info
+                            p  = getattr(fi, 'last_price', None)
+                            mc = getattr(fi, 'market_cap', None)
                             pc = getattr(fi, 'regular_market_previous_close', getattr(fi, 'previous_close', None))
-                            return s, (float(p) if p else None), (float(pc) if pc else None)
-                        except: return s, None, None
-                    with lcf.ThreadPoolExecutor(max_workers=10) as lex:
-                        for s, p, pc in lex.map(_glp, [c.symbol for c in candidates]):
-                            if p: lp_map[s] = p
-                            if pc: lpc_map[s] = pc
-                    if lp_map:
-                        _lp_cache.set(_lp_key, (lp_map, lpc_map), 60 if _lmarket_open else 600)
-            except: pass
-        
+                            return (
+                                sym,
+                                (float(p) if p else None),
+                                (round(float(mc)/1e9, 2) if mc else None),
+                                (float(pc) if pc else None)
+                            )
+                        except Exception:
+                            return sym, None, None, None
+                    with _lcf.ThreadPoolExecutor(max_workers=6) as _lex:
+                        for _sym, _p, _mc, _pc in _lex.map(_get_live, [c.symbol for c in candidates]):
+                            if _p:  live_prices[_sym] = _p
+                            if _mc: live_mcaps[_sym]  = _mc
+                            if _pc: live_prev_closes[_sym] = _pc
+                    if live_prices:
+                        _lp_cache.set(_lp_key, (live_prices, live_mcaps, live_prev_closes), 60 if _lmarket_open else 600)
+            except Exception:
+                pass
+
         for c in candidates:
-            lp = lp_map.get(c.symbol)
-            pc = lpc_map.get(c.symbol) or c.price
-            c.live_price = lp; c.is_live = _lmarket_open and lp is not None
-            if lp and c.demand_zone_start: c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round((lp-c.demand_zone_start)/c.demand_zone_start*100, 1)
-            if lp and pc and float(pc) > 0: c.live_change_pct = round((lp-float(pc))/float(pc)*100, 2)
-            else: c.live_change_pct = None
-            
+            lp = live_prices.get(c.symbol)
+            pc = live_prev_closes.get(c.symbol) or c.price
+            c.live_price      = lp
+            c.live_market_cap = live_mcaps.get(c.symbol)
+            c.is_live         = _lmarket_open and lp is not None
+
+            ref_price = lp if lp else float(c.price or 0)
+            dz_top = float(c.demand_zone_start or 0)
+            dz_bot = float(c.demand_zone_end   or 0)
+            tp     = float(c.supply_zone_start or 0)
+
+            if lp and dz_top > 0:
+                c.live_zone_prox = 0.0 if lp <= dz_top else round(((lp - dz_top) / dz_top) * 100, 1)
+            else:
+                c.live_zone_prox = None
+            if lp and pc and float(pc) > 0:
+                c.live_change_pct = round(((lp - float(pc)) / float(pc)) * 100, 2)
+            else:
+                c.live_change_pct = None
+
+            # precompute zone status flags - ใช้ใน template แทนการคำนวณใน {% if %}
+            c.live_at_tp      = tp > 0 and ref_price >= tp
+            c.live_broke_zone = dz_bot > 0 and ref_price < dz_bot
+            c.live_in_zone    = dz_top > 0 and dz_bot > 0 and dz_bot <= ref_price <= dz_top
+
+            # upside_to_tp: % ของ range Entry→TP ที่ยังเหลืออยู่
+            entry = dz_top
+            total_range = tp - entry
+            if tp > 0 and entry > 0 and total_range > 0 and ref_price > 0:
+                remaining = tp - ref_price
+                c.upside_to_tp = round((remaining / total_range) * 100, 1)
+            else:
+                c.upside_to_tp = 999
+
+        # ====== คำนวณ BUY/SELL Score ด้วย _compute_signals() เดียวกับ Dashboard/Watchlist ======
+        for c in candidates:
             sigs = _compute_signals(c)
-            c.buy_score = sigs['buy_score']; c.sell_score = sigs['sell_score']; c.exit_signal = sigs['exit_signal']
+            c.buy_score  = sigs['buy_score']
+            c.sell_score = sigs['sell_score']
+            c.exit_signal = sigs['exit_signal']
             c.reversal_score = sigs['reversal_score']
             c.reversal_alert = sigs['reversal_alert']
             c.reversal_color = sigs['reversal_color']
 
-            # Reasons logic
+        # ====== BUY Score Delta เทียบกับรอบก่อนหน้า ======
+        prev_buy_scores = {}
+        if len(all_runs) > run_idx + 1:
+            for _p in PrecisionScanCandidate.objects.filter(
+                    user=request.user, scan_run=all_runs[run_idx + 1]):
+                _ps = _compute_signals(_p)
+                prev_buy_scores[_p.symbol] = _ps['buy_score']
+        for c in candidates:
+            _prev = prev_buy_scores.get(c.symbol)
+            c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
+
+    # ====== Markov Market Regime (v11) ======
+    from django.core.cache import cache as _regime_cache
+
+    from stocks.utils import calculate_markov_regime
+    
+    _regime_key = 'markov_regime_set'
+    markov_regime = _regime_cache.get(_regime_key)
+    
+    if not markov_regime:
+        markov_regime = calculate_markov_regime("SPY", window=60)
+        _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
+
+    # ====== Win Probability Calculation (v11.1) ======
+    if candidates:
+        m_state = markov_regime.get('state', 'UNKNOWN')
+        m_prob = markov_regime.get('prob', 0) / 100.0
+        for c in candidates:
+            score = 35.0
+            rs_val = getattr(c, 'rs_rating', 0) or 0
+            score += (rs_val / 99.0) * 25.0
+            tech_val = getattr(c, 'technical_score', 0) or 0
+            score += (min(tech_val, 100) / 100.0) * 15.0
+            adx_val = getattr(c, 'adx', 0) or 0
+            score += (min(adx_val, 50) / 50.0) * 10.0
+            cmf_val = getattr(c, 'cmf', 0) or 0
+            vol_surge = getattr(c, 'volume_surge', 1.0) or 1.0
+            if cmf_val > 0.15: score += 10.0
+            elif cmf_val > 0: score += 5.0
+            if vol_surge >= 1.5: score += 5.0
+            elif vol_surge >= 1.2: score += 2.0
+            if m_state == 'TRENDING': score += 10.0 * (0.5 + 0.5 * m_prob)
+            elif m_state == 'CHOPPY': score += 4.0
+            elif m_state == 'UNKNOWN' and m_prob == 0: score += 5.0
+            prox = getattr(c, 'live_zone_prox', None)
+            if prox is None:
+                prox = getattr(c, 'zone_proximity', 99.0)
+            if prox is None:
+                prox = 99.0
+            if prox > 15 and prox < 100: score -= 10.0
+            elif prox > 10 and prox < 100: score -= 5.0
+            c.win_probability = round(max(min(score, 98.2), 30.0), 1)
+
+        # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
+        if sort_by == 'buy':
+            candidates.sort(key=lambda x: x.buy_score, reverse=True)
+        elif sort_by == 'sell':
+            candidates.sort(key=lambda x: x.sell_score, reverse=True)
+        elif sort_by == 'rs':
+            candidates.sort(key=lambda x: getattr(x, 'rs_rating', 0), reverse=True)
+        elif sort_by == 'win':
+            candidates.sort(key=lambda x: getattr(x, 'win_probability', 0), reverse=True)
+
+        # ====== Top 5 หุ้นแนะนำซื้อ (BUY score สูง) ======
+        # เงื่อนไข: RVOL Bull ≥ 1.0x (มีแรงซื้อจริง) + RSI ไม่ overbought
+        def _top5_filter(min_rvol, max_rsi=85):
+            # max_rsi=85 สอดคล้องกับ _compute_signals ที่ยังให้ +2 กับ RSI 80-85
+            return sorted(
+                [c for c in candidates
+                 if c.buy_score >= 50
+                 and c.rvol_bullish
+                 and c.rvol >= min_rvol
+                 and c.rsi <= max_rsi
+                 and not (c.demand_zone_end and float(getattr(c, 'live_price', None) or c.price or 0) < float(c.demand_zone_end))],
+                key=lambda x: x.buy_score, reverse=True
+            )[:5]
+
+        top5_buy = _top5_filter(1.0)
+        if len(top5_buy) < 5:
+            top5_buy = _top5_filter(0.7)
+        if len(top5_buy) < 3:
+            top5_buy = _top5_filter(0.0)
+
+        # ====== Top 5 หุ้นที่ "ผ่านเกณฑ์ครบทุกข้อ" ======
+        # ผ่อนปรนเกณฑ์ ADX 20 (เดิม 25) และ RSI ขยายเพื่อให้มีตัวเลือกมากขึ้น 
+        def _is_fully_qualified(c):
+            rr = c.risk_reward_ratio or 0
+            dz_start = float(c.demand_zone_start or 0)
+            dz_end   = float(c.demand_zone_end   or 0)
+            # ใช้ live price ถ้ามี เพราะ zone_proximity ใน DB เป็นค่า ณ เวลาสแกน
+            price    = float(getattr(c, 'live_price', None) or c.price or 0)
+            live_prox = getattr(c, 'live_zone_prox', None)
+            effective_prox = live_prox if live_prox is not None else c.zone_proximity
+            in_zone  = dz_start > 0 and dz_end > 0 and dz_end <= price <= dz_start
+            above_zone = price > dz_start and effective_prox <= 30
+            near_zone  = in_zone or above_zone
+            # ตัดหุ้นที่ราคาหลุดต่ำกว่า demand zone (ทะลุ SL) - ไม่ใช่จุดซื้อแล้ว
+            broke_zone = dz_end > 0 and price < dz_end
+            # ตัดหุ้นที่ราคาวิ่งขึ้นเกือบถึง/เกิน target แล้ว
+            target = c.supply_zone_start or 0
+            upside_pct = ((target - price) / price * 100) if (target > 0 and price > 0) else 999
+            price_near_target = target > 0 and upside_pct < 8
+            return (
+                c.buy_score >= 65
+                and rr >= 1.5
+                and c.adx >= 20
+                and 45 <= c.rsi <= 82
+                and c.rvol_bullish
+                and c.rvol >= 0.8
+                and near_zone
+                and not broke_zone             # กรอง: ราคาหลุดต่ำกว่า zone (ทะลุ SL)
+                and not price_near_target      # กรอง: ราคาใกล้ target แล้ว
+                and (c.sell_score or 0) < 50
+                and getattr(c, 'rs_rating', 0) >= 60
+            )
+
+        top5_qualified = sorted(
+            [c for c in candidates if _is_fully_qualified(c)],
+            key=lambda x: x.buy_score, reverse=True
+        )
+
+        for c in top5_buy:
             reasons = []
-            if c.demand_zone_start and c.demand_zone_end and c.price <= c.demand_zone_start and c.price >= c.demand_zone_end: reasons.append("In Entry Zone")
-            elif (c.zone_proximity or 999) <= 10: reasons.append(f"Near Zone {c.zone_proximity:.0f}%")
-            if c.rvol_bullish and c.rvol >= 1.0: reasons.append(f"RVOL {c.rvol:.1f}x Bull")
-            if (c.risk_reward_ratio or 0) >= 2: reasons.append(f"RR 1:{c.risk_reward_ratio:.1f} Good")
-            if c.adx >= 25: reasons.append(f"ADX {c.adx:.0f} Trendy")
-            if c.rs_rating >= 85: reasons.insert(0, f"RS {c.rs_rating} Leader")
+            in_zone = (c.demand_zone_start and c.demand_zone_end and
+                       c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+            if in_zone:
+                reasons.append("อยู่ใน Entry Zone แล้ว")
+            elif c.zone_proximity <= 10:
+                reasons.append(f"เหนือโซน {c.zone_proximity:.0f}% (รอย่อ)")
+            elif c.zone_proximity <= 30:
+                reasons.append(f"เหนือโซน {c.zone_proximity:.0f}%")
+
+            if c.rvol_bullish and c.rvol >= 1.5:
+                reasons.append(f"RVOL {c.rvol:.1f}x Bull แรง")
+            elif c.rvol_bullish and c.rvol >= 1.0:
+                reasons.append(f"RVOL {c.rvol:.1f}x Bull ยืนยัน")
+
+            rr = c.risk_reward_ratio or 0
+            if rr >= 3:
+                reasons.append(f"RR 1:{rr:.1f} ดีเยี่ยม")
+            elif rr >= 2:
+                reasons.append(f"RR 1:{rr:.1f} ดี")
+
+            if c.adx >= 30:
+                reasons.append(f"ADX {c.adx:.0f} เทรนด์แข็ง")
+            elif c.adx >= 25:
+                reasons.append(f"ADX {c.adx:.0f} มีเทรนด์")
+
+            if c.technical_score >= 85:
+                reasons.append(f"Precision {c.technical_score} สูงมาก")
+            elif c.technical_score >= 75:
+                reasons.append(f"Precision {c.technical_score} ดี")
+
+            if c.erc_volume_confirmed:
+                reasons.append("ERC ยืนยันแล้ว")
+
+            if 55 <= c.rsi <= 70:
+                reasons.append(f"RSI {c.rsi:.0f} จุดหวาน")
+
+            if c.price_pattern and c.price_pattern_score > 0:
+                reasons.append(f"Pattern: {c.price_pattern}")
+
+            rel = c.rel_momentum_3m if c.rel_momentum_3m != 0.0 else c.rel_momentum_1m
+            if rel >= 8:
+                reasons.append(f"ชนะ SET +{rel:.1f}% (3m)")
+            elif rel >= 3:
+                reasons.append(f"ชนะ SET +{rel:.1f}%")
+
+            rs = getattr(c, 'rs_rating', 0)
+            if rs >= 85:
+                reasons.insert(1, f"RS {rs} - ผู้นำตลาด")   # สอดในตำแหน่ง 2 เสมอ
+            elif rs >= 70:
+                reasons.insert(1, f"RS {rs} - แข็งแกร่ง")
+
             c.top_reasons = reasons[:4]
 
-        # Top 5 Buy
-        top5_buy = sorted([c for c in candidates if c.buy_score >= 50], key=lambda x: x.buy_score, reverse=True)[:5]
-        # Top 5 Qualified
-        top5_qualified = sorted([c for c in candidates if c.buy_score >= 65 and (c.risk_reward_ratio or 0) >= 1.5], key=lambda x: x.buy_score, reverse=True)[:5]
-        
-        # Sectors
-        sec_counts = {}
+        # เพิ่ม reasons ให้ top5_qualified ด้วย (บางตัวอาจซ้ำกับ top5_buy)
+        for c in top5_qualified:
+            if not hasattr(c, 'top_reasons'):
+                reasons = []
+                in_zone = (c.demand_zone_start and c.demand_zone_end and
+                           c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+                if in_zone:
+                    reasons.append("อยู่ใน Entry Zone แล้ว")
+                elif c.zone_proximity <= 10:
+                    reasons.append(f"เหนือโซน {c.zone_proximity:.0f}% (รอย่อ)")
+                else:
+                    reasons.append(f"เหนือโซน {c.zone_proximity:.0f}%")
+                rr = c.risk_reward_ratio or 0
+                reasons.append(f"RR 1:{rr:.1f} ✓")
+                reasons.append(f"ADX {c.adx:.0f} ✓")
+                rs = getattr(c, 'rs_rating', 0)
+                if rs >= 85:
+                    reasons.insert(1, f"RS {rs} - ผู้นำตลาด")
+                elif rs >= 70:
+                    reasons.insert(1, f"RS {rs} - แข็งแกร่ง")
+                if c.rvol >= 1.5:
+                    reasons.append(f"RVOL {c.rvol:.1f}x Bull ✓")
+                c.top_reasons = reasons[:4]
+
+        # ====== Leading Sectors Analysis (v3) ======
+        # นับจำนวนหุ้นที่ 'แข็งแกร่ง' (buy_score >= 65) ในแต่ละ sector เพื่อหาผู้นำกลุ่ม
+        sector_counts = {}
         for c in candidates:
             if c.buy_score >= 65:
-                s = c.sector or 'Unknown'
-                sec_counts[s] = sec_counts.get(s, 0) + 1
-        top_sectors = sorted([{'name': k, 'count': v} for k, v in sec_counts.items()], key=lambda x: x['count'], reverse=True)[:5]
+                sec = c.sector or 'Unknown'
+                sector_counts[sec] = sector_counts.get(sec, 0) + 1
+        
+        # เรียงลำดับกลุ่มที่แข็งแกร่งที่สุด 5 อันดับแรก
+        top_sectors = sorted(
+            [{'name': k, 'count': v} for k, v in sector_counts.items()],
+            key=lambda x: x['count'], reverse=True
+        )[:5]
 
-        # Insights
+        # ====== Automated AI Insights (คำอธิบายวิเคราะห์ผลสแกน) ======
+        scan_insights = []
         if top5_qualified:
-            b = top5_qualified[0]
-            scan_insights.append({'icon': '🏆', 'title': f'Best Setup: {b.symbol}', 'desc': f'RS {b.rs_rating}, RR 1:{b.risk_reward_ratio or 0:.1f}. Strong technical structure in entry zone.'})
-        elif top5_buy:
-            scan_insights.append({'icon': '💡', 'title': f'Watchlist: {top5_buy[0].symbol}', 'desc': 'High momentum buy score. Watch for price consolidation.'})
+            best_setup = top5_qualified[0]
+            rr_val = best_setup.risk_reward_ratio or 0
+            rs_val = getattr(best_setup, "rs_rating", 0)
+            target_val = best_setup.supply_zone_start or 0
+            upside_left = ((target_val - best_setup.price) / best_setup.price * 100) if (target_val > 0 and best_setup.price > 0) else 0
+            scan_insights.append({
+                'icon': '🏆',
+                'title': f'โฟกัสหลัก: {best_setup.symbol} (หน้าเทรดคุ้มค่า ปลอดภัยสูง)',
+                'desc': f'ถือเป็นหน้าเทรด Swing Trade ที่สมบูรณ์แบบที่สุดในรอบนี้ เพราะมีความแข็งแกร่ง (RS {rs_val}) เทรนด์ทำมุมสวยงาม แต่ราคาปัจจุบันกลับอยู่ใกล้จุดเข้าซื้อ ทำให้มีความคุ้มค่ากับความเสี่ยงสูง (RR 1:{rr_val:.1f}) Upside เหลืออีก {upside_left:.1f}% ถึง Target ซื้อแล้วมีโอกาสชนะสูง'
+            })
+        
+        # หาหุ้นซิ่งที่สุดแต่เสี่ยงสูง (RS > 90 แต่ RR < 1.0)
+        high_risk_momentum = [c for c in top5_buy if getattr(c, 'rs_rating', 0) >= 90 and (c.risk_reward_ratio or 0) < 1.5]
+        if high_risk_momentum:
+            hm = high_risk_momentum[0]
+            if not top5_qualified or hm.symbol != top5_qualified[0].symbol:
+                scan_insights.append({
+                    'icon': '🚀',
+                    'title': f'สายซิ่ง (เสี่ยงสูง): {hm.symbol} (แรงทะลุกราฟ)',
+                    'desc': f'นี่คือ "หุ้นโคตรโมเมนตัม" วิ่งแรงชนะตลาดถึง {getattr(hm, "rs_rating", 0)}% วอลุ่มเข้าหนัก แต่อัตราคุ้มทุน (RR) ณ ราคานี้ได้เพียง 1:{hm.risk_reward_ratio or 0:.1f} แปลว่าราคาลอยขึ้นมาพอสมควรแล้ว "อย่าเพิ่งไล่ราคา (Market Buy) แนะนำให้เอาเข้า Watchlist แล้วรอซื้อตอนย่อตัวพักฐาน"'
+                })
 
-    from stocks.models import ScanWatchlistItem
-    watchlist_symbols = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
+        # หาหุ้นเพิ่งเริ่มกลับตัว (MACD crossover)
+        reversal_stocks = [c for c in top5_buy if getattr(c, 'macd_crossover', False)]
+        if reversal_stocks and len(scan_insights) < 3:
+            rev = reversal_stocks[0]
+            skip = False
+            if top5_qualified and rev.symbol == top5_qualified[0].symbol: skip = True
+            if high_risk_momentum and rev.symbol == high_risk_momentum[0].symbol: skip = True
+            if not skip:
+                scan_insights.append({
+                    'icon': '🥈',
+                    'title': f'สัญญาณกลับตัว: {rev.symbol} (ต้นเทรนด์)',
+                    'desc': f'หุ้นตัวนี้มีสัญญาณเชิงบวกคือเกิด MACD Crossover (ตัดเส้น Signal ขึ้นมา) มักใช้ระบุจุดเริ่มต้นของรอบขาขึ้นชุดใหม่ น่าเก็บสะสมที่บริเวณแนวรับปัจจุบัน'
+                })
+        
+        # ถ้าระบบยังไม่มีคำแนะนำเลย
+        if not scan_insights and top5_buy:
+            top = top5_buy[0]
+            scan_insights.append({
+                'icon': '💡',
+                'title': f'น่าปั้นเทรนด์: {top.symbol}',
+                'desc': f'ได้คะแนนเข้าซื้อสูงสุดในรอบนี้ มีโครงสร้างทางเทคนิคโดยรวมเฉลี่ยดีที่สุด เหมาะเป็นหุ้นน่าจับตามอง'
+            })
 
-    scan_data_date = None
+    else:
+        top5_buy = []
+        top5_qualified = []
+        top_sectors = []
+        scan_insights = []
+
+    # ====== Market Condition - ดึงข้อมูล SET Index สำหรับแสดงผล (GET + POST) ======
+    from django.core.cache import cache as _mcache
+    market_condition_key = 'market_condition_set'
+    market_condition = _mcache.get(market_condition_key)
+    if not market_condition:
+        market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
+        try:
+            from datetime import datetime as _mcdt
+            from datetime import timedelta as _mctd
+
+            import pytz as _mcpytz
+            _mc_bkk   = _mcpytz.timezone('Asia/Bangkok')
+            _mc_now   = _mcdt.now(_mc_bkk)
+            _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
+            _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
+            _mc_df = yf.download("SPY", start=_mc_start, end=_mc_end, interval="1d", progress=False)
+            if _mc_df is not None and not _mc_df.empty:
+                if isinstance(_mc_df.columns, pd.MultiIndex):
+                    _mc_df.columns = _mc_df.columns.droplevel(1)
+                market_condition = _get_market_condition(_mc_df)
+                _mcache.set(market_condition_key, market_condition, 1800) # 30 min cache
+        except Exception:
+            pass
+        if market_condition.get('phase') == 'UNKNOWN':
+            # ดึงไม่สำเร็จ - cache ค่า default สั้นๆ กัน yf.download 430 วันซ้ำทุก request
+            _mcache.set(market_condition_key, market_condition, 300)
+
+    context = {
+        'title': 'US Precision Momentum Scanner - กรองคุณภาพ',
+        'candidates': candidates,
+        'scanned_at': scanned_at,
+        'current_sort': sort_by,
+        'all_runs': all_runs,
+        'selected_run_idx': run_idx,
+        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(all_runs),
+        'top5_buy': top5_buy,
+        'top5_qualified': top5_qualified,
+        'scan_total': len(scan_symbols),
+        'scan_passed': len(candidates),
+        'top_sectors': top_sectors,
+        'scan_insights': scan_insights,
+        'scan_data_date': None,  # คำนวณด้านล่าง
+        'market_condition': market_condition,
+        'markov_regime': markov_regime,
+    }
+    # คำนวณ scan_data_date จาก scanned_at - ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
+    # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า
     if scanned_at:
         import pytz as _sddtz
-        _ny = _sddtz.timezone('America/New_York')
-        _st = scanned_at.astimezone(_ny) if hasattr(scanned_at, 'astimezone') else scanned_at
+        _bkk = _sddtz.timezone('Asia/Bangkok')
+        _st = scanned_at.astimezone(_bkk) if hasattr(scanned_at, 'astimezone') else scanned_at
         from datetime import time as _t
         from datetime import timedelta as _tdd
-        _in_mkt = (_st.weekday() < 5 and _t(9, 30) <= _st.time() <= _t(16, 0))
-        scan_data_date = (_st.date() - _tdd(days=1)) if _in_mkt else _st.date()
+        # scan_data_date: midday break ยังถือว่า candle ของวันนั้นยังไม่ settle
+        _in_mkt = (
+            _st.weekday() < 5 and (
+                _t(10, 0) <= _st.time() <= _t(12, 30) or
+                _t(12, 30) < _st.time() < _t(14, 30) or
+                _t(14, 30) <= _st.time() <= _t(16, 30)
+            )
+        )
+        context['scan_data_date'] = (_st.date() - _tdd(days=1)) if _in_mkt else _st.date()
 
+    # Build AI scan JSON for Gemini analysis button
     import json as _scan_json
-    def _ser_c_us(c):
+    def _ser_c(c):
         return {
-            "symbol": c.symbol, "price": c.price, "buy_score": c.buy_score, "rs_rating": c.rs_rating,
-            "rsi": round(c.rsi, 1), "adx": round(c.adx, 1), "rvol": round(c.rvol, 2),
-            "rvol_bullish": c.rvol_bullish, "risk_reward_ratio": c.risk_reward_ratio,
-            "sector": c.sector, "exit_signal": c.exit_signal, "top_reasons": getattr(c, 'top_reasons', []),
+            "symbol": c.symbol,
+            "price": c.price,
+            "buy_score": getattr(c, 'buy_score', 0),
+            "rs_rating": getattr(c, 'rs_rating', 0),
+            "rsi": round(c.rsi, 1),
+            "adx": round(c.adx, 1),
+            "rvol": round(c.rvol, 2),
+            "rvol_bullish": c.rvol_bullish,
+            "risk_reward_ratio": c.risk_reward_ratio,
+            "zone_proximity": round(c.zone_proximity, 1) if c.zone_proximity else None,
+            "macd_crossover": getattr(c, 'macd_crossover', False),
+            "ema20_aligned": getattr(c, 'ema20_aligned', False),
+            "ema20_rising": getattr(c, 'ema20_rising', False),
+            "hh_hl_structure": getattr(c, 'hh_hl_structure', False),
+            "bb_squeeze": getattr(c, 'bb_squeeze', False),
+            "rel_momentum_3m": getattr(c, 'rel_momentum_3m', 0),
+            "sector": c.sector,
+            "exit_signal": getattr(c, 'exit_signal', ''),
+            "top_reasons": getattr(c, 'top_reasons', []),
         }
-
-    ai_scan_json = _scan_json.dumps({
-        "scan_date": str(scan_data_date),
-        "qualified_stocks": [_ser_c_us(c) for c in top5_qualified],
-        "top_buy_stocks": [_ser_c_us(c) for c in top5_buy],
+    _ai_data = {
+        "scan_date": str(context.get('scan_data_date', '')),
+        "qualified_stocks": [_ser_c(c) for c in top5_qualified],
+        "top_buy_stocks": [_ser_c(c) for c in top5_buy],
         "total_passed": len(candidates),
-        "top_sectors": top_sectors,
-    }, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
+        "top_sectors": [{"name": s["name"], "count": s["count"]} for s in top_sectors],
+    }
+    context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
 
-    # Fetch latest Cup & Handle and Turtle breakout symbols for US
+    # Fetch latest Cup & Handle and Turtle breakout symbols for horizon classification
     from stocks.models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioUS
     from stocks.utils import simple_trailing_stop
+
+    # Latest Cup & Handle
     latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
     ch_symbols = set(CupHandleCandidate.objects.filter(user=request.user, market='US', scan_run=latest_ch_run).values_list('symbol', flat=True)) if latest_ch_run else set()
+    context['cup_handle_symbols'] = ch_symbols
 
+    # Latest Turtle Breakout
     latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
     turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
+    context['turtle_symbols'] = turtle_symbols
 
-    # ── Pyramid Alert (US) + Let Profit Run ──────────────────────────────
-    _port_entry_us = {}
+    # ── Pyramid Alert + Let Profit Run ───────────────────────────────────
+    # Pyramid: แสดง badge เมื่อหุ้นในพอร์ตขึ้น >=3%, Volume >=1.5x, ยังเหลือ upside >=5%, ไม่มี exit signal
+    # Let Profit Run: แสดง badge เมื่อหุ้นในพอร์ตล็อกกำไรบางส่วนไปแล้วและกำลังเทรลราคาส่วนที่เหลือ (tp1_hit=True)
+    _port_entry = {}
     trailing_status = {}
     for p in _PortfolioUS.objects.filter(user=request.user, market='US'):
         ep = float(p.entry_price or 0)
         if ep > 0:
-            _port_entry_us[p.symbol.upper()] = ep
+            _port_entry[p.symbol.split('.')[0].upper()] = ep
         if p.tp1_hit:
             trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
             gain_pct = ((float(p.highest_price or 0) - ep) / ep * 100) if ep > 0 and p.highest_price else None
-            trailing_status[p.symbol.upper()] = {
+            trailing_status[p.symbol.split('.')[0].upper()] = {
                 'trail_stop': trail_stop,
                 'tp1_price': p.tp1_price,
                 'gain_pct': gain_pct,
             }
+    context['trailing_status'] = trailing_status
 
-    pyramid_ready_us = set()
+    pyramid_ready = set()
     for _c in candidates:
-        _entry = _port_entry_us.get(_c.symbol.upper(), 0)
+        _entry = _port_entry.get(_c.symbol.split('.')[0].upper(), 0)
         if _entry <= 0:
             continue
         _curr = float(getattr(_c, 'live_price', None) or _c.price or 0)
@@ -5293,22 +5970,11 @@ def us_precision_scanner(request):
             float(getattr(_c, 'volume_surge', 0) or 0) >= 1.5 and
             float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
         ):
-            pyramid_ready_us.add(_c.symbol)
+            pyramid_ready.add(_c.symbol)
+    context['pyramid_ready'] = pyramid_ready
 
-    return render(request, 'stocks/us_precision_scan.html', {
-        'title': 'US Precision Momentum Scanner - Nasdaq & S&P 500',
-        'candidates': candidates, 'scanned_at': scanned_at, 'current_sort': sort_by,
-        'all_runs': all_runs, 'selected_run_idx': run_idx,
-        'has_scanned': bool(all_runs), 'top5_buy': top5_buy, 'top5_qualified': top5_qualified,
-        'scan_total': len(scan_symbols), 'scan_passed': len(candidates),
-        'top_sectors': top_sectors, 'scan_insights': scan_insights,
-        'scan_data_date': scan_data_date, 'watchlist_symbols': watchlist_symbols,
-        'ai_scan_json': ai_scan_json,
-        'cup_handle_symbols': ch_symbols,
-        'turtle_symbols': turtle_symbols,
-        'pyramid_ready': pyramid_ready_us,
-        'trailing_status': trailing_status,
-    })
+    return render(request, 'stocks/us_precision_scan.html', context)
+
 
 
 # ======================================================================
