@@ -1,0 +1,109 @@
+﻿{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Sector Rotation Dashboard — 9Com{% endblock %}
+
+{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-12 col-md-6">
+        <h2 class="mb-1 text-white"><i class="fas fa-project-diagram me-2 text-primary"></i> Sector Rotation</h2>
+        <p class="text-white-50 mb-0">สรุปการไหลเวียนของกระแสเงิน แบ่งตามกลุ่มอุตสาหกรรม (Leading Sisters)</p>
+    </div>
+    <div class="col-12 col-md-6 text-md-end mt-3 mt-md-0">
+        <div class="btn-group" role="group">
+            <a href="?market=SET" class="btn {% if market == 'SET' %}btn-primary{% else %}btn-outline-secondary text-white-50{% endif %} btn-sm px-3">
+                <img src="https://flagcdn.com/w20/th.png" width="16" alt="TH"> SET Market
+            </a>
+            <a href="?market=US" class="btn {% if market == 'US' %}btn-primary{% else %}btn-outline-secondary text-white-50{% endif %} btn-sm px-3">
+                <img src="https://flagcdn.com/w20/us.png" width="16" alt="US"> US Market
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card bg-dark border border-secondary mb-4">
+    <div class="card-header border-bottom border-secondary bg-dark d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-white"><i class="fas fa-layer-group me-2"></i> Leading Sectors 
+            <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.75rem;">อัปเดตล่าสุด: {{ last_updated|date:"d M Y, H:i"|default:"-" }}</span>
+        </h5>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0 align-middle">
+                <thead>
+                    <tr style="font-size:0.85rem; color:#94a3b8;">
+                        <th class="ps-4">Sector</th>
+                        <th class="text-center">Total Stocks</th>
+                        <th class="text-center" style="width: 250px;">Stage 2 Ratio (ความแกร่ง)</th>
+                        <th class="text-center">Avg Tech Score</th>
+                        <th class="text-center">Avg RS Rating</th>
+                        <th class="pe-4">Top Performers</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sec in sectors_data %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-white">
+                            {{ sec.name }}
+                            {% if sec.stage2_ratio >= 50 %}
+                            <i class="fas fa-fire ms-2 text-danger" title="Hot Sector!"></i>
+                            {% elif sec.stage2_ratio <= 10 %}
+                            <i class="fas fa-snowflake ms-2 text-info" title="Cold Sector"></i>
+                            {% endif %}
+                        </td>
+                        <td class="text-center text-white-50">{{ sec.total_stocks }}</td>
+                        <td class="text-center">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <span class="fw-bold me-2 {% if sec.stage2_ratio >= 50 %}text-success{% elif sec.stage2_ratio >= 30 %}text-warning{% else %}text-danger{% endif %}" style="width: 45px;">
+                                    {{ sec.stage2_ratio }}%
+                                </span>
+                                <div class="progress" style="height: 8px; width: 120px; background-color: #334155; border-radius: 4px;">
+                                    <div class="progress-bar {% if sec.stage2_ratio >= 50 %}bg-success{% elif sec.stage2_ratio >= 30 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ sec.stage2_ratio }}%;" 
+                                         aria-valuenow="{{ sec.stage2_ratio }}" aria-valuemin="0" aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center text-white-50">{{ sec.avg_tech }}</td>
+                        <td class="text-center text-white-50">{{ sec.avg_rs }}</td>
+                        <td class="pe-4">
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for top_stock in sec.top_stocks %}
+                                
+                                {% if market == 'US' %}
+                                <a href="{% url 'us_momentum_quick_analysis' top_stock.symbol %}" target="_blank" 
+                                {% else %}
+                                <a href="{% url 'momentum_quick_analysis' top_stock.symbol %}" target="_blank" 
+                                {% endif %}
+                                   class="badge text-decoration-none" 
+                                   style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:0.75rem;">
+                                    {{ top_stock.symbol }}
+                                </a>
+
+                                {% empty %}
+                                <span class="text-white-50 small">-</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-white-50 py-4">ไม่พบข้อมูล กรุณารัน Precision Scanner ก่อน</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-dark border-secondary text-white-50 small">
+    <strong>💡 Tip:</strong> Sector ที่มี Stage 2 Ratio เกิน 50% แสดงว่าหุ้นเกินครึ่งในกลุ่มเป็นขาขึ้นอย่างชัดเจน (Leading Sister) โอกาสเล่นแล้วชนะจะสูงกว่า Sector ที่เงียบเหงา
+</div>
+
+{% endblock %}

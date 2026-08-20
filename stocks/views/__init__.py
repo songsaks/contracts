@@ -7,3 +7,4 @@ from .ai_analysis import *
 from .charts import *
 from .trading_bots import *
 from .alerts import *
+from .sectors import *

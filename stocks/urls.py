@@ -35,6 +35,8 @@ urlpatterns = [
     path('recommendations/', views.recommendations, name='recommendations'),
     path('us-recommendations/', views.us_recommendations, name='us_recommendations'),
     path('macro/', views.macro_economy, name='macro'),
+    path('sectors/rotation/', views.sector_rotation_dashboard, name='sector_rotation_dashboard'),
+
     path('momentum/', views.momentum_scanner, name='momentum_scanner'),
     path('momentum/precision/', views.precision_momentum_scanner, name='precision_momentum_scanner'),
     path('momentum/turnaround/', views.turnaround_scanner, name='turnaround_scanner'),
