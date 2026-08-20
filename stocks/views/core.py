@@ -299,23 +299,44 @@ def analyze(request, symbol):
                         break
                 except: pass
 
-        # ====== Fetch Extra Context from Momentum Scanner (Technical data) ======
-        mom = MomentumCandidate.objects.filter(user=request.user, symbol_bk=symbol).first()
-        if not mom:
-            # ลองค้นหาด้วย symbol แบบไม่มี .BK
-            clean_sym = symbol.replace('.BK', '')
-            mom = MomentumCandidate.objects.filter(user=request.user, symbol=clean_sym).first()
+        # ====== Fetch Extra Context from Precision/Momentum Scanner (Technical data) ======
+        from stocks.models import PrecisionScanCandidate
+        clean_sym = symbol.replace('.BK', '')
+        prec = PrecisionScanCandidate.objects.filter(user=request.user, symbol=clean_sym).order_by('-scan_run').first()
+        
+        if prec:
+            extra_ctx += f"\n[Precision Technical Analysis]:\n"
+            extra_ctx += f"Technical Score: {prec.technical_score}/100, Launcher Score: {prec.launcher_score}/100\n"
+            extra_ctx += f"RVOL: {prec.rvol}x, ADX: {prec.adx}\n"
+            extra_ctx += f"Stage 2: {getattr(prec, 'stage2', False)}, VCP: {getattr(prec, 'vcp_setup', False)}\n"
+            extra_ctx += f"Wyckoff Effort-Result Warning: {getattr(prec, 'wyckoff_effort_result_warning', False)}\n"
+            extra_ctx += f"Wyckoff Upthrust: {getattr(prec, 'wyckoff_upthrust', False)}\n"
+            extra_ctx += f"Wyckoff Selling Climax: {getattr(prec, 'wyckoff_selling_climax', False)}\n"
+            extra_ctx += f"Pocket Pivot: {getattr(prec, 'pocket_pivot', False)}\n"
+            extra_ctx += f"CMF (Chaikin Money Flow): {getattr(prec, 'cmf', 0)}\n"
+            extra_ctx += f"Volume Profile POC: {getattr(prec, 'vp_poc_price', 0)} ({getattr(prec, 'vp_status', '')})\n"
+            extra_ctx += f"Turtle Dist: {prec.turtle_dist_pct}%, Inside Bar: {getattr(prec, 'inside_bar', False)}\n"
+            if prec.entry_strategy:
+                extra_ctx += f"Entry Strategy: {prec.entry_strategy}\n"
+                extra_ctx += f"Demand Zone: {prec.demand_zone_start} - {prec.demand_zone_end}\n"
+                extra_ctx += f"Target (Supply): {prec.supply_zone_start}\n"
+                extra_ctx += f"Stop Loss: {prec.stop_loss}\n"
+                extra_ctx += f"RR Ratio: {prec.risk_reward_ratio}\n"
+        else:
+            mom = MomentumCandidate.objects.filter(user=request.user, symbol_bk=symbol).first()
+            if not mom:
+                mom = MomentumCandidate.objects.filter(user=request.user, symbol=clean_sym).first()
 
-        if mom:
-            extra_ctx += f"\n[Technical Momentum Analysis]:\n"
-            extra_ctx += f"Momentum Score: {mom.technical_score}/100\n"
-            extra_ctx += f"RVOL: {mom.rvol}x, ADX: {mom.adx}, MFI: {mom.mfi}\n"
-            if mom.entry_strategy:
-                extra_ctx += f"Entry Strategy: {mom.entry_strategy}\n"
-                extra_ctx += f"Demand Zone: {mom.demand_zone_start} - {mom.demand_zone_end}\n"
-                extra_ctx += f"Target (Supply): {mom.supply_zone_start}\n"
-                extra_ctx += f"Stop Loss: {mom.stop_loss}\n"
-                extra_ctx += f"RR Ratio: {mom.risk_reward_ratio}\n"
+            if mom:
+                extra_ctx += f"\n[Technical Momentum Analysis]:\n"
+                extra_ctx += f"Momentum Score: {mom.technical_score}/100\n"
+                extra_ctx += f"RVOL: {mom.rvol}x, ADX: {mom.adx}, MFI: {mom.mfi}\n"
+                if mom.entry_strategy:
+                    extra_ctx += f"Entry Strategy: {mom.entry_strategy}\n"
+                    extra_ctx += f"Demand Zone: {mom.demand_zone_start} - {mom.demand_zone_end}\n"
+                    extra_ctx += f"Target (Supply): {mom.supply_zone_start}\n"
+                    extra_ctx += f"Stop Loss: {mom.stop_loss}\n"
+                    extra_ctx += f"RR Ratio: {mom.risk_reward_ratio}\n"
 
         # ====== Fetch Mean Reversion context (when arriving from MR Scanner) ======
         mr_context = None

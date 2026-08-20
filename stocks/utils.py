@@ -1524,9 +1524,12 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None, mr_cont
 
     Please provide a professional {'swing-trading, momentum-focused, AND mean reversion' if mr_context else 'swing-trading and momentum-focused'} analysis in Thai language:
     1. Momentum & Trend Following Analysis: วิเคราะห์ความแข็งแกร่งของเทรนด์ เรียงลำดับความสวยงามของ EMA 20/50/200 พลังของ Volume และความชัดเจนของขาขึ้น
-    2. Fundamental vs Valuation Check: สรุปความคุ้มค่าเทียบกับราคาปัจจุปันคร่าวๆ ว่าธุรกิจยังมีพื้นฐานหนุนตัวเทรนด์ราคาหรือไม่
-    3. Sentiment & News Analysis: วิเคราะห์ทิศทางข่าวสารสำคัญที่มีผลกระทบกับราคาหุ้น
-    4. Strategic Action Plan (2-3 Months Outlook): วางแผนการลงทุนในระยะ 2-3 เดือนข้างหน้าชัดเจน! ต้องระบุ:
+    2. Technical & Wyckoff Insights: ตีความข้อมูล Precision Technical Analysis (ถ้ามี) โดยเน้นไปที่:
+       - หากมี **Wyckoff Effort-Result Warning**: อธิบายว่าเป็น "ซุ่มเก็บของ (Absorption)" ถ้าย่อที่แนวรับ/VCP หรือ "การแจกจ่าย (Distribution)" หากเกิดที่แนวต้านหลัก หรือหุ้นหลุดเทรนด์
+       - หากมี **Volume Profile POC**: อธิบายการยืนเหนือ/หลุดแนว POC ว่าส่งผลต่อแรงซื้อขายอย่างไร
+    3. Fundamental vs Valuation Check: สรุปความคุ้มค่าเทียบกับราคาปัจจุปันคร่าวๆ ว่าธุรกิจยังมีพื้นฐานหนุนตัวเทรนด์ราคาหรือไม่
+    4. Sentiment & News Analysis: วิเคราะห์ทิศทางข่าวสารสำคัญที่มีผลกระทบกับราคาหุ้น
+    5. Strategic Action Plan (2-3 Months Outlook): วางแผนการลงทุนในระยะ 2-3 เดือนข้างหน้าชัดเจน! ต้องระบุ:
        - สถานะปัจจุบัน (Buy / Hold / Avoid)
        - จุดเข้าซื้อ (Entry Zone) ที่ปลอดภัย
        - จุดตัดขาดทุน (Stop Loss) ทันทีถ้าราคาผิดทาง
