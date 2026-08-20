@@ -2391,32 +2391,19 @@ def api_stock_ai_advisor(request):
     vp_status = getattr(stock, 'vp_status', '')
 
     signals = (
-        "Stage 2 (ขาขึ้นยืนยัน): {stage2}
-"
-        "SEPA (Stage2+RS>=70): {sepa} | RS Rating: {rs}
-"
-        "VCP Setup: {vcp} | CAN SLIM: {canslim} | Pocket Pivot: {pp}
-"
-        "Volume Profile POC: {vp_poc} | VP Status: {vp_status}
-"
-        "CMF: {cmf} | RVOL: {rvol}x | Vol Surge: {volsurge}
-"
-        "ACC Days: {acc} / DIST Days: {dist} (ใน 10 วันล่าสุด)
-"
-        "Trend Template (Minervini 8 ข้อ): {tt}/8 (ผ่านครบ: {ttpass})
-"
-        "Sector Confirmation: {secconf} ({secpct}% ของกลุ่ม {sector} อยู่ Stage2)
-"
-        "Cheat Entry (Livermore): {cheat}
-"
-        "Wyckoff Spring: {spring} | Wyckoff Upthrust (เตือนแจกจ่าย): {upthrust}
-"
-        "Wyckoff Selling Climax (Phase A): {climax}
-"
-        "Wyckoff Effort-vs-Result Warning (E-R): {erwarn}
-"
-        "RSI: {rsi} | ADX: {adx}
-"
+        "Stage 2 (ขาขึ้นยืนยัน): {stage2}\n"
+        "SEPA (Stage2+RS>=70): {sepa} | RS Rating: {rs}\n"
+        "VCP Setup: {vcp} | CAN SLIM: {canslim} | Pocket Pivot: {pp}\n"
+        "Volume Profile POC: {vp_poc} | VP Status: {vp_status}\n"
+        "CMF: {cmf} | RVOL: {rvol}x | Vol Surge: {volsurge}\n"
+        "ACC Days: {acc} / DIST Days: {dist} (ใน 10 วันล่าสุด)\n"
+        "Trend Template (Minervini 8 ข้อ): {tt}/8 (ผ่านครบ: {ttpass})\n"
+        "Sector Confirmation: {secconf} ({secpct}% ของกลุ่ม {sector} อยู่ Stage2)\n"
+        "Cheat Entry (Livermore): {cheat}\n"
+        "Wyckoff Spring: {spring} | Wyckoff Upthrust (เตือนแจกจ่าย): {upthrust}\n"
+        "Wyckoff Selling Climax (Phase A): {climax}\n"
+        "Wyckoff Effort-vs-Result Warning (E-R): {erwarn}\n"
+        "RSI: {rsi} | ADX: {adx}\n"
     ).format(
         stage2=_yn(stock.stage2), sepa=_yn(stock.stage2 and (stock.rs_rating or 0) >= 70), rs=stock.rs_rating,
         vcp=_yn(getattr(stock, 'vcp_setup', False)), canslim=_yn(stock.is_canslim), pp=_yn(stock.pocket_pivot),
@@ -2444,54 +2431,23 @@ def api_stock_ai_advisor(request):
 
     prompt = (
         "คุณคือผู้ช่วยวิเคราะห์หุ้นเทคนิค ใช้กรอบ Trend Following (Weinstein) + SEPA (Minervini)"
-        " + Wyckoff + Livermore ที่ระบบสแกนหุ้นคำนวณไว้ล่วงหน้าแล้ว
-
-"
-        f"หุ้น: {symbol} (สแกนล่าสุด {stock.scan_run.strftime('%d/%m/%Y %H:%M')})
-
-"
-        "=== สัญญาณทางเทคนิค ===
-" + signals + "
-"
-        "=== แผนราคา (จากระบบสแกน) ===
-" + trade_plan + "
-"
-        "=== Backtest 3 ปี ของแต่ละ Preset (รวมสัญญาณทั้งหมดในอดีตของหุ้นนี้) ===
-" + backtest_text + "
-
-"
-        "**คำสั่งพิเศษ (หัวใจหลัก)**: จงนำสัญญาณทางเทคนิคทั้งหมดมา 'เชื่อมโยงกัน' เป็นภาพใหญ่เหมือนที่นักวิเคราะห์ผู้เชี่ยวชาญทำ อย่าแค่อ่านค่าให้ฟังทีละบรรทัด
-"
-        "- หากเจอ Wyckoff Effort-vs-Result Warning (E-R) ร่วมกับ Stage 2, VCP และ Sector Strength สูง ให้ตีความชี้ชัดไปเลยว่า 'น่าจะเป็นการซุ่มเก็บของ (Absorption/Accumulation)' เพราะรายใหญ่กำลังดักซื้อของจากคนที่เทขายทำกำไร ทำให้โวลุ่มสูงแต่ราคาไม่ตก แนะนำให้จับตาดูการทะลุเบรกเอาต์
-"
-        "- หากเจอ E-R Warning หรือ Upthrust ในโซนแนวต้านโดยขาดสัญญาณซัพพอร์ตอื่น ให้ระบุชัดเจนว่าเป็น 'สัญญาณอันตราย/การแจกจ่าย (Distribution)'
-"
-        "- เชื่อมโยงค่า Volume Profile (VP) เข้ามาวิเคราะห์ด้วย (ว่าราคาปัจจุบันอยู่เหนือหรือใต้ POC)
-
-"
-        "สรุปให้ผู้ใช้ในหัวข้อต่อไปนี้ (ภาษาไทย กระชับ ไม่เวิ่นเว้อ):
-
-"
-        "## 📋 สรุปภาพรวม
-- หุ้นตัวนี้อยู่ในสถานะไหน (ซุ่มเก็บของ (Absorption) / กำลังวิ่ง / สัญญาณอันตราย (Distribution) / เสี่ยงกลับตัว) ต้องระบุคำเหล่านี้ให้ชัดเจน พร้อมอธิบายความสัมพันธ์ของการเชื่อมโยงสัญญาณแต่ละตัวว่าสอดคล้องกันอย่างไร
-
-"
-        "## ✅ จุดแข็ง
-- สัญญาณบวกที่มีอยู่ 2-4 ข้อ
-
-"
-        "## ⚠️ ความเสี่ยง/สิ่งที่ต้องระวัง
-- สัญญาณลบหรือคำเตือน (RR ต่ำ, Upthrust, E-R Warning, หลุด POC ฯลฯ)
-
-"
-        "## 🎯 คำแนะนำเชิงเทคนิค
-"
-        "- ระบุว่าเข้าเงื่อนไข 'พิจารณาเข้าซื้อ', 'เฝ้าดู/ซุ่มเก็บของรอจังหวะ', หรือ 'ควรระวัง/หลีกเลี่ยง' พร้อมเหตุผลที่เชื่อมโยงกัน
-
-"
+        " + Wyckoff + Livermore ที่ระบบสแกนหุ้นคำนวณไว้ล่วงหน้าแล้ว\n\n"
+        f"หุ้น: {symbol} (สแกนล่าสุด {stock.scan_run.strftime('%d/%m/%Y %H:%M')})\n\n"
+        "=== สัญญาณทางเทคนิค ===\n" + signals + "\n"
+        "=== แผนราคา (จากระบบสแกน) ===\n" + trade_plan + "\n"
+        "=== Backtest 3 ปี ของแต่ละ Preset (รวมสัญญาณทั้งหมดในอดีตของหุ้นนี้) ===\n" + backtest_text + "\n\n"
+        "**คำสั่งพิเศษ (หัวใจหลัก)**: จงนำสัญญาณทางเทคนิคทั้งหมดมา 'เชื่อมโยงกัน' เป็นภาพใหญ่เหมือนที่นักวิเคราะห์ผู้เชี่ยวชาญทำ อย่าแค่อ่านค่าให้ฟังทีละบรรทัด\n"
+        "- หากเจอ Wyckoff Effort-vs-Result Warning (E-R) ร่วมกับ Stage 2, VCP และ Sector Strength สูง ให้ตีความชี้ชัดไปเลยว่า 'น่าจะเป็นการซุ่มเก็บของ (Absorption/Accumulation)' เพราะรายใหญ่กำลังดักซื้อของจากคนที่เทขายทำกำไร ทำให้โวลุ่มสูงแต่ราคาไม่ตก แนะนำให้จับตาดูการทะลุเบรกเอาต์\n"
+        "- หากเจอ E-R Warning หรือ Upthrust ในโซนแนวต้านโดยขาดสัญญาณซัพพอร์ตอื่น ให้ระบุชัดเจนว่าเป็น 'สัญญาณอันตราย/การแจกจ่าย (Distribution)'\n"
+        "- เชื่อมโยงค่า Volume Profile (VP) เข้ามาวิเคราะห์ด้วย (ว่าราคาปัจจุบันอยู่เหนือหรือใต้ POC)\n\n"
+        "สรุปให้ผู้ใช้ในหัวข้อต่อไปนี้ (ภาษาไทย กระชับ ไม่เวิ่นเว้อ):\n\n"
+        "## 📋 สรุปภาพรวม\n- หุ้นตัวนี้อยู่ในสถานะไหน (ซุ่มเก็บของ (Absorption) / กำลังวิ่ง / สัญญาณอันตราย (Distribution) / เสี่ยงกลับตัว) ต้องระบุคำเหล่านี้ให้ชัดเจน พร้อมอธิบายความสัมพันธ์ของการเชื่อมโยงสัญญาณแต่ละตัวว่าสอดคล้องกันอย่างไร\n\n"
+        "## ✅ จุดแข็ง\n- สัญญาณบวกที่มีอยู่ 2-4 ข้อ\n\n"
+        "## ⚠️ ความเสี่ยง/สิ่งที่ต้องระวัง\n- สัญญาณลบหรือคำเตือน (RR ต่ำ, Upthrust, E-R Warning, หลุด POC ฯลฯ)\n\n"
+        "## 🎯 คำแนะนำเชิงเทคนิค\n"
+        "- ระบุว่าเข้าเงื่อนไข 'พิจารณาเข้าซื้อ', 'เฝ้าดู/ซุ่มเก็บของรอจังหวะ', หรือ 'ควรระวัง/หลีกเลี่ยง' พร้อมเหตุผลที่เชื่อมโยงกัน\n\n"
         "**สำคัญ**: นี่คือการสังเคราะห์สัญญาณทางเทคนิคที่มีอยู่ในระบบเท่านั้น ไม่ใช่คำแนะนำการลงทุนที่รับประกันผลตอบแทน "
-        "ห้ามใช้คำที่ฟังดูเป็นการรับประกันกำไร ให้ลงท้ายด้วยข้อความเตือนว่าผู้ใช้ควรพิจารณาความเสี่ยงและตั้ง Stop Loss เอง
-"
+        "ห้ามใช้คำที่ฟังดูเป็นการรับประกันกำไร ให้ลงท้ายด้วยข้อความเตือนว่าผู้ใช้ควรพิจารณาความเสี่ยงและตั้ง Stop Loss เอง\n"
         "จัดรูปแบบ Markdown"
     )
 
