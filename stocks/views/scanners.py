@@ -2217,6 +2217,8 @@ def precision_momentum_scanner(request):
                             'ehlers_itl_daily': tech.get('ehlers_itl_daily', current_price),
                             'ehlers_itl_weekly': tech.get('ehlers_itl_weekly', current_price),
                             'ehlers_itl_bullish': tech.get('ehlers_itl_bullish', False),
+                            'vp_poc_price': tech.get('vp_poc_price', None),
+                            'vp_status': tech.get('vp_status') or '',
                         }
 
                     except Exception as e:
@@ -2386,6 +2388,8 @@ def precision_momentum_scanner(request):
                             ehlers_itl_daily=r.get('ehlers_itl_daily', None),
                             ehlers_itl_weekly=r.get('ehlers_itl_weekly', None),
                             ehlers_itl_bullish=r.get('ehlers_itl_bullish', False),
+                            vp_poc_price=r.get('vp_poc_price'),
+                            vp_status=r.get('vp_status') or '',
                         ))
 
                     if bulk_candidates:
@@ -5202,6 +5206,8 @@ def us_precision_scanner(request):
                             'ehlers_itl_daily': tech.get('ehlers_itl_daily', current_price),
                             'ehlers_itl_weekly': tech.get('ehlers_itl_weekly', current_price),
                             'ehlers_itl_bullish': tech.get('ehlers_itl_bullish', False),
+                            'vp_poc_price': tech.get('vp_poc_price', None),
+                            'vp_status': tech.get('vp_status') or '',
                         }
 
                     except Exception as e:
@@ -5371,6 +5377,8 @@ def us_precision_scanner(request):
                             ehlers_itl_daily=r.get('ehlers_itl_daily', None),
                             ehlers_itl_weekly=r.get('ehlers_itl_weekly', None),
                             ehlers_itl_bullish=r.get('ehlers_itl_bullish', False),
+                            vp_poc_price=r.get('vp_poc_price'),
+                            vp_status=r.get('vp_status') or '',
                         ))
 
                     if bulk_candidates:

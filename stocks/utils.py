@@ -3071,29 +3071,39 @@ def calculate_volume_profile(df, bins=50):
     vp_df = df.tail(120).copy()
     if 'High' not in vp_df or 'Low' not in vp_df or 'Volume' not in vp_df:
         return None, None
+        
     vp_df['Typical_Price'] = (vp_df['High'] + vp_df['Low'] + vp_df['Close']) / 3
-    min_p = vp_df['Typical_Price'].min()
-    max_p = vp_df['Typical_Price'].max()
-    if max_p == min_p:
+    vp_df = vp_df.dropna(subset=['Typical_Price', 'Volume'])
+    
+    if len(vp_df) == 0:
         return None, None
+        
+    min_p = float(vp_df['Typical_Price'].min())
+    max_p = float(vp_df['Typical_Price'].max())
+    
+    if pd.isna(min_p) or pd.isna(max_p) or max_p == min_p:
+        return None, None
+        
     bin_size = (max_p - min_p) / bins
     vp_bins = np.linspace(min_p, max_p, bins)
     inds = np.digitize(vp_df['Typical_Price'], vp_bins)
     volume_by_bin = np.zeros(bins + 1)
+    
     for i in range(len(vp_df)):
-        vol = vp_df['Volume'].iloc[i]
+        vol = float(vp_df['Volume'].iloc[i])
         idx = inds[i]
         if idx <= bins:
             volume_by_bin[idx] += vol
         else:
             volume_by_bin[bins] += vol
+            
     poc_idx = np.argmax(volume_by_bin)
     if poc_idx == 0:
-        poc_price = min_p
+        poc_price = float(min_p)
     elif poc_idx >= bins:
-        poc_price = max_p
+        poc_price = float(max_p)
     else:
-        poc_price = vp_bins[poc_idx-1] + (bin_size / 2)
+        poc_price = float(vp_bins[poc_idx-1] + (bin_size / 2))
         
     current_price = float(df['Close'].iloc[-1])
     margin = poc_price * 0.02 # 2% margin
