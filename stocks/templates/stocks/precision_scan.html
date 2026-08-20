@@ -58,6 +58,9 @@
            style="background: linear-gradient(135deg, #fbbf24, #d97706); color: white; border: none; font-size:0.85rem;">
             <i class="fas fa-list-ol"></i> อัปเดตอันดับ Market Cap
         </a>
+        <a href="{% url 'stocks:sector_rotation_dashboard' %}?market=SET" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#0ea5e9,#0284c7); color:white; border:none;" title="ดูทิศทางเงินทุนรายกลุ่มอุตสาหกรรม (Leading Sisters)">
+            <i class="fas fa-project-diagram"></i> Sector Rotation
+        </a>
         <form method="post" id="precisionScanForm" style="display:inline;">
             {% csrf_token %}
             <input type="hidden" name="action" value="scan">

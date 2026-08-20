@@ -484,6 +484,9 @@
         <a href="{% url 'stocks:us_sepa_scanner' %}" class="btn d-inline-flex align-items-center gap-2" style="background:#0f172a; color:white; border:none;">
             <span style="font-size:1rem;">🦅</span> SEPA Mode (Minervini)
         </a>
+        <a href="{% url 'stocks:sector_rotation_dashboard' %}?market=US" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#0ea5e9,#0284c7); color:white; border:none;" title="ดูทิศทางเงินทุนรายกลุ่มอุตสาหกรรม (Leading Sisters)">
+            <i class="fas fa-project-diagram"></i> Sector Rotation
+        </a>
         <form method="post" id="precisionScanForm" style="display:inline;">
             {% csrf_token %}
             <input type="hidden" name="action" value="scan">
