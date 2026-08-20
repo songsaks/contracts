@@ -23,7 +23,7 @@ def sector_rotation_dashboard(request):
         ).exclude(sector__in=['', 'Unknown', 'N/A', 'None'])
         
         # Get unique sectors
-        sector_names = qs.values_list('sector', flat=True).distinct()
+        sector_names = set(qs.values_list('sector', flat=True))
         
         for s_name in sector_names:
             sec_qs = qs.filter(sector=s_name)
