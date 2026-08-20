@@ -2310,6 +2310,11 @@
 
                             <!-- RECOMMENDATION -->
                             <td class="small" style="font-size:0.78rem;line-height:1.35;min-width:165px;background:rgba(9,13,22,0.3);">
+                                {% if item.badge_analysis_summary %}
+                                <div style="font-size:0.7rem; color:#d97706; background:rgba(217,119,6,0.1); padding:4px; border-radius:4px; margin-bottom:5px; border:1px solid rgba(217,119,6,0.2); font-weight:600; line-height:1.2;">
+                                    {{ item.badge_analysis_summary }}
+                                </div>
+                                {% endif %}
                                 {% if item.technical_score >= 70 %}
                                     <div class="fw-bold mb-1">
                                         {% if item.rvol >= 1.5 and item.turtle_dist_pct <= 0.5 %}
