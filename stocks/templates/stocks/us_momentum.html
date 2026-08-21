@@ -5,6 +5,32 @@
 {% block title %}US Momentum Scanner — 9Com{% endblock %}
 
 {% block content %}
+<style>
+.action-btn-sm {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    font-size: 0.75rem !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+.action-btn-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+.action-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px !important;
+    max-width: 135px;
+    margin-left: auto;
+}
+</style>
+
 {% include "stocks/includes/dark_mode_scanner.html" %}
 {% if is_scanning %}
 <div id="usMomLoadingOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.93);
@@ -368,16 +394,16 @@
 
                             <!-- ACTION -->
                             <td class="text-end pe-2">
-                                <div class="d-flex justify-content-end gap-1">
+                                <div class="action-container">
                                     <a href="{% url 'stocks:core_analyze' item.symbol %}?market=US" 
-                                       class="btn btn-sm px-2 text-white" 
+                                       class="btn btn-sm action-btn-sm text-white" 
                                        style="font-size:0.65rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;"
                                        target="_blank" title="The Core Project: Deep 3D Analysis">
                                         <i class="fas fa-microchip"></i>
                                     </a>
                                     <a href="{% url 'stocks:us_momentum_crew_page' item.symbol %}"
                                        target="_blank"
-                                       class="btn btn-sm px-2"
+                                       class="btn btn-sm action-btn-sm"
                                        style="font-size:0.65rem;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;"
                                        title="CrewAI US Expert Analysis — เปิดหน้าใหม่">
                                         <i class="fas fa-bolt"></i>

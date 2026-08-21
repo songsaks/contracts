@@ -7,6 +7,32 @@
 {% block container_class %}container-fluid px-2 px-md-3{% endblock %}
 
 {% block content %}
+<style>
+.action-btn-sm {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    font-size: 0.75rem !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+.action-btn-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+.action-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px !important;
+    max-width: 135px;
+    margin-left: auto;
+}
+</style>
+
 {% include "stocks/includes/dark_mode_scanner.html" %}
 
 <!-- Loading Overlay -->
@@ -2336,8 +2362,8 @@
 
                             <!-- ACTION -->
                             <td class="text-end pe-2" style="min-width: 150px; vertical-align: middle;">
-                                <div class="d-flex justify-content-end gap-1">
-                                    <button class="btn btn-sm px-2 py-1 rounded border"
+                                <div class="action-container">
+                                    <button class="btn btn-sm action-btn-sm rounded border"
                                             style="font-size:0.65rem;{% if item.exit_signal == 'STRONG EXIT' %}background:#fef2f2;color:#dc2626;border-color:#fca5a5;{% elif item.exit_signal == 'EXIT' %}background:#fff7ed;color:#c2410c;border-color:#fdba74;{% else %}background:#f0fdf4;color:#15803d;border-color:#86efac;{% endif %}"
                                             data-bs-toggle="collapse"
                                             data-bs-target="#detail-{{ forloop.counter }}"
@@ -2349,16 +2375,16 @@
                                         {% endif %}
                                     </button>
                                     <a href="{% url 'stocks:core_analyze' item.symbol %}?market=US" 
-                                       class="btn btn-sm px-2 py-1 text-white border-0" 
+                                       class="btn btn-sm action-btn-sm text-white border-0" 
                                        style="font-size:0.65rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);"
                                        target="_blank" title="The Core Project: วิเคราะห์เจาะลึก 3 มิติ">
                                         <i class="fas fa-microchip"></i>
                                     </a>
-                                    <a href="{% url 'stocks:analyze' item.symbol %}" class="btn btn-outline-primary btn-sm px-2 py-1" style="font-size:0.65rem;" target="_blank" title="AI Fast Summary"><i class="fas fa-magic"></i></a>
-                                    <a href="{% url 'stocks:crew_analyze' item.symbol %}" class="btn btn-warning btn-sm px-2 py-1 fw-bold text-dark" style="font-size:0.65rem;" target="_blank" title="CrewAI Agent Analysis (Deep)"><i class="fas fa-robot"></i></a>
-                                    <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
-                                    <a href="{% url 'stocks:stock_chart' item.symbol %}?market=US" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line"></i></a>
-                                    <button class="btn btn-sm px-2 py-1 watchlist-toggle-btn"
+                                    <a href="{% url 'stocks:analyze' item.symbol %}" class="btn btn-outline-primary btn-sm action-btn-sm" style="font-size:0.65rem;" target="_blank" title="AI Fast Summary"><i class="fas fa-magic"></i></a>
+                                    <a href="{% url 'stocks:crew_analyze' item.symbol %}" class="btn btn-warning btn-sm action-btn-sm fw-bold text-dark" style="font-size:0.65rem;" target="_blank" title="CrewAI Agent Analysis (Deep)"><i class="fas fa-robot"></i></a>
+                                    <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
+                                    <a href="{% url 'stocks:stock_chart' item.symbol %}?market=US" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line"></i></a>
+                                    <button class="btn btn-sm action-btn-sm watchlist-toggle-btn"
                                             data-symbol="{{ item.symbol }}"
                                             data-sector="{{ item.sector }}"
                                             data-in-watchlist="{% if item.symbol in watchlist_symbols %}true{% else %}false{% endif %}"
