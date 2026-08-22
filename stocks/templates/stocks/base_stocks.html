@@ -735,8 +735,8 @@
         }
     </script>
 
-    <!-- ป้าย "?" ทั่วเว็บ (ℹ️ CMF+, VCP, At POC ฯลฯ) ใช้ title + hover เดิมแตะบนแท็บเล็ต/มือถือไม่ได้
-         เลยแปลงเป็น Bootstrap Tooltip ที่เปิดได้ทั้ง hover (เมาส์) และ tap/focus (ทัชสกรีน) -->
+    <!-- ป้ายอธิบาย/ป้าย "?" ทั่วเว็บ (ℹ️ CMF+, VCP, At POC, S2, VDU, CMF↑ ฯลฯ) ใช้ title + hover เดิมแตะบนแท็บเล็ต/มือถือไม่ได้
+         เลยแปลงทุก element ที่มี title เป็น Bootstrap Tooltip ที่เปิดได้ทั้ง hover (เมาส์) และ tap/focus (ทัชสกรีน) -->
     <style>
         .tooltip-inner { white-space: pre-line; text-align: left; max-width: 320px; }
     </style>
@@ -745,7 +745,7 @@
             if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
             var helpEls = Array.prototype.filter.call(
                 document.querySelectorAll('[title]'),
-                function (el) { return !!el.querySelector('.fa-question-circle'); }
+                function (el) { return (el.getAttribute('title') || '').trim() !== ''; }
             );
             helpEls.forEach(function (el) {
                 if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
