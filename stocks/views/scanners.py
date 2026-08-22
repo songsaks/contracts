@@ -2705,14 +2705,33 @@ def precision_momentum_scanner(request):
             _prev = prev_buy_scores.get(c.symbol)
             c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
 
+        # ====== POC Trend — ลำดับสถานะ Volume Profile (POC) ของแต่ละหุ้นในรอบสแกนล่าสุด (สูงสุด 3 รอบ, เก่า→ใหม่) ======
+        vp_trend_map = {}
+        if len(all_runs) > 1:
+            trend_run_ids = all_runs[run_idx: run_idx + 3]
+            _vp_by_symbol = {}
+            for row in PrecisionScanCandidate.objects.filter(
+                    user=request.user, market='SET', scan_run__in=trend_run_ids
+            ).values('symbol', 'scan_run', 'vp_status'):
+                if not row['vp_status']:
+                    continue
+                _vp_by_symbol.setdefault(row['symbol'], []).append((row['scan_run'], row['vp_status']))
+            for sym, entries in _vp_by_symbol.items():
+                entries.sort(key=lambda x: x[0])  # เก่า → ใหม่
+                statuses = [e[1] for e in entries]
+                if len(statuses) > 1:
+                    vp_trend_map[sym] = statuses
+        for c in candidates:
+            c.vp_trend = vp_trend_map.get(c.symbol)
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
     from stocks.utils import calculate_markov_regime
-    
+
     _regime_key = 'markov_regime_set'
     markov_regime = _regime_cache.get(_regime_key)
-    
+
     if not markov_regime:
         markov_regime = calculate_markov_regime("^SET.BK", window=60)
         _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
@@ -5787,14 +5806,33 @@ def us_precision_scanner(request):
             _prev = prev_buy_scores.get(c.symbol)
             c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
 
+        # ====== POC Trend — ลำดับสถานะ Volume Profile (POC) ของแต่ละหุ้นในรอบสแกนล่าสุด (สูงสุด 3 รอบ, เก่า→ใหม่) ======
+        vp_trend_map = {}
+        if len(all_runs) > 1:
+            trend_run_ids = all_runs[run_idx: run_idx + 3]
+            _vp_by_symbol = {}
+            for row in PrecisionScanCandidate.objects.filter(
+                    user=request.user, market='US', scan_run__in=trend_run_ids
+            ).values('symbol', 'scan_run', 'vp_status'):
+                if not row['vp_status']:
+                    continue
+                _vp_by_symbol.setdefault(row['symbol'], []).append((row['scan_run'], row['vp_status']))
+            for sym, entries in _vp_by_symbol.items():
+                entries.sort(key=lambda x: x[0])  # เก่า → ใหม่
+                statuses = [e[1] for e in entries]
+                if len(statuses) > 1:
+                    vp_trend_map[sym] = statuses
+        for c in candidates:
+            c.vp_trend = vp_trend_map.get(c.symbol)
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
     from stocks.utils import calculate_markov_regime
-    
+
     _regime_key = 'markov_regime_set'
     markov_regime = _regime_cache.get(_regime_key)
-    
+
     if not markov_regime:
         markov_regime = calculate_markov_regime("SPY", window=60)
         _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache

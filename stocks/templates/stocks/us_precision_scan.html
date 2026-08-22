@@ -2178,6 +2178,14 @@
                                     </span>
                                 </div>
                                 {% endif %}
+                                {% if item.vp_trend %}
+                                <div class="mt-1" style="cursor:help;" title="ลำดับสถานะ POC ของหุ้นนี้ใน {{ item.vp_trend|length }} รอบสแกนล่าสุด (เก่า→ใหม่) — ถ้าไล่จาก Below POC ไป At POC ไป Breakout POC แปลว่ากำลังฟื้นตัว/ใกล้เบรกขึ้น น่าสนใจเป็นพิเศษ">
+                                    <span class="badge bg-light text-dark border" style="font-size:0.5rem;">
+                                        {% for st in item.vp_trend %}<span style="color:{% if st == 'Breakout POC' %}#16a34a{% elif st == 'At POC' %}#f59e0b{% else %}#ef4444{% endif %};font-weight:700;">{% if st == 'Breakout POC' %}BR{% elif st == 'At POC' %}A{% else %}B{% endif %}</span>{% if not forloop.last %}<i class="fas fa-arrow-right mx-1" style="font-size:0.4rem;color:#94a3b8;"></i>{% endif %}{% endfor %}
+                                        <i class="fas fa-question-circle ms-1"></i>
+                                    </span>
+                                </div>
+                                {% endif %}
                             </td>
 
                             <!-- ENTRY ZONE -->
