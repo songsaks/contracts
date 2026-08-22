@@ -2512,18 +2512,25 @@ def precision_momentum_scanner(request):
                     if bulk_candidates:
                         PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
 
-                # เก็บ 3 รอบล่าสุด
-                distinct_runs = (
+                # เก็บประวัติแค่ 3 "วัน" ล่าสุด (ไม่ใช่ 3 "ครั้ง" ล่าสุด) — ถ้าเดิมนับเป็นจำนวนครั้ง คนที่สแกนวันละ
+                # หลายรอบจะไล่ลบประวัติของวันก่อนๆ หมดภายในวันเดียว ทำให้ POC Trend ไม่มีทางข้ามวันได้เลย
+                _all_run_ts = list(
                     PrecisionScanCandidate.objects
                     .filter(user=user, market='SET')
                     .values_list('scan_run', flat=True)
                     .order_by('-scan_run')
                     .distinct()
                 )
-                runs_list = list(distinct_runs)
-                if len(runs_list) > 3:
-                    old_runs = runs_list[3:]
-                    PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run__in=old_runs).delete()
+                _seen_dates = []
+                for _ts in _all_run_ts:
+                    _d = tz.localtime(_ts).date()
+                    if _d not in _seen_dates:
+                        _seen_dates.append(_d)
+                if len(_seen_dates) > 3:
+                    _cutoff_date = _seen_dates[2]  # วันที่เก่าที่สุดใน 3 วันที่จะเก็บไว้
+                    old_runs = [_ts for _ts in _all_run_ts if tz.localtime(_ts).date() < _cutoff_date]
+                    if old_runs:
+                        PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run__in=old_runs).delete()
 
                 _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
 
@@ -2705,10 +2712,19 @@ def precision_momentum_scanner(request):
             _prev = prev_buy_scores.get(c.symbol)
             c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
 
-        # ====== POC Trend — ลำดับสถานะ Volume Profile (POC) ของแต่ละหุ้นในรอบสแกนล่าสุด (สูงสุด 3 รอบ, เก่า→ใหม่) ======
+        # ====== POC Trend — ลำดับสถานะ Volume Profile (POC) ของแต่ละหุ้น สูงสุด 3 "วัน" ล่าสุด (เก่า→ใหม่) ======
+        # ใช้รอบล่าสุดของแต่ละวัน ไม่ใช่ all_runs[run_idx:run_idx+3] ตรงๆ เพราะถ้าสแกนถี่ในวันเดียว
+        # 3 รอบล่าสุดอาจเป็นวันเดียวกันหมด ทำให้ trend ไม่มีทางข้ามวันไปเห็นการเปลี่ยนแปลงจริง
         vp_trend_map = {}
         if len(all_runs) > 1:
-            trend_run_ids = all_runs[run_idx: run_idx + 3]
+            _day_to_run = {}
+            for _ts in all_runs[run_idx:]:
+                _d = tz.localtime(_ts).date()
+                if _d not in _day_to_run:
+                    _day_to_run[_d] = _ts
+                if len(_day_to_run) >= 3:
+                    break
+            trend_run_ids = list(_day_to_run.values())
             _vp_by_symbol = {}
             for row in PrecisionScanCandidate.objects.filter(
                     user=request.user, market='SET', scan_run__in=trend_run_ids
@@ -5613,18 +5629,25 @@ def us_precision_scanner(request):
                     if bulk_candidates:
                         PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
 
-                # เก็บ 3 รอบล่าสุด
-                distinct_runs = (
+                # เก็บประวัติแค่ 3 "วัน" ล่าสุด (ไม่ใช่ 3 "ครั้ง" ล่าสุด) — ถ้าเดิมนับเป็นจำนวนครั้ง คนที่สแกนวันละ
+                # หลายรอบจะไล่ลบประวัติของวันก่อนๆ หมดภายในวันเดียว ทำให้ POC Trend ไม่มีทางข้ามวันได้เลย
+                _all_run_ts = list(
                     PrecisionScanCandidate.objects
                     .filter(user=user, market='US')
                     .values_list('scan_run', flat=True)
                     .order_by('-scan_run')
                     .distinct()
                 )
-                runs_list = list(distinct_runs)
-                if len(runs_list) > 3:
-                    old_runs = runs_list[3:]
-                    PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run__in=old_runs).delete()
+                _seen_dates = []
+                for _ts in _all_run_ts:
+                    _d = tz.localtime(_ts).date()
+                    if _d not in _seen_dates:
+                        _seen_dates.append(_d)
+                if len(_seen_dates) > 3:
+                    _cutoff_date = _seen_dates[2]  # วันที่เก่าที่สุดใน 3 วันที่จะเก็บไว้
+                    old_runs = [_ts for _ts in _all_run_ts if tz.localtime(_ts).date() < _cutoff_date]
+                    if old_runs:
+                        PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run__in=old_runs).delete()
 
                 _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
 
@@ -5806,10 +5829,19 @@ def us_precision_scanner(request):
             _prev = prev_buy_scores.get(c.symbol)
             c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
 
-        # ====== POC Trend — ลำดับสถานะ Volume Profile (POC) ของแต่ละหุ้นในรอบสแกนล่าสุด (สูงสุด 3 รอบ, เก่า→ใหม่) ======
+        # ====== POC Trend — ลำดับสถานะ Volume Profile (POC) ของแต่ละหุ้น สูงสุด 3 "วัน" ล่าสุด (เก่า→ใหม่) ======
+        # ใช้รอบล่าสุดของแต่ละวัน ไม่ใช่ all_runs[run_idx:run_idx+3] ตรงๆ เพราะถ้าสแกนถี่ในวันเดียว
+        # 3 รอบล่าสุดอาจเป็นวันเดียวกันหมด ทำให้ trend ไม่มีทางข้ามวันไปเห็นการเปลี่ยนแปลงจริง
         vp_trend_map = {}
         if len(all_runs) > 1:
-            trend_run_ids = all_runs[run_idx: run_idx + 3]
+            _day_to_run = {}
+            for _ts in all_runs[run_idx:]:
+                _d = tz.localtime(_ts).date()
+                if _d not in _day_to_run:
+                    _day_to_run[_d] = _ts
+                if len(_day_to_run) >= 3:
+                    break
+            trend_run_ids = list(_day_to_run.values())
             _vp_by_symbol = {}
             for row in PrecisionScanCandidate.objects.filter(
                     user=request.user, market='US', scan_run__in=trend_run_ids
