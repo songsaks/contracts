@@ -6,6 +6,12 @@ from .base import (
     _seed_us_symbols, _seed_value_symbols, _score_value_candidate, _check_rate_limit
 )
 
+# ============================================================
+# ฟังก์ชัน: _mr_detect_pattern
+# วัตถุประสงค์: ตรวจจับรูปแบบแท่งเทียนกลับตัวขาขึ้น (Bullish Reversal Patterns)
+#   เช่น Hammer, Pin Bar, Bullish Engulf, Morning Star
+#   ใช้ข้อมูล OHLC 2-3 แท่งล่าสุดในการวิเคราะห์
+# ============================================================
 def _mr_detect_pattern(df):
     """Detect bullish reversal patterns for MR Scanner."""
     if len(df) < 3:
@@ -40,6 +46,11 @@ def _mr_detect_pattern(df):
     return ''
 
 
+# ============================================================
+# ฟังก์ชัน: _mr_swing_support
+# วัตถุประสงค์: หาแนวรับ (Swing Low) ที่ใกล้ที่สุดต่ำกว่าราคาปัจจุบัน
+#   ใช้ lookback bar ย้อนหลังเพื่อหาจุดต่ำสุดเฉพาะที่ในกราฟ
+# ============================================================
 def _mr_swing_support(df, lookback=60):
     """Nearest swing low below current price."""
     try:
@@ -52,6 +63,11 @@ def _mr_swing_support(df, lookback=60):
         return None
 
 
+# ============================================================
+# ฟังก์ชัน: _mr_swing_resistance
+# วัตถุประสงค์: หาแนวต้าน (Swing High) ที่ใกล้ที่สุดสูงกว่าราคาปัจจุบัน
+#   ใช้ lookback bar ย้อนหลังเพื่อหาจุดสูงสุดเฉพาะที่ในกราฟ
+# ============================================================
 def _mr_swing_resistance(df, lookback=60):
     """Nearest swing high above current price."""
     try:
@@ -64,6 +80,13 @@ def _mr_swing_resistance(df, lookback=60):
         return None
 
 
+# ============================================================
+# ฟังก์ชัน: _mr_r_score
+# วัตถุประสงค์: คำนวณ Mean Reversion Score (0-100)
+#   รวมปัจจัย: ADX (ความแข็งแกร่งของเทรนด์), RSI (Overbought/Oversold),
+#   Relative Volume (ปริมาณการซื้อขายสัมพัทธ์), รูปแบบแท่งเทียน,
+#   และระยะห่างจากแนวรับ — คะแนนสูง = โอกาสกลับตัวสูง
+# ============================================================
 def _mr_r_score(rsi, adx, rvol, pattern, direction, dist_support_pct):
     score = 50
     if adx < 15:   score += 15
@@ -90,6 +113,13 @@ def _mr_r_score(rsi, adx, rvol, pattern, direction, dist_support_pct):
 _mr_bg_cache = {}
 
 
+# ============================================================
+# ฟังก์ชัน: mean_reversion_scanner
+# วัตถุประสงค์: หน้าสแกนหุ้น Mean Reversion (การกลับสู่ค่าเฉลี่ย)
+#   เกณฑ์หลัก: ADX < 25 (ตลาดไม่มีเทรนด์ชัดเจน) + RSI < 35 หรือ > 65
+#   รองรับ SET และ US market, ใช้ Cache และ Background Thread
+#   เหมาะกับตลาดที่เป็น CHOPPY หรือ SIDEWAYS
+# ============================================================
 @login_required
 def mean_reversion_scanner(request):
     """
@@ -493,6 +523,12 @@ def mean_reversion_scanner(request):
 
 # ====== Portfolio Exit Plan - แผนออกหุ้นแต่ละตัว เรียงตามความเร่งด่วน ======
 
+# ============================================================
+# ฟังก์ชัน: recommendations
+# วัตถุประสงค์: หน้าแสดงผลการแนะนำหุ้นไทย (SET Market)
+#   รวบรวมหุ้นที่ผ่านเกณฑ์จากระบบสแกนต่าง ๆ พร้อมสัญญาณและคะแนน
+#   แสดงผลเป็น Dashboard สำหรับนักลงทุนใช้ตัดสินใจเบื้องต้น
+# ============================================================
 @login_required
 def recommendations(request):
     """
@@ -744,6 +780,12 @@ def recommendations(request):
     return render(request, 'stocks/recommendations.html', context)
 
 
+# ============================================================
+# ฟังก์ชัน: us_recommendations
+# วัตถุประสงค์: หน้าแสดงผลการแนะนำหุ้น US Market (NYSE/NASDAQ)
+#   คล้ายกับ recommendations แต่ปรับสำหรับตลาดหุ้นสหรัฐอเมริกา
+#   รองรับสัญลักษณ์ US และการแปลงสกุลเงิน USD/THB
+# ============================================================
 @login_required
 def us_recommendations(request):
     """
@@ -935,6 +977,12 @@ def us_recommendations(request):
 
 # ====== Morning Briefing - รายงานสรุปประจำวัน ======
 
+# ============================================================
+# ฟังก์ชัน: momentum_scanner
+# วัตถุประสงค์: สแกนหาหุ้นที่มี Momentum แข็งแกร่ง (SET Market)
+#   วิเคราะห์ปัจจัย: RS Score, Volume Surge, Price Action,
+#   Trend Alignment และ Market Regime เพื่อคัดกรองหุ้นแนวโน้มขาขึ้น
+# ============================================================
 @login_required
 def momentum_scanner(request):
     """
@@ -1484,6 +1532,13 @@ def mm_manual(request):
     return render(request, 'stocks/mm_manual.html')
 
 
+# ============================================================
+# ฟังก์ชัน: minervini_sepa_scanner
+# วัตถุประสงค์: สแกนหุ้นตามระบบ Minervini SEPA
+#   (Specific Entry Point Analysis) — กลยุทธ์จาก Mark Minervini
+#   เกณฑ์: หุ้นอยู่ใน Trend Template, VCP Pattern, RS > 70
+#   และราคาอยู่ใกล้ Pivot Point เหมาะสำหรับ Growth Stock
+# ============================================================
 @login_required
 def minervini_sepa_scanner(request):
     """
@@ -1596,6 +1651,17 @@ def minervini_sepa_scanner(request):
     }
     return render(request, 'stocks/sepa_scanner.html', context)
 
+# ============================================================
+# ฟังก์ชัน: precision_momentum_scanner
+# วัตถุประสงค์: ระบบสแกน Precision Momentum (ฟีเจอร์หลักของระบบ)
+#   ใช้อัลกอริทึมหลายชั้นในการคัดกรองหุ้น:
+#     1. Market Regime Detection (BULL/BEAR/CHOPPY)
+#     2. Multi-timeframe Trend Alignment
+#     3. Momentum Score & RS Ranking
+#     4. Volume Confirmation
+#     5. Risk/Reward Calculation
+#   ใช้ Cache, Background Thread และ Database เพื่อประสิทธิภาพสูงสุด
+# ============================================================
 @login_required
 def precision_momentum_scanner(request):
     """
@@ -1666,13 +1732,15 @@ def precision_momentum_scanner(request):
                 from stocks.models import PrecisionScanCandidate
 
                 from stocks.utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS, refresh_all_thai_symbols as _RATS
-                sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
+                # auto_refresh=False: การรีเฟรช Market Cap ทั้งตลาดใช้เวลานาน (นาที) และเคยทำให้
+                # progress ค้างที่ 0/0 จนหน้าเว็บคิดว่าสแกนตาย - ให้ผู้ใช้กดปุ่ม "รีเฟรช Market Cap" แยกแทน
+                sym_list = _GTRS(market='SET', limit=400, auto_refresh=False)
                 if not sym_list:
                     try:
                         _RATS()
                     except Exception:
                         pass
-                    sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
+                    sym_list = _GTRS(market='SET', limit=400, auto_refresh=False)
 
 
                 User = get_user_model()
@@ -3046,6 +3114,12 @@ def precision_momentum_scanner(request):
 
 # ====== Portfolio Momentum Scan - สแกนเฉพาะหุ้นใน Portfolio ======
 
+# ============================================================
+# ฟังก์ชัน: entry_finder
+# วัตถุประสงค์: หาจุดเข้าซื้อที่เหมาะสมสำหรับหุ้นตัวเดียวที่ระบุ
+#   วิเคราะห์กราฟแบบ Multi-timeframe, คำนวณ Support/Resistance,
+#   แนะนำ Entry Price, Stop Loss และ Target Price
+# ============================================================
 @login_required
 def entry_finder(request, symbol):
     """
@@ -3343,6 +3417,12 @@ def entry_finder(request, symbol):
 
 # ====== Signup - สมัครสมาชิกใหม่ ======
 
+# ============================================================
+# ฟังก์ชัน: clear_scan_data
+# วัตถุประสงค์: ล้างข้อมูลผลการสแกนทั้งหมดของผู้ใช้
+#   ลบข้อมูลจากฐานข้อมูลและ Cache เพื่อเริ่มสแกนใหม่
+#   รองรับการล้างข้อมูลแบบแยก Market (SET / US)
+# ============================================================
 @login_required
 @require_POST
 def clear_scan_data(request):
@@ -3388,6 +3468,12 @@ def clear_scan_data(request):
     return redirect(next_url)
 
 
+# ============================================================
+# ฟังก์ชัน: multi_factor_scanner
+# วัตถุประสงค์: สแกนหุ้นด้วยปัจจัยหลายมิติ (SET Market)
+#   รวมการประเมิน: Momentum, Value, Quality, Growth
+#   และ Technical Factors เพื่อจัดอันดับหุ้นที่น่าสนใจ
+# ============================================================
 @login_required
 def multi_factor_scanner(request):
     """
@@ -3652,6 +3738,12 @@ reason: ภาษาไทย ไม่เกิน 60 ตัวอักษร"
     return render(request, 'stocks/multi_factor.html', context)
 
 
+# ============================================================
+# ฟังก์ชัน: us_multi_factor_scanner
+# วัตถุประสงค์: สแกนหุ้น US ด้วยปัจจัยหลายมิติ
+#   เวอร์ชัน US ของ multi_factor_scanner รองรับหุ้น NYSE/NASDAQ
+#   พร้อมปรับ Benchmark และ Sector เป็นมาตรฐาน US Market
+# ============================================================
 @login_required
 def us_multi_factor_scanner(request):
     """
@@ -3896,6 +3988,12 @@ reason: English, max 80 characters"""
     }
     return render(request, 'stocks/us_multi_factor.html', context)
 
+# ============================================================
+# ฟังก์ชัน: precision_scan_report
+# วัตถุประสงค์: สร้างรายงานสรุปผลการสแกน Precision Momentum (SET)
+#   แสดงสถิติ, Top Picks, Sector Distribution
+#   และ Market Regime Summary ในรูปแบบที่อ่านง่าย
+# ============================================================
 @login_required
 def precision_scan_report(request):
     """View to display the standalone Precision Scan AI Report for SET."""
@@ -3924,6 +4022,13 @@ def us_precision_scan_report(request):
         'title': 'Precision Scan AI Report (US)'
     })
 
+# ============================================================
+# ฟังก์ชัน: us_momentum_scanner
+# วัตถุประสงค์: สแกนหาหุ้น US ที่มี Momentum แข็งแกร่ง
+#   วิเคราะห์หุ้น NYSE/NASDAQ ด้วย RS Score, Volume Surge,
+#   Sector Rotation และ Market Breadth
+#   รองรับ Universe หลายพัน Symbols พร้อม Parallel Processing
+# ============================================================
 @login_required
 def us_momentum_scanner(request):
     """
@@ -4634,6 +4739,13 @@ def us_momentum_crew_page(request, symbol):
 # US PRECISION MOMENTUM SCANNER - Nasdaq & S&P 500
 # ======================================================================
 
+# ============================================================
+# ฟังก์ชัน: us_precision_scanner
+# วัตถุประสงค์: ระบบสแกน Precision Momentum สำหรับ US Market
+#   เทียบเท่า precision_momentum_scanner แต่รองรับหุ้นสหรัฐ
+#   ใช้ US Sector Map, Benchmark S&P500 และ Universe กว้างกว่า
+#   มีระบบ Rate Limiting เพื่อป้องกันการดึงข้อมูลเกิน
+# ============================================================
 @login_required
 def us_precision_scanner(request):
     """
@@ -6088,6 +6200,12 @@ def us_precision_scanner(request):
 # ======================================================================
 
 
+# ============================================================
+# ฟังก์ชัน: us_value_scanner
+# วัตถุประสงค์: สแกนหาหุ้น US ที่มีมูลค่าน่าสนใจ (Value Investing)
+#   เกณฑ์: P/E ต่ำ, P/B ต่ำ, Dividend Yield สูง, FCF Positive
+#   เปรียบเทียบกับ Sector Median เพื่อคัดกรอง Undervalued Stocks
+# ============================================================
 @login_required
 def us_value_scanner(request):
     """
@@ -6323,6 +6441,13 @@ def us_value_scanner(request):
 # Model: USSepaCandidate (ไม่แตะ PrecisionScanCandidate เลย)
 # ======================================================================
 
+# ============================================================
+# ฟังก์ชัน: us_sepa_scanner
+# วัตถุประสงค์: สแกนหุ้น US ตามระบบ Minervini SEPA
+#   เวอร์ชัน US ของ minervini_sepa_scanner
+#   ค้นหา Growth Stocks ที่อยู่ใน Stage 2 Uptrend
+#   และใกล้ Breakout จาก Consolidation Pattern
+# ============================================================
 @login_required
 def us_sepa_scanner(request):
     """
@@ -6731,6 +6856,13 @@ def us_sepa_scanner(request):
     return render(request, 'stocks/us_sepa_scanner.html', context)
 
 
+# ============================================================
+# ฟังก์ชัน: cup_handle_scanner
+# วัตถุประสงค์: สแกนหารูปแบบ Cup & Handle ในหุ้น SET
+#   รูปแบบนี้พัฒนาโดย William O'Neil เป็นสัญญาณ Breakout
+#   ตรวจจับ: Cup Depth, Handle Formation, Volume Pattern
+#   และ Pivot Point เพื่อหาจุดเข้าซื้อ
+# ============================================================
 @login_required
 def cup_handle_scanner(request):
     import threading as _th
@@ -7017,6 +7149,12 @@ def cup_handle_scanner(request):
 
 # ====== US Cup & Handle Scanner ======
 
+# ============================================================
+# ฟังก์ชัน: us_cup_handle_scanner
+# วัตถุประสงค์: สแกนรูปแบบ Cup & Handle ในหุ้น US Market
+#   เวอร์ชัน US ของ cup_handle_scanner
+#   วิเคราะห์หุ้น NYSE/NASDAQ เพื่อหา Breakout Pattern
+# ============================================================
 @login_required
 def us_cup_handle_scanner(request):
     """
@@ -7307,6 +7445,12 @@ def us_cup_handle_scanner(request):
     return render(request, 'stocks/us_cup_handle_scan.html', context)
 
 
+# ============================================================
+# ฟังก์ชัน: scanner_guide
+# วัตถุประสงค์: แสดงหน้าคู่มือการใช้งานระบบสแกนทั้งหมด
+#   อธิบายวิธีใช้ Scanner แต่ละประเภท, เกณฑ์การคัดกรอง
+#   และคำแนะนำสำหรับนักลงทุนมือใหม่
+# ============================================================
 @login_required
 def scanner_guide(request):
     """
@@ -7316,6 +7460,13 @@ def scanner_guide(request):
     return render(request, 'stocks/scanner_guide.html')
 
 
+# ============================================================
+# ฟังก์ชัน: turtle_scanner
+# วัตถุประสงค์: สแกนหุ้นตามระบบ Turtle Trading
+#   กลยุทธ์จาก Richard Dennis — ซื้อเมื่อราคาทำ New High
+#   ใน N วัน (Donchian Channel Breakout)
+#   ติดตาม Trend ด้วย ATR-based Position Sizing
+# ============================================================
 @login_required
 def turtle_scanner(request):
     """
@@ -7639,6 +7790,12 @@ def turtle_scanner_run_ajax(request):
 # Stock Chart View - Turtle Breakout + Momentum
 # ---------------------------------------------------------------------------
 
+# ============================================================
+# ฟังก์ชัน: debug_scan_symbol
+# วัตถุประสงค์: เครื่องมือ Debug สำหรับตรวจสอบผลการสแกนหุ้นตัวเดียว
+#   แสดงค่า Indicator ทั้งหมด, สัญญาณ, คะแนน และ Log การคำนวณ
+#   ใช้สำหรับ Developer ตรวจสอบความถูกต้องของอัลกอริทึม
+# ============================================================
 @login_required
 def debug_scan_symbol(request, symbol):
     """
@@ -7724,6 +7881,12 @@ def debug_scan_symbol(request, symbol):
     return JsonResponse(result, json_dumps_params={'indent': 2})
 
 
+# ============================================================
+# ฟังก์ชัน: api_backtest_presets
+# วัตถุประสงค์: API สำหรับดึงรายการ Preset ของระบบ Backtest
+#   ส่งคืนรายการพารามิเตอร์สำเร็จรูปสำหรับการทดสอบย้อนหลัง
+#   รองรับการกรองตาม Strategy Type และ Market
+# ============================================================
 @login_required
 def api_backtest_presets(request):
     """
@@ -7808,6 +7971,13 @@ def api_backtest_presets_universe(request):
     return _JR(payload)
 
 
+# ============================================================
+# ฟังก์ชัน: turnaround_scanner
+# วัตถุประสงค์: สแกนหาหุ้นที่กำลังพลิกฟื้น (Turnaround Stocks)
+#   ค้นหาหุ้นที่ผ่านจุดต่ำสุดและเริ่มฟื้นตัว
+#   เกณฑ์: ปรับปรุงกำไร, Volume เพิ่ม, Insider Buying,
+#   Price Action กลับมาเหนือ Moving Average สำคัญ
+# ============================================================
 @login_required
 def turnaround_scanner(request):
     """

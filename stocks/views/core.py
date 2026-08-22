@@ -1193,19 +1193,29 @@ def sync_trading_account_ajax(request, pk):
 def refresh_market_caps_view(request):
     """
     Manual trigger to refresh market caps for all SET symbols.
+
+    Runs the actual refresh in a background thread and redirects right away.
+    It used to run refresh_market_caps() inline here, which calls Yahoo for
+    every SET symbol and can take minutes - long enough that nginx's proxy
+    timeout kills the request with a 504 before Django ever finishes.
     """
+    import threading as _th
+
     from django.contrib import messages
+    from django.core.cache import cache
     from django.shortcuts import redirect
     from django.utils import timezone
 
     from stocks.models import ScannableSymbol
     from stocks.utils import refresh_market_caps
-    
+
+    lock_key = 'refresh_market_caps_running'
+
     # ⚡ High-speed check: ดึงแค่ timestamp ล่าสุดมาดูค่าเดียว + แปลงเป็น BKK timezone ก่อนเช็ค
     last_update_dt = ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0)\
                                           .values_list('last_cap_update', flat=True).first()
     today = timezone.localtime(timezone.now()).date()
-    
+
     # ต้องแปลง UTC → Bangkok timezone ก่อนเปรียบเทียบวันที่ มิฉะนั้นจะ off ได้ถึง 7 ชั่วโมง
     already_today = (
         last_update_dt is not None and
@@ -1214,10 +1224,19 @@ def refresh_market_caps_view(request):
 
     if already_today:
         messages.info(request, "ข้อมูลอันดับ Market Cap ของวันนี้อัปเดตเรียบร้อยแล้วครับ สแกนต่อได้ทันที!")
+    elif cache.get(lock_key):
+        messages.info(request, "ระบบกำลังอัปเดตข้อมูล Market Cap อยู่ในพื้นหลัง กรุณารอสักครู่แล้วลองสแกนใหม่อีกครั้งครับ")
     else:
-        count = refresh_market_caps()
-        messages.success(request, f"สำเร็จ! อัปเดตข้อมูล Market Cap หุ้นไทยแล้ว {count} ตัว ระบบพร้อมจัดอันดับเพื่อสแกนแล้วครับ")
-    
+        def _run_refresh_bg():
+            try:
+                refresh_market_caps()
+            finally:
+                cache.delete(lock_key)
+
+        cache.set(lock_key, True, timeout=600)
+        _th.Thread(target=_run_refresh_bg, daemon=True).start()
+        messages.success(request, "เริ่มอัปเดตข้อมูล Market Cap หุ้นไทยในพื้นหลังแล้วครับ ใช้เวลาสักครู่ กรุณารอแล้วลองสแกนใหม่อีกครั้ง")
+
     next_url = request.GET.get('next') or 'stocks:momentum_scanner'
     return redirect(next_url)
 

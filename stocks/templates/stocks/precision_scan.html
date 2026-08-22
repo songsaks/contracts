@@ -396,7 +396,7 @@
                                     </div>
                                     <h6 class="fw-bold mb-2 text-dark">Superperformance</h6>
                                     <div class="small mb-2">
-                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">Pocket Pivot</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span> + <span class="badge bg-light text-dark">VCP Only</span> + <span class="badge bg-light text-dark">CAN SLIM</span> + <span class="badge" style="background:#dcfce7;color:#166534;">ACC &gt; DIST</span>
+                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">Pocket Pivot</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span> + <span class="badge bg-light text-dark">VCP Only</span> + <span class="badge bg-light text-dark">CAN SLIM</span> + <span class="badge" style="background:#dcfce7;color:#166534;">ACC &gt; DIST</span> + <span class="badge" style="background:#e0f2fe;color:#0369a1;">Trend Template ≥7/8</span> + <span class="badge" style="background:#dbeafe;color:#1e40af;">Sector Confirmed</span>
                                     </div>
                                     <p class="text-muted mb-0 small" style="line-height:1.5;">นี่เป็นเงื่อนไขที่เข้มงวดที่สุดในการหาหุ้น "ผู้ชนะตัวจริง" (True Market Leaders) โดยผสานจุดซื้อต้นน้ำ การบีบตัวของราคา ปริมาณเงินสถาบันไหลเข้าจริง (CMF ≥ 0.1) และนับวันสะสมมากกว่าวันขาย หุ้นที่ผ่านชุดนี้จะมีโอกาสวิ่งได้แรงและปลอดภัยที่สุด</p>
                                 </div>
@@ -441,7 +441,7 @@
                                     </div>
                                     <h6 class="fw-bold mb-2 text-dark">High Momentum</h6>
                                     <div class="small mb-2">
-                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">Vol Surge ≥ 1.5x</span> + <span class="badge bg-light text-dark">Ichimoku ≥ 3</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span>
+                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">Vol Surge ≥ 1.5x</span> + <span class="badge bg-light text-dark">Ichimoku ≥ 3</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span> + <span class="badge" style="background:#e0f2fe;color:#0369a1;">Trend Template ≥7/8</span> + <span class="badge" style="background:#dbeafe;color:#1e40af;">Sector Confirmed</span>
                                     </div>
                                     <p class="text-muted mb-0 small" style="line-height:1.5;">ค้นหาหุ้นที่มีแรงเหวี่ยงสูง กระแสเงินไหลเข้ารุนแรง (Volume Surge) ยืนยันด้วย Ichimoku ≥ 3/4 และ CMF ≥ 0.1 — มั่นใจได้ว่าเงินสถาบันเข้าจริง ไม่ใช่ volume ปั่น เหมาะสำหรับเล่นรอบสั้น-กลางในตลาด Bullish</p>
                                 </div>
@@ -1450,15 +1450,15 @@
                     <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">🛡️ ซื้อย่อ/ในฐาน:</span>
                     <button type="button" id="preset-pullback" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:700;background:#059669;color:white;border:none;"
-                            title="S2 + CMF+ + VCP + อยู่ในโซนซื้อ — หุ้นฐานแน่นที่ย่อมาในโซนซื้อยังไม่ extended"
+                            title="S2 + อยู่ในโซนซื้อ — หุ้นขาขึ้นย่อตัวในโซนซื้อยังไม่ extended"
                             onclick="applyPreset('pullback')">1. 🎯 หุ้นย่อในโซนซื้อ</button>
                     <button type="button" id="preset-base" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;background:#0d9488;color:white;border:none;"
-                            title="S2 + Pocket Pivot + CMF+≥0.1 + ACC>DIST"
+                            title="S2 + Pocket Pivot + CMF+≥0.1 + ACC>DIST — สะสมในฐาน สถาบันเก็บของหนาแน่น"
                             onclick="applyPreset('base')">2. 💙 Base Accumulation</button>
                     <button type="button" id="preset-safety" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;background:#d97706;color:white;border:none;"
-                            title="RSI<70 + S2 + ITL Bullish + ACC>DIST"
+                            title="RSI<70 + S2 + ITL Bullish + BUY NOW — กรองสัญญาณซื้อความเสี่ยงต่ำ เลี่ยงหุ้น Overbought"
                             onclick="applyPreset('safety')">3. 🛡️ Safety First</button>
 
                     <span class="text-white-50 opacity-25 mx-1">|</span>
@@ -1480,11 +1480,11 @@
                     <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">💥 สายซิ่ง/ผู้นำ:</span>
                     <button type="button" id="preset-high_momentum" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;background:#dc2626;color:white;border:none;"
-                            title="S2 + Vol Surge + Ichimoku≥3 + CMF+≥0.1"
+                            title="S2 + Vol Surge + Ichimoku≥3 + CMF+≥0.1 + Trend Template + Sector Confirmed"
                             onclick="applyPreset('high_momentum')">6. ⚡ High Momentum</button>
                     <button type="button" id="preset-super" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;background:#4f46e5;color:white;border:none;"
-                            title="S2 + Pocket Pivot + CMF+≥0.1 + VCP + CAN SLIM + ACC>DIST"
+                            title="S2 + Pocket Pivot + CMF+≥0.1 + VCP + CAN SLIM + ACC>DIST + Trend Template + Sector Confirmed"
                             onclick="applyPreset('super')">7. 🔥 Superperformance</button>
 
                     <button type="button" id="preset-clear" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 preset-btn"
@@ -1541,6 +1541,7 @@
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="vpFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold filter-label-vp" for="vpFilterSET" style="cursor:pointer;">🧲 At POC Only</label>
+                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="At POC (Point of Control): ราคาที่มีปริมาณซื้อขายสะสมมากที่สุดใน 120 วันล่าสุด — มักเป็นแนวรับ/แนวต้านสำคัญ กรองเฉพาะหุ้นที่ราคาปัจจุบันอยู่ใกล้ระดับนี้ (ในกรอบ ±3%) เท่านั้น เป็นตัวกรองที่ค่อนข้างเข้มงวด แนะนำให้ใช้เดี่ยวๆ ไม่ควรรวมกับเงื่อนไขอื่นเยอะเกินไป"><i class="fas fa-question-circle"></i></span>
                 </div>
                 <!-- ITL Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
@@ -3666,20 +3667,24 @@ function applyPreset(presetType) {
     const insideBar  = document.getElementById('insideBarFilterSET');
     const accDist    = document.getElementById('accDistFilterSET');
     const buyable    = document.getElementById('buyableFilterSET');
+    const trendTemplate = document.getElementById('trendTemplateFilterSET');
+    const sectorConfirmed = document.getElementById('sectorConfirmedFilterSET');
 
     // Reset all
-    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, itl, canslim, buynow, insideBar, accDist, buyable].forEach(el => {
+    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, insideBar, accDist, buyable, trendTemplate, sectorConfirmed].forEach(el => {
         if (el) el.checked = false;
     });
 
     if (presetType === 'super') {
-        // Stage 2 + Pocket Pivot + CMF+ (≥0.1) + VCP Only + CAN SLIM
+        // Stage 2 + Pocket Pivot + CMF+ (≥0.1) + VCP Only + CAN SLIM + ACC>DIST + Trend Template + Sector Confirmed
         if (stage2)  stage2.checked  = true;
         if (pp)      pp.checked      = true;
         if (cmfPos)  cmfPos.checked  = true;
         if (vcp)     vcp.checked     = true;
         if (canslim) canslim.checked = true;
         if (accDist) accDist.checked = true;   // ยืนยัน institutional accumulation
+        if (trendTemplate) trendTemplate.checked = true;
+        if (sectorConfirmed) sectorConfirmed.checked = true;
     } else if (presetType === 'launcher_breakout') {
         // Stage 2 + Launcher + VCP Only + Inside Bar (compression ก่อนเบรก)
         if (stage2)    stage2.checked    = true;
@@ -3693,11 +3698,13 @@ function applyPreset(presetType) {
         if (cmfPos)  cmfPos.checked  = true;
         if (accDist) accDist.checked = true;
     } else if (presetType === 'high_momentum') {
-        // Stage 2 + Vol Surge + Ichimoku ≥ 3 + CMF+ (≥0.1)
+        // Stage 2 + Vol Surge + Ichimoku ≥ 3 + CMF+ (≥0.1) + Trend Template + Sector Confirmed
         if (stage2)  stage2.checked  = true;
         if (vol)     vol.checked     = true;
         if (ichi)    ichi.checked    = true;
         if (cmfPos)  cmfPos.checked  = true;
+        if (trendTemplate) trendTemplate.checked = true;
+        if (sectorConfirmed) sectorConfirmed.checked = true;
     } else if (presetType === 'safety') {
         // RSI < 70 + Stage 2 + ITL Bullish + BUY NOW
         if (rsi)    rsi.checked    = true;
@@ -3737,10 +3744,10 @@ function applyPreset(presetType) {
 }
 
 var PRESET_CONDITIONS_SET = {
-    'super':            ['S2','Pocket Pivot','CMF+≥0.1','VCP','CAN SLIM','ACC>DIST'],
+    'super':            ['S2','Pocket Pivot','CMF+≥0.1','VCP','CAN SLIM','ACC>DIST','📐 Trend Template ≥7/8','👥 Sector Confirmed'],
     'launcher_breakout':['S2','Launcher≥70','VCP','Inside Bar'],
     'base':             ['S2','Pocket Pivot','CMF+≥0.1','ACC>DIST'],
-    'high_momentum':    ['S2','Vol Surge≥1.5x','Ichimoku≥3','CMF+≥0.1'],
+    'high_momentum':    ['S2','Vol Surge≥1.5x','Ichimoku≥3','CMF+≥0.1','📐 Trend Template ≥7/8','👥 Sector Confirmed'],
     'safety':           ['RSI<70','S2','ITL Bullish','BUY NOW'],
     'fast_swing':       ['S2','BUY NOW'],
     'pullback':         ['S2','อยู่ในโซนซื้อ'],
@@ -3901,7 +3908,7 @@ function _applyFiltersSET() {
 
 // ── Filter persistence (localStorage) ─────────────────────────────────
 var FILTER_IDS_SET = ['rsiFilter70SET','stage2FilterSET','ppFilterSET','cmfPositiveFilterSET',
-                      'volSurgeFilterSET','ichiFilterSET','launcherFilterSET','vcpFilterSET',
+                      'volSurgeFilterSET','ichiFilterSET','launcherFilterSET','vcpFilterSET','vpFilterSET',
                       'itlFilterSET','canslimFilterSET','buynowFilterSET','insideBarFilterSET','accDistFilterSET','buyableFilterSET',
                       'trendTemplateFilterSET','sectorConfirmedFilterSET'];
 
@@ -3984,14 +3991,18 @@ function _updatePresetCountsSET() {
         // ตัดเงื่อนไข catch-all (nearMa50/turtleDist + cmf>=-0.05) ออก เหลือแค่อยู่ในโซนซื้อจริงๆ
         // และต้องมีแรงซื้อ/เงินไหลเข้ายืนยัน (RVOL≥1.2, CMF≥0) กันสัญญาณหลอกที่ราคาแตะโซนแต่ไม่มี volume รองรับ
         var buyable = (inzone || prox <= 5) && rvol >= 1.2 && cmf >= 0;
+        var ttScore = parseInt(d.ttScore || '0');
+        var sectorConfirmed = d.sectorConfirmed === 'true';
 
-        if (s2 && pp && cmf >= 0.1 && vcp && canslim && accPos) counts.super++;
-        if (s2 && launcher >= 70 && vcp && insideBar)           counts.launcher_breakout++;
-        if (s2 && pp && cmf >= 0.1 && accPos)                   counts.base++;
-        if (s2 && vsrg && ichi >= 3 && cmf >= 0.1)              counts.high_momentum++;
-        if (rsi < 70 && s2 && itl && buyNow)                    counts.safety++;
-        if (s2 && buyNow)                                       counts.fast_swing++;
-        if (s2 && buyable)                                      counts.pullback++;
+        // เงื่อนไขต้องตรงกับ applyPreset()/_applyFiltersSET() ทุกตัว ไม่งั้นตัวเลข badge จะไม่ตรงกับผลกรองจริง
+        // หมายเหตุ: At POC Only ถูกแยกเป็น filter เดี่ยว ไม่ผูกกับ preset ไหนแล้ว
+        if (s2 && pp && cmf >= 0.1 && vcp && canslim && accPos && ttScore >= 7 && sectorConfirmed) counts.super++;
+        if (s2 && launcher >= 70 && vcp && insideBar)                                             counts.launcher_breakout++;
+        if (s2 && pp && cmf >= 0.1 && accPos)                                                      counts.base++;
+        if (s2 && vsrg && ichi >= 3 && cmf >= 0.1 && ttScore >= 7 && sectorConfirmed)              counts.high_momentum++;
+        if (rsi < 70 && s2 && itl && buyNow)                                                       counts.safety++;
+        if (s2 && buyNow)                                                                          counts.fast_swing++;
+        if (s2 && buyable)                                                                         counts.pullback++;
     });
     Object.keys(counts).forEach(function(k) {
         var btn = document.getElementById('preset-' + k);
@@ -4595,8 +4606,11 @@ function pollPrecisionStatus() {
                 }
 
                 if (_precisionZeroCount > 5) {
-                    console.warn("Precision scan poll stuck at 0/0, auto-hiding overlay.");
+                    // ซ่อน overlay เพราะรอนานเกินไป แต่ยัง poll ต่อเบื้องหลัง
+                    // เพื่อให้หน้ารีโหลดอัตโนมัติเมื่อสแกนเสร็จจริง (ก่อนหน้านี้ return ตรงนี้ทำให้หยุด poll ถาวร)
+                    console.warn("Precision scan poll stuck at 0/0, hiding overlay but continuing to poll.");
                     _hidePrecisionOverlay();
+                    _precisionPollTimer = setTimeout(pollPrecisionStatus, 3000);
                     return;
                 }
 

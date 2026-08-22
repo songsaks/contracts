@@ -1,4 +1,7 @@
-from .base import * 
+from .base import *
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import (
     _get_usd_thb, _compute_signals, _get_market_condition, _get_precision_scan_data,
@@ -34,7 +37,7 @@ def portfolio_exit_plan(request):
             # Fallback if empty (for robustness with manually entered symbols)
             if hist.empty and fetch_symbol == symbol:
                 alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
-                print(f"DEBUG: {symbol} empty, trying {alt_sym}")
+                logger.debug("Symbol %s empty, trying %s", symbol, alt_sym)
                 t = yf.Ticker(alt_sym)
                 hist = t.history(period="1y")
             if isinstance(hist.columns, pd.MultiIndex):

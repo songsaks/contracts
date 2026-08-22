@@ -1,6 +1,9 @@
 import google.genai as genai
+import logging
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 import pandas_ta as ta
 import requests
 import yfinance as yf
@@ -74,7 +77,7 @@ def calculate_valuation_metrics(info, history, financials, balance_sheet):
                 results['wacc'] = f"{wacc*100:.2f}%"
                 
     except Exception as e:
-        print(f"DEBUG: Valuation calculation failed: {e}")
+        logger.warning("Valuation calculation failed: %s", e)
 
     return results
 
@@ -926,7 +929,7 @@ def get_stock_data(symbol):
             if not info or not isinstance(info, dict):
                 info = {}
     except Exception as e:
-        print(f"DEBUG: yfinance info fetch failed for {symbol}: {e}")
+        logger.warning("yfinance info fetch failed for %s: %s", symbol, e)
         # Fallback to fast_info for basic price data if info fails
         try:
             fast = ticker.fast_info
@@ -949,7 +952,7 @@ def get_stock_data(symbol):
         # ใช้งบดุลรายไตรมาสก่อน ถ้าไม่มีให้ใช้รายปี
         balance_sheet = ticker.quarterly_balance_sheet if not ticker.quarterly_balance_sheet.empty else ticker.balance_sheet
     except Exception as e:
-        print(f"DEBUG: Financials fetch failed for {symbol}: {e}")
+        logger.warning("Financials fetch failed for %s: %s", symbol, e)
 
     # คำนวณ Indicator ทางเทคนิค: RSI(14) และ MACD(12,26,9)
     if not history.empty:
@@ -2295,6 +2298,13 @@ def analyze_momentum_technical_v2(df):
     except Exception:
         pass
 
+    poc_price = None
+    vp_status = ""
+    try:
+        poc_price, vp_status = calculate_volume_profile(df)
+    except Exception:
+        pass
+
     return {
         'score': min(score, 110),
         'rvol': round(rvol, 2),
@@ -2332,6 +2342,8 @@ def analyze_momentum_technical_v2(df):
         'ehlers_itl_daily': round(ehlers_itl_daily_val, 2),
         'ehlers_itl_weekly': round(ehlers_itl_weekly_val, 2),
         'ehlers_itl_bullish': ehlers_itl_bullish_val,
+        'vp_poc_price': poc_price,
+        'vp_status': vp_status,
     }
 
 
@@ -3109,7 +3121,7 @@ def calculate_volume_profile(df, bins=50):
         poc_price = float(vp_bins[poc_idx-1] + (bin_size / 2))
         
     current_price = float(df['Close'].iloc[-1])
-    margin = poc_price * 0.02 # 2% margin
+    margin = poc_price * 0.03 # 3% margin
     if current_price > poc_price + margin:
         vp_status = 'Breakout POC'
     elif current_price < poc_price - margin:

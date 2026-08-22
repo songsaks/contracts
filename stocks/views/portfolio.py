@@ -1,4 +1,7 @@
-from .base import * 
+from .base import *
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import (
     _get_usd_thb, _compute_signals, _get_market_condition, _get_precision_scan_data,
@@ -30,13 +33,13 @@ def portfolio_list(request):
     total_crypto_pl = 0
     total_us_cost = 0
     total_us_pl = 0
-    print(f"DEBUG: Portfolio Scan Started for {getattr(request.user, 'username', 'Anonymous')}")
+    logger.debug("Portfolio Scan Started for %s", getattr(request.user, "username", "Anonymous"))
     _portfolio_us_set = _build_us_symbol_set(request.user)
 
     for item in portfolio_items:
         try:
             symbol = item.symbol
-            print(f"DEBUG: Processing {symbol}")
+            logger.debug("Processing symbol: %s", symbol)
 
             # ====== ดึงข้อมูลราคาจาก yfinance ======
             # Determine correct symbol string for yfinance based on database market field
@@ -53,7 +56,7 @@ def portfolio_list(request):
             used_symbol = fetch_symbol
             if hist.empty and fetch_symbol == symbol:
                 alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
-                print(f"DEBUG: {symbol} empty, trying {alt_sym}")
+                logger.debug("Symbol %s empty, trying %s", symbol, alt_sym)
                 t = yf.Ticker(alt_sym)
                 hist = t.history(period="1y")
                 if not hist.empty:
@@ -85,9 +88,9 @@ def portfolio_list(request):
                 # RSI
                 rsi_series = ta.rsi(hist['Close'], length=14)
                 rsi_val = rsi_series.iloc[-1] if (rsi_series is not None and not rsi_series.empty) else None
-                print(f"DEBUG: {symbol} Success Price={current_price}")
+                logger.debug("Symbol %s success price=%s", symbol, current_price)
             else:
-                print(f"DEBUG: {symbol} FAILED - No data")
+                logger.debug("Symbol %s FAILED - No data", symbol)
 
             # คำนวณ % เปลี่ยนแปลงวันนี้ vs เมื่อวาน
             day_change = 0
@@ -112,7 +115,7 @@ def portfolio_list(request):
                 multiplier=float(item.trail_multiplier or 2.5),
             ) if current_price > 0 else None
 
-            print(f"DEBUG: {symbol} Price={current_price}, DB_High={item.highest_price}, ATR_High={atr_ts['highest'] if atr_ts else 'N/A'}")
+            logger.debug("Symbol %s price=%s db_high=%s", symbol, current_price, item.highest_price)
             
             # อัปเดต highest_price และ ATR ใน DB ถ้าสูงขึ้น
             if atr_ts and current_price > 0:
@@ -395,7 +398,7 @@ def portfolio_list(request):
                 'market': item.market,
             })
         except Exception as e:
-            print(f"DEBUG: ERROR for {item.symbol}: {e}")
+            logger.warning("ERROR for %s: %s", item.symbol, e)
             traceback.print_exc()
             # ถ้า error ใส่ข้อมูลเปล่าเพื่อแสดง error state ใน template
             items.append({
