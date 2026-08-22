@@ -1536,6 +1536,12 @@
                     <label class="form-check-label small fw-semibold filter-label-vcp" for="vcpFilterSET" style="cursor:pointer;">🎯 VCP Only</label>
                     <a href="{% url 'stocks:vcp_manual' %}" target="_blank" class="text-decoration-none" title="วิธีดู VCP" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
+                
+                <!-- VP Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="vpFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold filter-label-vp" for="vpFilterSET" style="cursor:pointer;">🧲 At POC Only</label>
+                </div>
                 <!-- ITL Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="itlFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
@@ -1784,6 +1790,7 @@
     data-sl-price="{{ item.stop_loss|default:0 }}"
     data-tp-price="{{ item.supply_zone_start|default:0 }}"
     data-price="{{ item.price|default:0 }}"
+    data-vp-status="{{ item.vp_status }}"
     data-ma50="{{ item.ma50|default:0 }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
@@ -2870,6 +2877,7 @@
     .filter-label-ichi { color: #059669 !important; }
     .filter-label-launcher { color: #7c3aed !important; }
     .filter-label-vcp { color: #e11d48 !important; }
+    .filter-label-vp { color: #8b5cf6 !important; }
     .filter-label-itl { color: #f97316 !important; }
 
     /* Dark mode overrides */
@@ -3077,6 +3085,7 @@
     [data-theme="dark"] .filter-label-ichi, [data-bs-theme="dark"] .filter-label-ichi { color: #34d399 !important; }
     [data-theme="dark"] .filter-label-launcher, [data-bs-theme="dark"] .filter-label-launcher { color: #c084fc !important; }
     [data-theme="dark"] .filter-label-vcp, [data-bs-theme="dark"] .filter-label-vcp { color: #fb7185 !important; }
+    [data-theme="dark"] .filter-label-vp, [data-bs-theme="dark"] .filter-label-vp { color: #a78bfa !important; }
     [data-theme="dark"] .filter-label-itl, [data-bs-theme="dark"] .filter-label-itl { color: #ffedd5 !important; }
 
     /* ── Row highlights ─────────────────────────────────── */
@@ -3650,6 +3659,7 @@ function applyPreset(presetType) {
     const ichi       = document.getElementById('ichiFilterSET');
     const launcher   = document.getElementById('launcherFilterSET');
     const vcp        = document.getElementById('vcpFilterSET');
+    const vp         = document.getElementById('vpFilterSET');
     const itl        = document.getElementById('itlFilterSET');
     const canslim    = document.getElementById('canslimFilterSET');
     const buynow     = document.getElementById('buynowFilterSET');
@@ -3766,6 +3776,7 @@ function _applyFiltersSET() {
         var volSurgeOn  = document.getElementById('volSurgeFilterSET')    && document.getElementById('volSurgeFilterSET').checked;
         var ichiOn      = document.getElementById('ichiFilterSET')        && document.getElementById('ichiFilterSET').checked;
         var vcpOn       = document.getElementById('vcpFilterSET')         && document.getElementById('vcpFilterSET').checked;
+        var vpOn        = document.getElementById('vpFilterSET')          && document.getElementById('vpFilterSET').checked;
         var launcherOn  = document.getElementById('launcherFilterSET')    && document.getElementById('launcherFilterSET').checked;
         var itlOn       = document.getElementById('itlFilterSET')         && document.getElementById('itlFilterSET').checked;
         var canslimOn   = document.getElementById('canslimFilterSET')     && document.getElementById('canslimFilterSET').checked;
@@ -3792,6 +3803,7 @@ function _applyFiltersSET() {
             var vsrg     = row.dataset.volsurge   === 'true';
             var ichi     = parseInt(row.dataset.ichi || '0');
             var vcp      = row.dataset.vcp        === 'true';
+            var vpStatus = row.dataset.vpStatus || "";
             var launcher = parseInt(row.dataset.launcher || '0');
             var itl      = row.dataset.itl        === 'true';
             var canslim  = row.dataset.canslim    === 'true';
@@ -3831,6 +3843,7 @@ function _applyFiltersSET() {
                        (!cmfPosOn    || cmf >= 0.1) &&
                        (!volSurgeOn  || vsrg) &&
                        (!vcpOn       || vcp) &&
+                       (!vpOn        || vpStatus === "At POC") &&
                        (!launcherOn  || launcher >= 70) &&
                        (!ichiOn      || ichi >= 3) &&
                        (!itlOn       || itl) &&

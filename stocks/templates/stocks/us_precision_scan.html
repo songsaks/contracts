@@ -292,6 +292,7 @@
     .filter-label-ichi { color: #059669 !important; }
     .filter-label-launcher { color: #7c3aed !important; }
     .filter-label-vcp { color: #e11d48 !important; }
+    .filter-label-vp { color: #8b5cf6 !important; }
     .filter-label-itl { color: #f97316 !important; }
 
     /* Dark mode overrides */
@@ -491,6 +492,7 @@
     [data-theme="dark"] .filter-label-ichi, [data-bs-theme="dark"] .filter-label-ichi { color: #34d399 !important; }
     [data-theme="dark"] .filter-label-launcher, [data-bs-theme="dark"] .filter-label-launcher { color: #c084fc !important; }
     [data-theme="dark"] .filter-label-vcp, [data-bs-theme="dark"] .filter-label-vcp { color: #fb7185 !important; }
+    [data-theme="dark"] .filter-label-vp, [data-bs-theme="dark"] .filter-label-vp { color: #a78bfa !important; }
     [data-theme="dark"] .filter-label-itl, [data-bs-theme="dark"] .filter-label-itl { color: #ffedd5 !important; }
 </style>
 
@@ -1576,6 +1578,12 @@
                     <label class="form-check-label small fw-semibold filter-label-vcp" for="vcpFilterUS" style="cursor:pointer;">🎯 VCP Only</label>
                     <a href="{% url 'stocks:vcp_manual' %}" target="_blank" class="text-decoration-none" title="วิธีดู VCP" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
+                
+                <!-- VP Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="vpFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold filter-label-vp" for="vpFilterUS" style="cursor:pointer;">🧲 At POC Only</label>
+                </div>
                 <!-- ITL Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="itlFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
@@ -1807,6 +1815,7 @@
     data-sl-price="{{ item.stop_loss|default:0 }}"
     data-tp-price="{{ item.supply_zone_start|default:0 }}"
     data-price="{{ item.price|default:0 }}"
+    data-vp-status="{{ item.vp_status }}"
     data-ma50="{{ item.ma50|default:0 }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
@@ -3144,7 +3153,7 @@ function applyPreset(presetType) {
     const vol = document.getElementById('volSurgeFilterUS');
     const ichi = document.getElementById('ichiFilterUS');
     const launcher = document.getElementById('launcherFilterUS');
-    const vcp = document.getElementById('vcpFilterUS');
+    const vcp = document.getElementById('vcpFilterUS','vpFilterUS');
     const itl = document.getElementById('itlFilterUS');
     const canslim = document.getElementById('canslimFilterUS');
     const buynow = document.getElementById('buynowFilterUS');
@@ -3215,7 +3224,7 @@ function _applyFiltersUS() {
         var ppOn       = document.getElementById('ppFilterUS')      && document.getElementById('ppFilterUS').checked;
         var volSurgeOn = document.getElementById('volSurgeFilterUS') && document.getElementById('volSurgeFilterUS').checked;
         var ichiOn     = document.getElementById('ichiFilterUS')    && document.getElementById('ichiFilterUS').checked;
-        var vcpOn      = document.getElementById('vcpFilterUS')     && document.getElementById('vcpFilterUS').checked;
+        var vcpOn      = document.getElementById('vcpFilterUS','vpFilterUS')     && document.getElementById('vcpFilterUS','vpFilterUS').checked;
         var launcherOn = document.getElementById('launcherFilterUS') && document.getElementById('launcherFilterUS').checked;
         var itlOn      = document.getElementById('itlFilterUS')     && document.getElementById('itlFilterUS').checked;
         var canslimOn  = document.getElementById('canslimFilterUS')   && document.getElementById('canslimFilterUS').checked;
@@ -3338,7 +3347,7 @@ function _applyFiltersUS() {
 
 // ── Filter persistence (localStorage) ─────────────────────────────────
 var FILTER_IDS_US = ['rsiFilter70US','stage2FilterUS','ppFilterUS','cmfPositiveFilterUS',
-                     'volSurgeFilterUS','ichiFilterUS','launcherFilterUS','vcpFilterUS',
+                     'volSurgeFilterUS','ichiFilterUS','launcherFilterUS','vcpFilterUS','vpFilterUS',
                      'itlFilterUS','canslimFilterUS','buynowFilterUS','insideBarFilterUS','accDistFilterUS','buyableFilterUS'];
 
 function _saveFilterStateUS() {
