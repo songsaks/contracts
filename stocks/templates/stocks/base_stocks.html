@@ -734,6 +734,38 @@
             }
         }
     </script>
+
+    <!-- ป้าย "?" ทั่วเว็บ (ℹ️ CMF+, VCP, At POC ฯลฯ) ใช้ title + hover เดิมแตะบนแท็บเล็ต/มือถือไม่ได้
+         เลยแปลงเป็น Bootstrap Tooltip ที่เปิดได้ทั้ง hover (เมาส์) และ tap/focus (ทัชสกรีน) -->
+    <style>
+        .tooltip-inner { white-space: pre-line; text-align: left; max-width: 320px; }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+            var helpEls = Array.prototype.filter.call(
+                document.querySelectorAll('[title]'),
+                function (el) { return !!el.querySelector('.fa-question-circle'); }
+            );
+            helpEls.forEach(function (el) {
+                if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+                var tip = new bootstrap.Tooltip(el, {
+                    trigger: 'hover focus click',
+                    placement: 'top',
+                    container: 'body'
+                });
+                // แตะป้ายนี้แล้วปิดป้ายอื่นที่ค้างเปิดอยู่ กันซ้อนกันเต็มจอบนแท็บเล็ต
+                el.addEventListener('shown.bs.tooltip', function () {
+                    helpEls.forEach(function (other) {
+                        if (other === el) return;
+                        var inst = bootstrap.Tooltip.getInstance(other);
+                        if (inst) inst.hide();
+                    });
+                });
+            });
+        });
+    </script>
+
     {% block scripts %}{% endblock %}
     
     <script>

@@ -2174,7 +2174,7 @@
                                                             {% if item.vp_status %}
                                 <div class="mt-1" style="cursor:help;" title="Volume Profile (POC): ฐานราคาที่มีการสะสมหนาแน่นที่สุดย้อนหลัง 120 วัน อยู่ที่ประมาณ {{ item.vp_poc_price|floatformat:2 }}&#13;&#10;Breakout POC = ราคาทะลุกำแพงขึ้นมาได้&#13;&#10;At POC = ราคากำลังสู้ที่ฐาน&#13;&#10;Below POC = ราคาอยู่ใต้แนวต้านหนาแน่น">
                                     <span class="badge" style="background:{% if item.vp_status == 'Breakout POC' %}#16a34a{% elif item.vp_status == 'At POC' %}#f59e0b{% else %}#ef4444{% endif %};font-size:0.55rem;">
-                                        VP: {{ item.vp_status }} <i class="fas fa-question-circle"></i>
+                                        VP: {{ item.vp_status }} @ {% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.vp_poc_price|floatformat:2 }} <i class="fas fa-question-circle"></i>
                                     </span>
                                 </div>
                                 {% endif %}
