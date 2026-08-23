@@ -3100,7 +3100,7 @@ def calculate_volume_profile(df, bins=50):
         return None, None
         
     bin_size = (max_p - min_p) / bins
-    vp_bins = np.linspace(min_p, max_p, bins)
+    vp_bins = np.linspace(min_p, max_p, bins + 1)  # bins+1 edges -> bins ช่วงราคาเท่าๆ กันจริง
     inds = np.digitize(vp_df['Typical_Price'], vp_bins)
     volume_by_bin = np.zeros(bins + 1)
     
@@ -3128,5 +3128,45 @@ def calculate_volume_profile(df, bins=50):
         vp_status = 'Below POC'
     else:
         vp_status = 'At POC'
-        
+
     return poc_price, vp_status
+
+
+def compute_vp_trend_map(user, market, all_runs, run_idx):
+    """
+    ลำดับสถานะ Volume Profile (POC) ของแต่ละหุ้น สูงสุด 3 "วัน" ล่าสุด (เก่า→ใหม่)
+    ใช้รอบล่าสุดของแต่ละวัน ไม่ใช่ all_runs[run_idx:run_idx+3] ตรงๆ เพราะถ้าสแกนถี่ในวันเดียว
+    3 รอบล่าสุดอาจเป็นวันเดียวกันหมด ทำให้ trend ไม่มีทางข้ามวันไปเห็นการเปลี่ยนแปลงจริง
+    """
+    from django.utils import timezone as tz
+
+    from stocks.models import PrecisionScanCandidate
+
+    vp_trend_map = {}
+    if len(all_runs) <= 1:
+        return vp_trend_map
+
+    _day_to_run = {}
+    for _ts in all_runs[run_idx:]:
+        _d = tz.localtime(_ts).date()
+        if _d not in _day_to_run:
+            _day_to_run[_d] = _ts
+        if len(_day_to_run) >= 3:
+            break
+    trend_run_ids = list(_day_to_run.values())
+
+    _vp_by_symbol = {}
+    for row in PrecisionScanCandidate.objects.filter(
+            user=user, market=market, scan_run__in=trend_run_ids
+    ).values('symbol', 'scan_run', 'vp_status'):
+        if not row['vp_status']:
+            continue
+        _vp_by_symbol.setdefault(row['symbol'], []).append((row['scan_run'], row['vp_status']))
+
+    for sym, entries in _vp_by_symbol.items():
+        entries.sort(key=lambda x: x[0])  # เก่า → ใหม่
+        statuses = [e[1] for e in entries]
+        if len(statuses) > 1:
+            vp_trend_map[sym] = statuses
+
+    return vp_trend_map
