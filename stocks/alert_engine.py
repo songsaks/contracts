@@ -109,6 +109,19 @@ def _is_turtle_strategy(strategy):
     return bool(strategy) and 'turtle' in strategy.lower()
 
 
+def _poc_note(latest_scan):
+    """
+    ข้อความเสริมราคา/สถานะ Volume Profile POC (Point of Control) ต่อท้ายข้อความ Alert
+    คืนค่าว่างถ้าไม่มีข้อมูล (เช่น fallback signal ที่คำนวณสดไม่มี field นี้)
+    """
+    poc_price = getattr(latest_scan, 'vp_poc_price', None)
+    if not poc_price:
+        return ""
+    vp_status = getattr(latest_scan, 'vp_status', None)
+    status_txt = f" ({vp_status})" if vp_status else ""
+    return f" | POC {poc_price:.2f}{status_txt}"
+
+
 # กลยุทธ์ถือระยะยาวเพื่อรอปันผล/มูลค่า — เวลาแตะ TP ให้ทยอยขายทีละน้อยกว่ากลยุทธ์โมเมนตัม เพื่อรักษาสถานะไว้กินปันผล/รอมูลค่าต่อ
 _LONG_HOLD_STRATEGIES = ('dividend', 'value')
 
@@ -226,7 +239,7 @@ def evaluate_user_alerts(user, config):
                         f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุด Trailing Stop ที่ "
                         f"{trail_stop:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
                         + (f", กำไรสะสม {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
-                        + f") ควรพิจารณาขายส่วนที่เหลือทั้งหมด ({sell_qty:,} หุ้น)"
+                        + f") ควรพิจารณาขายส่วนที่เหลือทั้งหมด ({sell_qty:,} หุ้น){_poc_note(latest_scan)}"
                     ),
                 ))
                 p.tp1_hit = False
@@ -252,6 +265,7 @@ def evaluate_user_alerts(user, config):
                     + (f", กำไร {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
                     + f") — แนะนำล็อกกำไร {tp_pct*100:.0f}% ({sell_qty:,} หุ้น) ส่วนที่เหลือปล่อยให้วิ่งต่อ "
                     + "(Let Profit Run) ระบบจะเริ่มเทรลราคาให้อัตโนมัติ และแจ้งอีกครั้งถ้าหลุดแนวเทรล"
+                    + _poc_note(latest_scan)
                 ),
             ))
         # ราคาถึงโซนขายทำกำไรทางเทคนิคแล้ว แต่จริง ๆ ยังต่ำกว่าต้นทุนที่ถืออยู่ (ยังขาดทุนอยู่)
@@ -265,7 +279,7 @@ def evaluate_user_alerts(user, config):
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุดจุดตัดขาดทุน (SL) ที่ "
                     f"{latest_scan.stop_loss:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอสทั้งหมด "
-                    f"({sell_qty:,} หุ้น){fallback_note}"
+                    f"({sell_qty:,} หุ้น){fallback_note}{_poc_note(latest_scan)}"
                 ),
             ))
             weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุดจุดตัดขาดทุน (SL) ที่ {latest_scan.stop_loss:.2f}'})
@@ -287,7 +301,7 @@ def evaluate_user_alerts(user, config):
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เริ่มมีสัญญาณกระจายขาย/กลับตัว "
                             f"({signals['reversal_score']}/8: {reasons_txt}) — {signals['stage_label']} "
-                            f"ยังไม่ถึงจุดตัดขาดทุน แต่ควรจับตาใกล้ชิด พิจารณาลดสถานะล่วงหน้าถ้ายังไม่มั่นใจ{fallback_note}"
+                            f"ยังไม่ถึงจุดตัดขาดทุน แต่ควรจับตาใกล้ชิด พิจารณาลดสถานะล่วงหน้าถ้ายังไม่มั่นใจ{fallback_note}{_poc_note(latest_scan)}"
                         ),
                     ))
                     cache.set(cache_key, True, timeout=12 * 60 * 60)
@@ -340,7 +354,7 @@ def evaluate_user_alerts(user, config):
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
                     f"{'เบรค 52w High' if latest_scan.is_52w_breakout else 'Wyckoff Spring 🌀' if latest_scan.wyckoff_spring else 'Pocket Pivot'} "
-                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{reversal_caveat}{reasons_msg}"
+                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
                 ),
             ))
             strong_candidates.append({
@@ -389,7 +403,7 @@ def evaluate_user_alerts(user, config):
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) ย่อลงมาอยู่ในโซนสะสม/ซื้อเพิ่มที่ได้เปรียบ "
                             f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
-                            f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){add_amount_txt}{reasons_msg}"
+                            f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){add_amount_txt}{reasons_msg}{_poc_note(latest_scan)}"
                         ),
                     ))
                     cache.set(cache_key, True, timeout=12 * 60 * 60)
@@ -406,7 +420,7 @@ def evaluate_user_alerts(user, config):
                     message=(
                         f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เข้าสู่ภาวะ Volume Dry-Up "
                         f"(แรงขายเริ่มหมด) ที่ราคา {price:.2f} — สัญญาณ Pocket Pivot อาจเกิดขึ้นได้ทุกเมื่อ "
-                        f"จับตาใกล้ชิด (ยังไม่ใช่สัญญาณซื้อ)"
+                        f"จับตาใกล้ชิด (ยังไม่ใช่สัญญาณซื้อ){_poc_note(latest_scan)}"
                     ),
                 ))
                 cache.set(cache_key, True, timeout=24 * 60 * 60)
@@ -459,7 +473,7 @@ def evaluate_user_alerts(user, config):
                     message=(
                         f"หุ้น {w.symbol} ราคาย่อลงมาถึงโซนเข้าซื้อ "
                         f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
-                        f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){reasons_msg}"
+                        f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){reasons_msg}{_poc_note(latest_scan)}"
                     ),
                 ))
                 w.last_alerted_at = now
