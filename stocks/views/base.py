@@ -409,6 +409,108 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
     }
 
 
+# ====== _compute_quality_score - "Quality Score" (0-100) ถ่วงน้ำหนักตามความสำคัญของป้ายบนการ์ดสแกน ======
+# ลำดับน้ำหนัก (มาก→น้อย) ตามที่ใช้อ่านหน้าจอจริง: ป้ายเตือน (หักคะแนนหนักสุด) > Trend Template >
+# Sector Confirmed > POC (Volume Profile) > CMF/ACC > ป้ายจังหวะเข้า (PK/HI/VCP) > ความเห็นพ้องข้ามระบบ >
+# ตัวเลขรอง (RS/Ichimoku/ITL) — ไม่ใช่ hard filter ป้ายเตือนแค่หักคะแนนหนัก ไม่ตัดหุ้นทิ้งไปเลย
+def _compute_quality_score(prec, upside_to_tp=None):
+    """คืนค่า (score 0-100, reasons: list[str]) — ใช้จัดอันดับหุ้นในหน้า Precision Scan"""
+    score = 50.0
+    reasons = []
+
+    vp_status = getattr(prec, 'vp_status', '') or ''
+
+    # ---- อันดับ 1: ป้ายเตือน/ความเสี่ยง (หักคะแนนหนักสุด) ----
+    if getattr(prec, 'wyckoff_effort_result_warning', False):
+        score -= 20
+        reasons.append('⚠️ Effort-Result warning (-20)')
+    if getattr(prec, 'wyckoff_upthrust', False):
+        score -= 25
+        reasons.append('⛔ Wyckoff Upthrust (-25)')
+    if upside_to_tp is not None:
+        if 0 < upside_to_tp <= 15:
+            score -= 12
+            reasons.append('🟠 Near Take Profit (-12)')
+        elif upside_to_tp <= 0:
+            score -= 20
+            reasons.append('🔴 ถึง/เลย Take Profit แล้ว (-20)')
+    if vp_status == 'Below POC':
+        score -= 10
+        reasons.append('📉 ราคาต่ำกว่า POC (-10)')
+
+    # ---- อันดับ 2: Trend Template ----
+    tt_score = getattr(prec, 'trend_template_score', 0) or 0
+    if tt_score:
+        add = round((tt_score / 8) * 18, 1)
+        score += add
+        reasons.append(f'📐 Trend Template {tt_score}/8 (+{add})')
+
+    # ---- อันดับ 3: Sector Confirmed ----
+    if getattr(prec, 'sector_confirmed', False):
+        sector_pct = getattr(prec, 'sector_strength_pct', 0) or 0
+        add = round((sector_pct / 100) * 14, 1)
+        score += add
+        reasons.append(f'👥 Sector Confirmed {sector_pct:.0f}% (+{add})')
+
+    # ---- อันดับ 4: POC (Volume Profile) ----
+    if vp_status == 'At POC':
+        score += 8
+        reasons.append('🧲 At POC (+8)')
+
+    # ---- อันดับ 5: CMF+ / Accumulation ----
+    cmf = getattr(prec, 'cmf', None)
+    if cmf and cmf >= 0.1:
+        score += 8
+        reasons.append('💰 CMF+ (+8)')
+    acc_days = getattr(prec, 'acc_days', 0) or 0
+    dist_days = getattr(prec, 'dist_days', 0) or 0
+    if acc_days >= 4 and acc_days > dist_days:
+        score += 6
+        reasons.append(f'📈 ACC {acc_days}d (+6)')
+
+    # ---- อันดับ 6: ป้ายจังหวะเข้า (timing) ----
+    if getattr(prec, 'pocket_pivot', False):
+        score += 6
+        reasons.append('⚡ Pocket Pivot (+6)')
+    if getattr(prec, 'is_52w_breakout', False):
+        score += 5
+        reasons.append('🏔 52w Breakout (+5)')
+    if getattr(prec, 'vcp_setup', False):
+        score += 4
+        reasons.append('🔴 VCP (+4)')
+
+    # ---- อันดับ 7: ความเห็นพ้องข้ามระบบ ----
+    if getattr(prec, 'is_canslim', False):
+        score += 4
+        reasons.append('🌟 CAN SLIM (+4)')
+    horizon_count = sum([
+        bool(getattr(prec, 'is_short_term', False)),
+        bool(getattr(prec, 'is_medium_term', False)),
+        bool(getattr(prec, 'is_long_term', False)),
+    ])
+    if horizon_count:
+        add = horizon_count * 2
+        score += add
+        reasons.append(f'⏱ ผ่าน {horizon_count} ระบบ (สั้น/กลาง/ยาว) (+{add})')
+
+    # ---- อันดับ 8: ตัวเลขเสริม ----
+    rs_rat = getattr(prec, 'rs_rating', 0) or 0
+    if rs_rat:
+        add = round((rs_rat / 99) * 6, 1)
+        score += add
+        reasons.append(f'RS {rs_rat:.0f} (+{add})')
+    ichi = getattr(prec, 'ichimoku_score', 0) or 0
+    if ichi:
+        score += ichi
+        reasons.append(f'☁ Ichimoku {ichi}/4 (+{ichi})')
+    if getattr(prec, 'ehlers_itl_bullish', False):
+        score += 2
+        reasons.append('📈 Ehlers ITL Bullish (+2)')
+
+    score = round(max(0.0, min(100.0, score)), 1)
+    return score, reasons
+
+
 # ====== Dashboard - หน้าแสดง Watchlist พร้อมราคาและ RSI แบบ Real-time ======
 
 def _get_market_condition(set_df):

@@ -2740,6 +2740,11 @@ def precision_momentum_scanner(request):
         for c in candidates:
             c.vp_trend = vp_trend_map.get(c.symbol)
 
+        # ====== Quality Score — ถ่วงน้ำหนักตามความสำคัญของป้าย (เตือน > TT > Sector > POC > CMF/ACC > timing > confluence) ======
+        from stocks.views.base import _compute_quality_score
+        for c in candidates:
+            c.quality_score, c.quality_reasons = _compute_quality_score(c, upside_to_tp=c.upside_to_tp)
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
@@ -2791,6 +2796,8 @@ def precision_momentum_scanner(request):
             candidates.sort(key=lambda x: getattr(x, 'rs_rating', 0), reverse=True)
         elif sort_by == 'win':
             candidates.sort(key=lambda x: getattr(x, 'win_probability', 0), reverse=True)
+        elif sort_by == 'quality':
+            candidates.sort(key=lambda x: getattr(x, 'quality_score', 0), reverse=True)
 
         # ====== Top 5 หุ้นแนะนำซื้อ (BUY score สูง) ======
         # เงื่อนไข: RVOL Bull ≥ 1.0x (มีแรงซื้อจริง) + RSI ไม่ overbought
@@ -5857,6 +5864,11 @@ def us_precision_scanner(request):
         for c in candidates:
             c.vp_trend = vp_trend_map.get(c.symbol)
 
+        # ====== Quality Score — ถ่วงน้ำหนักตามความสำคัญของป้าย (เตือน > TT > Sector > POC > CMF/ACC > timing > confluence) ======
+        from stocks.views.base import _compute_quality_score
+        for c in candidates:
+            c.quality_score, c.quality_reasons = _compute_quality_score(c, upside_to_tp=c.upside_to_tp)
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
@@ -5908,6 +5920,8 @@ def us_precision_scanner(request):
             candidates.sort(key=lambda x: getattr(x, 'rs_rating', 0), reverse=True)
         elif sort_by == 'win':
             candidates.sort(key=lambda x: getattr(x, 'win_probability', 0), reverse=True)
+        elif sort_by == 'quality':
+            candidates.sort(key=lambda x: getattr(x, 'quality_score', 0), reverse=True)
 
         # ====== Top 5 หุ้นแนะนำซื้อ (BUY score สูง) ======
         # เงื่อนไข: RVOL Bull ≥ 1.0x (มีแรงซื้อจริง) + RSI ไม่ overbought

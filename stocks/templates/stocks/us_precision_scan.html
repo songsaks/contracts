@@ -1738,6 +1738,9 @@
                             <th class="ps-2"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
                             <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE</a></th>
                             <th class="col-hide-md"><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
+                            <th class="col-hide-md">
+                                <a href="?sort=quality&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'quality' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'quality' %}color:#7c3aed;{% endif %}" title="Quality Score: ถ่วงน้ำหนักตามความสำคัญของป้าย (ป้ายเตือน &gt; Trend Template &gt; Sector &gt; POC &gt; CMF/ACC &gt; จังหวะเข้า &gt; ความเห็นพ้องข้ามระบบ)">QUALITY</a>
+                            </th>
                             <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY</a></th>
                             <th class="col-hide-md"><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
                             <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating">RS</a></th>
@@ -1989,6 +1992,20 @@
                                         </span>
                                         <div class="val-hint">เทคนิค</div>
                                     </div>
+                                </div>
+                            </td>
+
+                            <!-- QUALITY SCORE -->
+                            <td class="text-center col-hide-md" style="background: rgba(124,58,237,0.02);" title="{{ item.quality_reasons|join:' | ' }}">
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="fw-bold {% if item.quality_score >= 80 %}text-success{% elif item.quality_score >= 55 %}text-primary{% elif item.quality_score >= 35 %}text-warning{% else %}text-danger{% endif %}" style="font-size:0.85rem;">
+                                        {{ item.quality_score }}
+                                    </span>
+                                    <div class="progress" style="width:40px;height:4px;border-radius:10px;background:rgba(0,0,0,0.05);">
+                                        <div class="progress-bar {% if item.quality_score >= 80 %}bg-success{% elif item.quality_score >= 55 %}bg-primary{% elif item.quality_score >= 35 %}bg-warning{% else %}bg-danger{% endif %}"
+                                             role="progressbar" style="width:{{ item.quality_score }}%"></div>
+                                    </div>
+                                    <div class="val-hint mt-1">คุณภาพ</div>
                                 </div>
                             </td>
 
