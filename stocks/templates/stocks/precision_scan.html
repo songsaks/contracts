@@ -2394,10 +2394,14 @@
                                             <span class="text-warning"><i class="fas fa-hourglass-half"></i> รอราคาดรอปเข้าโซน</span>
                                         {% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size:0.72rem;">
-                                        <i class="fas fa-bullseye"></i> รอที่: <b>{{ item.demand_zone_end|floatformat:2 }}-{{ item.demand_zone_start|floatformat:2 }} <span class="text-success" style="font-size:0.72rem;">(PP)</span></b><br>
-                                        <i class="fas fa-shield-alt"></i> หนีที่: <b class="text-danger">{{ item.stop_loss|floatformat:2 }}</b>
+                                    {% if item.quality_reasons %}
+                                    <div class="text-muted" style="font-size:0.68rem;line-height:1.45;" title="สรุปจากป้ายที่มีผลต่อ Quality Score เรียงตามน้ำหนักความสำคัญ (เตือน &gt; TT &gt; Sector &gt; POC &gt; CMF/ACC &gt; ...) — ดูราคาเข้า/SL/TP เต็มๆ ที่ปุ่ม แผนเข้า/ออก">
+                                        <i class="fas fa-list-check"></i> เหตุผลสำคัญ:
+                                        {% for reason in item.quality_reasons|slice:":3" %}
+                                        <div>• {{ reason }}</div>
+                                        {% endfor %}
                                     </div>
+                                    {% endif %}
                                     {% if item.ma50 > 0 %}
                                     <div style="font-size:0.68rem;color:#7c3aed;border-top:1px dashed #e2e8f0;margin-top:3px;padding-top:3px;" title="กฎขายตามตำรา Dr.K / Kacher-Morales: หลังซื้อจาก Pocket Pivot ให้ถือตราบใดที่ราคายืนเหนือเส้นค่าเฉลี่ย — ปิดต่ำกว่า SMA50 = ขายทำกำไร (สายสั้นใช้ SMA10)">
                                         <i class="fas fa-wave-square"></i> ขายเมื่อหลุด: <b>MA50 {{ item.ma50|floatformat:2 }}</b>{% if item.ma10 > 0 %} <span class="text-muted">/ MA10 {{ item.ma10|floatformat:2 }}</span>{% endif %}
