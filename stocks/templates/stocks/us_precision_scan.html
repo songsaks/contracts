@@ -506,6 +506,25 @@
         </p>
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+        <!-- ★ ปุ่มที่ใช้บ่อยที่สุด — พินไว้หน้าสุด เด่นกว่าปุ่มอื่น -->
+        <div class="d-inline-flex flex-wrap align-items-center gap-2 p-2 rounded-3 mb-2 mb-md-0"
+             style="background:rgba(124,58,237,0.10); border:1px solid rgba(167,139,250,0.40); box-shadow:0 4px 16px rgba(124,58,237,0.18);">
+            <form method="post" id="precisionScanForm" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="scan">
+                {% if has_scanned %}
+                <button type="button" onclick="confirmRescanPrecision()" class="btn btn-lg fw-bold d-inline-flex align-items-center gap-2"
+                        style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color:white; box-shadow:0 6px 18px rgba(124,58,237,0.5);">
+                    <i class="fas fa-crosshairs"></i> Re-Scan US (S&P 500)
+                </button>
+                {% else %}
+                <button type="submit" class="btn btn-lg fw-bold d-inline-flex align-items-center gap-2"
+                        style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color:white; box-shadow:0 6px 18px rgba(124,58,237,0.5);">
+                    <i class="fas fa-crosshairs"></i> Run Precision Scan
+                </button>
+                {% endif %}
+            </form>
+        </div>
         <a href="{% url 'stocks:us_momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
             <i class="fas fa-rocket"></i> Go to Standard US Scan
         </a>
@@ -515,21 +534,6 @@
         <a href="{% url 'stocks:sector_rotation_dashboard' %}?market=US" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#0ea5e9,#0284c7); color:white; border:none;" title="ดูทิศทางเงินทุนรายกลุ่มอุตสาหกรรม (Leading Sisters)">
             <i class="fas fa-project-diagram"></i> Sector Rotation
         </a>
-        <form method="post" id="precisionScanForm" style="display:inline;">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="scan">
-            {% if has_scanned %}
-            <button type="button" onclick="confirmRescanPrecision()" class="btn btn-premium d-inline-flex align-items-center gap-2"
-                    style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
-                <i class="fas fa-crosshairs"></i> Re-Scan US (S&P 500)
-            </button>
-            {% else %}
-            <button type="submit" class="btn btn-premium d-inline-flex align-items-center gap-2"
-                    style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
-                <i class="fas fa-crosshairs"></i> Run Precision Scan
-            </button>
-            {% endif %}
-        </form>
         <a id="btn-ai-analyze" href="{% url 'stocks:us_precision_scan_report' %}" target="_blank" class="btn d-inline-flex align-items-center gap-2"
                 style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
             <i class="fas fa-robot"></i> AI Market Analysis
