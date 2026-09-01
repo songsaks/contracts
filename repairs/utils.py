@@ -6,25 +6,36 @@ from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from .models import RepairItem, Technician, RepairType, RepairJob
 
+def parse_date_safely(date_val, default_date):
+    if not date_val:
+        return default_date
+    if isinstance(date_val, datetime.date):
+        return date_val
+    if isinstance(date_val, datetime.datetime):
+        return date_val.date()
+    
+    formats = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y/%m/%d', '%d-%m-%Y']
+    for fmt in formats:
+        try:
+            return datetime.datetime.strptime(str(date_val).strip(), fmt).date()
+        except ValueError:
+            continue
+    return default_date
+
+
 def send_repair_summary_email(recipient_email, start_date=None, end_date=None, report_type='dashboard', filter_user_id=None):
     """
     สร้างและส่งอีเมลสรุปรายงานการทำงานของระบบแจ้งซ่อมไปยัง recipient_email
     """
     today = timezone.now().date()
-    if not start_date:
-        start_date = today.replace(day=1)
-    if not end_date:
-        end_date = today
-
-    if isinstance(start_date, str):
-        start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
-    if isinstance(end_date, str):
-        end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+    start_date = parse_date_safely(start_date, today.replace(day=1))
+    end_date = parse_date_safely(end_date, today)
 
     range_filter = [
         timezone.make_aware(datetime.datetime.combine(start_date, datetime.time.min)),
         timezone.make_aware(datetime.datetime.combine(end_date, datetime.time.max))
     ]
+
 
     # ดึงข้อมูล RepairItem ประจำช่วงเวลา
     items_qs = RepairItem.objects.filter(created_at__range=range_filter)
@@ -239,9 +250,12 @@ def send_repair_summary_email(recipient_email, start_date=None, end_date=None, r
                    f"ส่งมอบสำเร็จ: {completed_count}\n" \
                    f"รายรับรวม: {total_income:,.2f} บาท\n"
 
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@9com.cloud')
-    if not from_email or from_email == '':
-        from_email = 'noreply@9com.cloud'
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None) or 'noreply@9com.cloud'
+    email_user = getattr(settings, 'EMAIL_HOST_USER', None)
+    email_pass = getattr(settings, 'EMAIL_HOST_PASSWORD', None)
+
+    if not email_user or not email_pass:
+        return False, "ยังไม่ได้ตั้งค่าบัญชีอีเมลฝั่งส่งในไฟล์ .env (โปรดใส่ EMAIL_HOST_USER และ EMAIL_HOST_PASSWORD)"
 
     # ส่งอีเมล
     msg = EmailMultiAlternatives(subject, text_content, from_email, [recipient_email])
@@ -252,6 +266,7 @@ def send_repair_summary_email(recipient_email, start_date=None, end_date=None, r
         return True, f"ส่งอีเมลสรุปรายงานไปยัง {recipient_email} สำเร็จแล้ว!"
     except Exception as e:
         error_msg = str(e)
-        if "AuthenticationRequired" in error_msg or "Please log in" in error_msg or "Username and Password not set" in error_msg:
-            return False, f"ไม่สามารถส่งผ่าน SMTP ได้เนื่องจากยังไม่ได้ใส่ App Password ในไฟล์ .env ({error_msg})"
+        if "AuthenticationRequired" in error_msg or "Please log in" in error_msg or "Username and Password not set" in error_msg or "535" in error_msg:
+            return False, f"ไม่สามารถส่งผ่าน SMTP ได้เนื่องจาก App Password ไม่ถูกต้องหรือยังไม่ได้ตั้งค่า ({error_msg})"
         return False, f"เกิดข้อผิดพลาดในการส่งอีเมล: {error_msg}"
+

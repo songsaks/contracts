@@ -477,7 +477,11 @@ document.getElementById('sendEmailSummaryForm').addEventListener('submit', funct
         },
         body: formData
     })
-    .then(res => res.json())
+    .then(async res => {
+        const data = await res.json().catch(() => null);
+        if (data) return data;
+        throw new Error(`เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ (HTTP ${res.status})`);
+    })
     .then(data => {
         if(data.status === 'success') {
             alertBox.className = 'alert alert-success mb-0 small';
@@ -489,14 +493,15 @@ document.getElementById('sendEmailSummaryForm').addEventListener('submit', funct
                 alertBox.classList.add('d-none');
             }, 2500);
         } else {
-            alertBox.className = 'alert alert-danger mb-0 small';
+            alertBox.className = 'alert alert-warning mb-0 small';
             alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> ' + data.message;
         }
     })
     .catch(err => {
         alertBox.className = 'alert alert-danger mb-0 small';
-        alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> เกิดข้อผิดพลาดในการเชื่อมต่อ';
+        alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> ' + (err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
     })
+
     .finally(() => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> ส่งอีเมลตอนนี้';
