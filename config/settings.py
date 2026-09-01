@@ -17,7 +17,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-load_dotenv()  # โหลดค่าจากไฟล์ .env (เช่น DB password, API key) เข้าสู่ระบบ
+load_dotenv(override=True)  # โหลดค่าจากไฟล์ .env (ทับค่าเดิมในระบบหากมีการแก้ไข)
+
 
 # ====== Base Directory ======
 # กำหนด path หลักของโปรเจกต์ (โฟลเดอร์ที่อยู่เหนือ config/ ขึ้นไป 1 ระดับ)

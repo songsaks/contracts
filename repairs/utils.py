@@ -254,12 +254,17 @@ def send_repair_summary_email(recipient_email, start_date=None, end_date=None, r
                    f"ส่งมอบสำเร็จ: {completed_count}\n" \
                    f"รายรับรวม: {total_income:,.2f} บาท\n"
 
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None) or 'noreply@9com.cloud'
-    email_user = getattr(settings, 'EMAIL_HOST_USER', None)
-    email_pass = getattr(settings, 'EMAIL_HOST_PASSWORD', None)
+    import os
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+
+    email_user = (os.getenv('EMAIL_HOST_USER') or getattr(settings, 'EMAIL_HOST_USER', '') or '').strip()
+    email_pass = (os.getenv('EMAIL_HOST_PASSWORD') or getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').strip()
+    from_email = (os.getenv('DEFAULT_FROM_EMAIL') or getattr(settings, 'DEFAULT_FROM_EMAIL', '') or email_user or 'noreply@9com.cloud').strip()
 
     if not email_user or not email_pass:
-        return False, "ยังไม่ได้ตั้งค่าบัญชีอีเมลฝั่งส่งในไฟล์ .env (โปรดใส่ EMAIL_HOST_USER และ EMAIL_HOST_PASSWORD)"
+        return False, "ยังไม่ได้ตั้งค่าบัญชีอีเมลฝั่งส่งในไฟล์ .env (โปรดใส่ EMAIL_HOST_USER และ EMAIL_HOST_PASSWORD แล้ว Restart เซิร์ฟเวอร์)"
+
 
     # ส่งอีเมล
     msg = EmailMultiAlternatives(subject, text_content, from_email, [recipient_email])
