@@ -24,6 +24,8 @@ urlpatterns = [
     # Notification API
     path('api/notifications/', views.repair_notifications_api, name='repair_notifications_api'),
     path('api/notifications/mark-seen/', views.repair_notifications_mark_seen, name='repair_notifications_mark_seen'),
+    path('api/send-email-summary/', views.repair_send_email_summary, name='repair_send_email_summary'),
+
     
     # Customer
     path('customers/', views.customer_list, name='customer_list'),

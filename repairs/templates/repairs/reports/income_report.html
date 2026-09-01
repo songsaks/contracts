@@ -107,6 +107,9 @@
                 <p class="text-muted small mb-0">ดูรายรับแยกตามผู้ดำเนินงาน และช่วงเวลา</p>
             </div>
             <div class="d-flex gap-2 no-print">
+                <button type="button" class="btn btn-sm btn-primary shadow-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#sendIncomeReportEmailModal">
+                    <i class="fas fa-paper-plane me-1"></i> ส่งรายงานเข้า Email
+                </button>
                 <button onclick="window.print()" class="btn btn-sm btn-light shadow-sm border">
                     <i class="fas fa-print me-2"></i> พิมพ์
                 </button>
@@ -114,6 +117,7 @@
                     <i class="fas fa-file-excel me-2"></i> Export
                 </a>
             </div>
+
         </div>
 
         <!-- Filter -->
@@ -452,4 +456,99 @@
     };
 })();
 </script>
+
+<!-- Send Income Report Email Modal -->
+<div class="modal fade" id="sendIncomeReportEmailModal" tabindex="-1" aria-labelledby="sendIncomeReportEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header text-white border-0" style="background: linear-gradient(135deg, #10b981, #059669);">
+                <h5 class="modal-title fw-bold" id="sendIncomeReportEmailModalLabel">
+                    <i class="fas fa-envelope-open-text me-2"></i> ส่งรายงานรายรับเข้า Email
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="sendIncomeReportEmailForm">
+                {% csrf_token %}
+                <input type="hidden" name="report_type" value="income_report">
+                {% if filter_user_id %}<input type="hidden" name="user_id" value="{{ filter_user_id }}">{% endif %}
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">ระบบจะรวบรวมสรุปรายงานรายรับจากงานซ่อมตามช่วงเวลาที่กรอง ส่งไปยังอีเมลปลายทาง</p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark small">อีเมลปลายทาง (Recipient Email)</label>
+                        <input type="email" name="email" class="form-control form-control-lg rounded-3 fs-6" value="aeekae@gmail.com" required placeholder="example@gmail.com">
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small text-muted">วันที่เริ่มต้น</label>
+                            <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_date }}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted">วันที่สิ้นสุด</label>
+                            <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_date }}">
+                        </div>
+                    </div>
+
+                    <div id="incomeEmailSendAlert" class="alert alert-info d-none mb-0 small"></div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" id="btnSubmitIncomeEmail" class="btn btn-success rounded-3 px-4 fw-bold">
+                        <i class="fas fa-paper-plane me-1"></i> ส่งอีเมลตอนนี้
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('sendIncomeReportEmailForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitIncomeEmail');
+    const alertBox = document.getElementById('incomeEmailSendAlert');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> กำลังส่งอีเมล...';
+    alertBox.className = 'alert alert-info mb-0 small';
+    alertBox.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> กำลังประมวลผลและจัดส่งอีเมลสรุปรายงาน...';
+    alertBox.classList.remove('d-none');
+
+    const formData = new FormData(this);
+    
+    fetch('{% url "repairs:repair_send_email_summary" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alertBox.className = 'alert alert-success mb-0 small';
+            alertBox.innerHTML = '<i class="fas fa-check-circle me-1"></i> ' + data.message;
+            setTimeout(() => {
+                const modalEl = document.getElementById('sendIncomeReportEmailModal');
+                const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                if(modal) modal.hide();
+                alertBox.classList.add('d-none');
+            }, 2500);
+        } else {
+            alertBox.className = 'alert alert-danger mb-0 small';
+            alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> ' + data.message;
+        }
+    })
+    .catch(err => {
+        alertBox.className = 'alert alert-danger mb-0 small';
+        alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> เกิดข้อผิดพลาดในการเชื่อมต่อ';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> ส่งอีเมลตอนนี้';
+    });
+});
+</script>
 {% endblock %}
+

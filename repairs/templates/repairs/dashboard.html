@@ -75,28 +75,36 @@
             <p class="text-muted small mb-0">เรียกดูข้อมูลตั้งแต่วันที่ {{ start_date|date:"d/m/Y" }} ถึง {{ end_date|date:"d/m/Y" }}</p>
         </div>
         
-        <!-- Filter Form -->
-        <div class="bg-white p-2 rounded-4 shadow-sm border">
-            <form method="get" class="row gx-2 gy-2 align-items-center">
-                <div class="col-auto">
-                    <select name="period" id="periodSelect" class="form-select form-select-sm border-0 bg-light fw-bold pe-4 ps-3" style="min-width: 130px;" onchange="toggleCustomDates(this.value); if(this.value!='custom') this.form.submit();">
-                        <option value="this_month" {% if period == 'this_month' %}selected{% endif %}>เดือนนี้</option>
-                        <option value="this_year" {% if period == 'this_year' %}selected{% endif %}>ปีนี้</option>
-                        <option value="all" {% if period == 'all' %}selected{% endif %}>ทั้งหมด</option>
-                        <option value="custom" {% if period == 'custom' %}selected{% endif %}>กำหนดเอง</option>
-                    </select>
-                </div>
-                <div class="col-auto custom-date-group" style="{% if period != 'custom' %}display:none;{% endif %}">
-                    <div class="d-flex align-items-center gap-1">
-                        <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control form-control-sm border-0 bg-light">
-                        <span class="text-muted small">ถึง</span>
-                        <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control form-control-sm border-0 bg-light">
-                        <button type="submit" class="btn btn-sm btn-primary px-3 rounded-pill">ตกลง</button>
+        <div class="d-flex align-items-center gap-2">
+            <!-- Filter Form -->
+            <div class="bg-white p-2 rounded-4 shadow-sm border">
+                <form method="get" class="row gx-2 gy-2 align-items-center">
+                    <div class="col-auto">
+                        <select name="period" id="periodSelect" class="form-select form-select-sm border-0 bg-light fw-bold pe-4 ps-3" style="min-width: 130px;" onchange="toggleCustomDates(this.value); if(this.value!='custom') this.form.submit();">
+                            <option value="this_month" {% if period == 'this_month' %}selected{% endif %}>เดือนนี้</option>
+                            <option value="this_year" {% if period == 'this_year' %}selected{% endif %}>ปีนี้</option>
+                            <option value="all" {% if period == 'all' %}selected{% endif %}>ทั้งหมด</option>
+                            <option value="custom" {% if period == 'custom' %}selected{% endif %}>กำหนดเอง</option>
+                        </select>
                     </div>
-                </div>
-            </form>
+                    <div class="col-auto custom-date-group" style="{% if period != 'custom' %}display:none;{% endif %}">
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control form-control-sm border-0 bg-light">
+                            <span class="text-muted small">ถึง</span>
+                            <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control form-control-sm border-0 bg-light">
+                            <button type="submit" class="btn btn-sm btn-primary px-3 rounded-pill">ตกลง</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Send Email Button -->
+            <button type="button" class="btn btn-sm btn-primary shadow-sm rounded-pill px-3 py-2 d-flex align-items-center gap-2 fw-bold" data-bs-toggle="modal" data-bs-target="#sendEmailSummaryModal">
+                <i class="fas fa-paper-plane"></i> <span>ส่งสรุปเข้า Email</span>
+            </button>
         </div>
     </div>
+
 
     <!-- Stats Row -->
     <div class="row g-4 mb-4">
@@ -402,5 +410,99 @@
         });
     })();
 </script>
+
+<!-- Send Email Summary Modal -->
+<div class="modal fade" id="sendEmailSummaryModal" tabindex="-1" aria-labelledby="sendEmailSummaryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header text-white border-0" style="background: linear-gradient(135deg, #4f46e5, #6366f1);">
+                <h5 class="modal-title fw-bold" id="sendEmailSummaryModalLabel">
+                    <i class="fas fa-envelope-open-text me-2"></i> ส่งสรุปรายงานการทำงานเข้า Email
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="sendEmailSummaryForm">
+                {% csrf_token %}
+                <input type="hidden" name="report_type" value="dashboard">
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">ระบบจะรวบรวมสรุปภาพรวมงานซ่อม รายรับ และผลงานตามช่วงเวลาที่เลือก ส่งไปยังอีเมลปลายทาง</p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark small">อีเมลปลายทาง (Recipient Email)</label>
+                        <input type="email" name="email" id="summaryEmailInput" class="form-control form-control-lg rounded-3 fs-6" value="aeekae@gmail.com" required placeholder="example@gmail.com">
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small text-muted">วันที่เริ่มต้น</label>
+                            <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted">วันที่สิ้นสุด</label>
+                            <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+
+                    <div id="emailSendAlert" class="alert alert-info d-none mb-0 small"></div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" id="btnSubmitSendEmail" class="btn btn-primary rounded-3 px-4 fw-bold">
+                        <i class="fas fa-paper-plane me-1"></i> ส่งอีเมลตอนนี้
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('sendEmailSummaryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitSendEmail');
+    const alertBox = document.getElementById('emailSendAlert');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> กำลังส่งอีเมล...';
+    alertBox.className = 'alert alert-info mb-0 small';
+    alertBox.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> กำลังประมวลผลและจัดส่งอีเมลสรุปรายงาน...';
+    alertBox.classList.remove('d-none');
+
+    const formData = new FormData(this);
+    
+    fetch('{% url "repairs:repair_send_email_summary" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alertBox.className = 'alert alert-success mb-0 small';
+            alertBox.innerHTML = '<i class="fas fa-check-circle me-1"></i> ' + data.message;
+            setTimeout(() => {
+                const modalEl = document.getElementById('sendEmailSummaryModal');
+                const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                if(modal) modal.hide();
+                alertBox.classList.add('d-none');
+            }, 2500);
+        } else {
+            alertBox.className = 'alert alert-danger mb-0 small';
+            alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> ' + data.message;
+        }
+    })
+    .catch(err => {
+        alertBox.className = 'alert alert-danger mb-0 small';
+        alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> เกิดข้อผิดพลาดในการเชื่อมต่อ';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> ส่งอีเมลตอนนี้';
+    });
+});
+</script>
 {% endblock %}
 {% endblock %}
+

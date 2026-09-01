@@ -246,6 +246,15 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')           # API key สำหรั
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')   # API key สำหรับยิงแจ้งเตือนผ่าน Telegram Bot
 DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com') # รหัสผ่านยืนยันการลบข้อมูล
 
+# ====== Email Settings ======
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@9com.cloud')
+
 # OpenClaw Chatbot Settings - REMOVED (Not in use)
 
 # ====== Django Channels / WebSocket ======
