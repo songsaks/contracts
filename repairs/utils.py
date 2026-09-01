@@ -40,7 +40,7 @@ def send_repair_summary_email(recipient_email, start_date=None, end_date=None, r
     # ดึงข้อมูล RepairItem ประจำช่วงเวลา
     items_qs = RepairItem.objects.filter(created_at__range=range_filter)
     if filter_user_id:
-        items_qs = items_qs.filter(technician_id=filter_user_id)
+        items_qs = items_qs.filter(technicians__id=filter_user_id)
 
     total_items = items_qs.count()
     completed_items = items_qs.filter(status='COMPLETED')
@@ -86,7 +86,7 @@ def send_repair_summary_email(recipient_email, start_date=None, end_date=None, r
             })
 
     # ดึงรายการล่าสุด 30 รายการ
-    recent_items = items_qs.select_related('job', 'job__customer', 'technician').order_by('-created_at')[:30]
+    recent_items = items_qs.select_related('job', 'job__customer', 'device', 'device__brand').prefetch_related('technicians').order_by('-created_at')[:30]
 
     # สร้าง HTML Email
     subject = f"📊 สรุปรายงานระบบงานซ่อม [{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}]"
@@ -212,22 +212,26 @@ def send_repair_summary_email(recipient_email, start_date=None, end_date=None, r
         elif item.status in ['FIXING', 'WAITING_APPROVAL', 'WAITING']:
             st_class = "badge-warning"
 
-        cust_name = item.job.customer.name if item.job and item.job.customer else '-'
-        tech_name = item.technician.name if item.technician else '-'
-        cost_str = f"฿{item.final_cost:,.2f}" if item.final_cost else '-'
+        cust_name = item.job.customer.name if (item.job and item.job.customer) else '-'
+        tech_names = ", ".join([t.name for t in item.technicians.all()]) if item.technicians.exists() else '-'
+        device_name = f"{item.device.brand.name} {item.device.model}" if (item.device and item.device.brand) else (str(item.device) if item.device else '-')
+        tracking_id = item.job.tracking_id if (item.job and item.job.tracking_id) else device_name
+        cost_str = f"฿{item.final_cost:,.2f}" if item.final_cost is not None else '-'
+        issue = (item.issue_description or '')[:30]
 
         html_content += f"""
                         <tr>
                             <td>
-                                <strong>{item.job.tracking_id or item.device_name}</strong><br>
-                                <span style="font-size: 11px; color: #64748b;">{item.device_name} ({(item.problem_description or '')[:25]})</span>
+                                <strong>{tracking_id}</strong><br>
+                                <span style="font-size: 11px; color: #64748b;">{device_name} ({issue})</span>
                             </td>
                             <td>{cust_name}</td>
-                            <td>{tech_name}</td>
+                            <td>{tech_names}</td>
                             <td><span class="badge {st_class}">{st_text}</span></td>
                             <td style="text-align: right;">{cost_str}</td>
                         </tr>
         """
+
 
     if not recent_items:
         html_content += """<tr><td colspan="5" style="text-align:center; color:#94a3b8;">ไม่มีรายการงานซ่อมในช่วงเวลานี้</td></tr>"""

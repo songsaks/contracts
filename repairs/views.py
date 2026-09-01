@@ -1425,28 +1425,32 @@ def repair_job_cancel(request, pk):
 def repair_send_email_summary(request):
     """API สำหรับส่งสรุปรายงานการทำงานระบบแจ้งซ่อมไปยัง Email"""
     if request.method == 'POST':
-        email = request.POST.get('email', 'aeekae@gmail.com').strip()
-        if not email:
-            email = 'aeekae@gmail.com'
+        try:
+            email = request.POST.get('email', 'aeekae@gmail.com').strip()
+            if not email:
+                email = 'aeekae@gmail.com'
 
-        start_date = request.POST.get('start_date')
-        end_date = request.POST.get('end_date')
-        report_type = request.POST.get('report_type', 'dashboard')
-        filter_user_id = request.POST.get('user_id')
+            start_date = request.POST.get('start_date')
+            end_date = request.POST.get('end_date')
+            report_type = request.POST.get('report_type', 'dashboard')
+            filter_user_id = request.POST.get('user_id')
 
-        from .utils import send_repair_summary_email
-        success, message = send_repair_summary_email(
-            recipient_email=email,
-            start_date=start_date,
-            end_date=end_date,
-            report_type=report_type,
-            filter_user_id=filter_user_id
-        )
+            from .utils import send_repair_summary_email
+            success, message = send_repair_summary_email(
+                recipient_email=email,
+                start_date=start_date,
+                end_date=end_date,
+                report_type=report_type,
+                filter_user_id=filter_user_id
+            )
 
-        if success:
-            return JsonResponse({'status': 'success', 'message': message})
-        else:
-            return JsonResponse({'status': 'error', 'message': message})
+            if success:
+                return JsonResponse({'status': 'success', 'message': message})
+            else:
+                return JsonResponse({'status': 'error', 'message': message})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'เกิดข้อผิดพลาดในการประมวลผล: {str(e)}'})
 
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+
 
