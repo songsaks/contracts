@@ -1678,6 +1678,28 @@
                     <label class="form-check-label small fw-semibold" for="buynowFilterUS" style="cursor:pointer; color:#dc2626;">🔥 Breakout วันนี้ (Buy Now)</label>
                     <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="Breakout วันนี้ (Buy Now): กรองหุ้นที่มีสัญญาณซื้อด่วนที่สุด ณ วันนี้ (RVol >= 1.5x และราคาจ่อเบรค/เพิ่งเบรคเอาท์ไม่เกิน 0.5% ของแนวต้าน)"><i class="fas fa-question-circle"></i></span>
                 </div>
+                <!-- Category D: Ultra-Precision Models Switches -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="htfFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="htfFilterUS" style="cursor:pointer; color:#dc2626;" title="High Tight Flag (Qullamaggie Model): Surge +70-100% with tight base <=25%">🚩 HTF Power Play</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="squeezeFiredFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="squeezeFiredFilterUS" style="cursor:pointer; color:#16a34a;" title="TTM Squeeze Fired (John Carter Model): Volatility expansion day 1">⚡ Squeeze Fired!</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="squeezeOnFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="squeezeOnFilterUS" style="cursor:pointer; color:#d97706;" title="TTM Squeeze On: Volatility compression building up">🟡 Squeeze On</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="epFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="epFilterUS" style="cursor:pointer; color:#059669;" title="Episodic Pivot (Gap Up Model): Gap Up +4.5%+ with Vol 3x+">💥 Episodic Pivot</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="safeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="safeFilterUS" style="cursor:pointer; color:#2563eb;" title="Safe Avoidance Filter: Hide stocks extended >25% from MA50">🛡️ Safe (Not Extended)</label>
+                </div>
+
                 <select id="sectorFilterUS" onchange="_applyFiltersUS()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
@@ -3398,15 +3420,13 @@ function _applyFiltersUS() {
         var buyableOn  = document.getElementById('buyableFilterUS') && document.getElementById('buyableFilterUS').checked;
         var trendTemplateOn = document.getElementById('trendTemplateFilterUS') && document.getElementById('trendTemplateFilterUS').checked;
         var sectorConfirmedOn = document.getElementById('sectorConfirmedFilterUS') && document.getElementById('sectorConfirmedFilterUS').checked;
+        var htfOn          = document.getElementById('htfFilterUS')          && document.getElementById('htfFilterUS').checked;
+        var squeezeFiredOn = document.getElementById('squeezeFiredFilterUS') && document.getElementById('squeezeFiredFilterUS').checked;
+        var squeezeOnOn    = document.getElementById('squeezeOnFilterUS')    && document.getElementById('squeezeOnFilterUS').checked;
+        var epOn           = document.getElementById('epFilterUS')           && document.getElementById('epFilterUS').checked;
+        var safeOn         = document.getElementById('safeFilterUS')         && document.getElementById('safeFilterUS').checked;
         var secEl  = document.getElementById('sectorFilterUS');
         var secVal = secEl ? secEl.value : '';
-        
-        console.log("Filter States:", {
-            s2On: !!s2On, ppOn: !!ppOn, volSurgeOn: !!volSurgeOn,
-            ichiOn: !!ichiOn, vcpOn: !!vcpOn, launcherOn: !!launcherOn, itlOn: !!itlOn,
-            canslimOn: !!canslimOn, buynowOn: !!buynowOn, cmfPosOn: !!cmfPosOn,
-            insideBarOn: !!insideBarOn, accDistOn: !!accDistOn, secVal: secVal, horizon: currentHorizonFilterUS
-        });
 
         var visible = 0;
         var shortTermSyms = [];
@@ -3434,6 +3454,11 @@ function _applyFiltersUS() {
             var sec  = row.dataset.sector    || '';
             var ttScore = parseInt(row.dataset.ttScore || '0');
             var sectorConfirmed = row.dataset.sectorConfirmed === 'true';
+
+            var htf      = row.dataset.htf === 'true';
+            var ttmSq    = row.dataset.ttmSq || 'none';
+            var ep       = row.dataset.ep === 'true';
+            var extended = row.dataset.extended === 'true';
 
             var isShort = row.dataset.isShortTerm === 'true';
             var isMedium = row.dataset.isMediumTerm === 'true';
@@ -3469,7 +3494,12 @@ function _applyFiltersUS() {
                        (!insideBarOn || insideBar) &&
                        (!accDistOn || (accDays > distDays && accDays >= 2)) &&
                        (!trendTemplateOn || ttScore >= 7) &&
-                       (!sectorConfirmedOn || sectorConfirmed);
+                       (!sectorConfirmedOn || sectorConfirmed) &&
+                       (!htfOn          || htf) &&
+                       (!squeezeFiredOn || ttmSq === 'fired') &&
+                       (!squeezeOnOn    || ttmSq === 'building') &&
+                       (!epOn           || ep) &&
+                       (!safeOn         || !extended);
 
             // Gather all symbols passing the checkbox filters for the Summary Cards
             if (show) {
@@ -3485,13 +3515,8 @@ function _applyFiltersUS() {
                 if (currentHorizonFilterUS === 'long' && !isLong) show = false;
             }
 
-            // Apply Ultra-Precision Model Filter
+            // Apply Ultra-Precision Model Pill Filter
             if (show) {
-                var htf = row.dataset.htf === 'true';
-                var ttmSq = row.dataset.ttmSq || 'none';
-                var ep = row.dataset.ep === 'true';
-                var extended = row.dataset.extended === 'true';
-
                 if (currentUltraFilterUS === 'htf' && !htf) show = false;
                 if (currentUltraFilterUS === 'squeeze_fired' && ttmSq !== 'fired') show = false;
                 if (currentUltraFilterUS === 'squeeze_building' && ttmSq !== 'building') show = false;
@@ -3503,6 +3528,7 @@ function _applyFiltersUS() {
             if (show) visible++;
 
         });
+
         
         console.log("Filtered visible count:", visible);
 
