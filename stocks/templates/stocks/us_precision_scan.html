@@ -3318,34 +3318,18 @@ function applyPreset(presetType) {
     });
 
     if (presetType === 'pullback') {
-        if (stage2)  stage2.checked  = true;
         if (buyable) buyable.checked = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (accDist) accDist.checked = true;
-        if (safe)    safe.checked    = true;
     } else if (presetType === 'htf_power') {
-        if (htf)     htf.checked     = true;
-        if (stage2)  stage2.checked  = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (safe)    safe.checked    = true;
+        if (htf) htf.checked = true;
     } else if (presetType === 'squeeze_fired_preset') {
         if (squeezeFired) squeezeFired.checked = true;
-        if (stage2)       stage2.checked       = true;
-        if (vol)          vol.checked          = true;
     } else if (presetType === 'episodic_pivot_preset') {
-        if (ep)      ep.checked      = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (stage2)  stage2.checked  = true;
+        if (ep) ep.checked = true;
     } else if (presetType === 'super') {
-        if (trendTemplate)   trendTemplate.checked   = true;
-        if (sectorConfirmed) sectorConfirmed.checked = true;
-        if (cmfPos)          cmfPos.checked          = true;
-        if (accDist)         accDist.checked         = true;
-        if (safe)            safe.checked            = true;
-        if (stage2)          stage2.checked          = true;
+        if (trendTemplate) trendTemplate.checked = true;
+        if (cmfPos)        cmfPos.checked        = true;
     } else if (presetType === 'fast_swing') {
         if (buynow) buynow.checked = true;
-        if (stage2) stage2.checked = true;
     }
 
 
@@ -3366,16 +3350,17 @@ function applyPreset(presetType) {
 }
 
 var PRESET_CONDITIONS_US = {
-    'pullback':              ['Stage 2', 'In Zone', 'CMF+≥0.1', 'ACC>DIST', '🛡️ Safe'],
-    'htf_power':             ['🚩 HTF', 'Stage 2', 'CMF+≥0.1', '🛡️ Safe'],
-    'squeeze_fired_preset':  ['⚡ Squeeze Fired!', 'Stage 2', 'Vol Surge'],
-    'episodic_pivot_preset': ['💥 Episodic Pivot', 'CMF+≥0.1', 'Stage 2'],
-    'super':                 ['Trend Template ≥7/8', 'Sector Confirmed', 'CMF+≥0.1', 'ACC>DIST', '🛡️ Safe'],
-    'fast_swing':            ['Breakout วันนี้ (Buy Now)', 'Stage 2'],
+    'pullback':              ['🎯 อยู่ในโซนซื้อ (In Zone)'],
+    'htf_power':             ['🚩 HTF Power Play'],
+    'squeeze_fired_preset':  ['⚡ Squeeze Fired!'],
+    'episodic_pivot_preset': ['💥 Episodic Pivot'],
+    'super':                 ['📐 Trend Template ≥7/8', '💰 CMF+≥0.1'],
+    'fast_swing':            ['🔥 Breakout วันนี้ (Buy Now)'],
 };
 var PRESET_COLORS_US = {
     'pullback':'#059669', 'htf_power':'#dc2626', 'squeeze_fired_preset':'#16a34a', 'episodic_pivot_preset':'#059669', 'super':'#7c3aed', 'fast_swing':'#ec4899'
 };
+
 
 
 function _showPresetBarUS(presetType) {

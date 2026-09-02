@@ -3793,40 +3793,24 @@ function applyPreset(presetType) {
     });
 
     if (presetType === 'pullback') {
-        // อยู่ในโซนซื้อ (In Zone) + CMF+ (≥0.1) + ACC > DIST + Stage 2 + Safe
-        if (stage2)  stage2.checked  = true;
+        // อยู่ในโซนซื้อ (In Zone) — หุ้นขาขึ้นย่อตัวในโซนซื้อ
         if (buyable) buyable.checked = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (accDist) accDist.checked = true;
-        if (safe)    safe.checked    = true;
     } else if (presetType === 'htf_power') {
-        // HTF Power Play + Stage 2 + CMF+ (≥0.1) + Safe
-        if (htf)     htf.checked     = true;
-        if (stage2)  stage2.checked  = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (safe)    safe.checked    = true;
+        // HTF Power Play — หุ้นพุ่งแรง 70-100%+ แล้วพักตัวแคบ
+        if (htf) htf.checked = true;
     } else if (presetType === 'squeeze_fired_preset') {
-        // Squeeze Fired + Stage 2 + Vol Surge
+        // Squeeze Fired — หุ้นเพิ่งจุดชนวนระเบิดความผันผวนวันแรก
         if (squeezeFired) squeezeFired.checked = true;
-        if (stage2)       stage2.checked       = true;
-        if (vol)          vol.checked          = true;
     } else if (presetType === 'episodic_pivot_preset') {
-        // Episodic Pivot + CMF+ (≥0.1) + Stage 2
-        if (ep)      ep.checked      = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (stage2)  stage2.checked  = true;
+        // Episodic Pivot — หุ้นเปิด Gap Up +4.5%+ พร้อม Vol 3x+
+        if (ep) ep.checked = true;
     } else if (presetType === 'super') {
-        // Super Grade A+: Trend Template + Sector Confirmed + CMF+ (≥0.1) + ACC > DIST + Safe
-        if (trendTemplate)   trendTemplate.checked   = true;
-        if (sectorConfirmed) sectorConfirmed.checked = true;
-        if (cmfPos)          cmfPos.checked          = true;
-        if (accDist)         accDist.checked         = true;
-        if (safe)            safe.checked            = true;
-        if (stage2)          stage2.checked          = true;
+        // Super Grade A+: Trend Template + CMF+
+        if (trendTemplate) trendTemplate.checked = true;
+        if (cmfPos)        cmfPos.checked        = true;
     } else if (presetType === 'fast_swing') {
-        // Breakout วันนี้ (Buy Now) + Stage 2
+        // Breakout วันนี้ (Buy Now)
         if (buynow) buynow.checked = true;
-        if (stage2) stage2.checked = true;
     }
 
 
@@ -3853,16 +3837,17 @@ function applyPreset(presetType) {
 }
 
 var PRESET_CONDITIONS_SET = {
-    'pullback':              ['Stage 2', 'In Zone', 'CMF+≥0.1', 'ACC>DIST', '🛡️ Safe'],
-    'htf_power':             ['🚩 HTF', 'Stage 2', 'CMF+≥0.1', '🛡️ Safe'],
-    'squeeze_fired_preset':  ['⚡ Squeeze Fired!', 'Stage 2', 'Vol Surge'],
-    'episodic_pivot_preset': ['💥 Episodic Pivot', 'CMF+≥0.1', 'Stage 2'],
-    'super':                 ['Trend Template ≥7/8', 'Sector Confirmed', 'CMF+≥0.1', 'ACC>DIST', '🛡️ Safe'],
-    'fast_swing':            ['Breakout วันนี้ (Buy Now)', 'Stage 2'],
+    'pullback':              ['🎯 อยู่ในโซนซื้อ (In Zone)'],
+    'htf_power':             ['🚩 HTF Power Play'],
+    'squeeze_fired_preset':  ['⚡ Squeeze Fired!'],
+    'episodic_pivot_preset': ['💥 Episodic Pivot'],
+    'super':                 ['📐 Trend Template ≥7/8', '💰 CMF+≥0.1'],
+    'fast_swing':            ['🔥 Breakout วันนี้ (Buy Now)'],
 };
 var PRESET_COLORS_SET = {
     'pullback':'#059669', 'htf_power':'#dc2626', 'squeeze_fired_preset':'#16a34a', 'episodic_pivot_preset':'#059669', 'super':'#7c3aed', 'fast_swing':'#ec4899'
 };
+
 
 
 function _showPresetBarSET(presetType) {
@@ -4111,13 +4096,14 @@ function _updatePresetCountsSET() {
         var ep = d.ep === 'true';
         var extended = d.extended === 'true';
 
-        if (s2 && buyable && cmf >= 0.1 && accPos && !extended)                           counts.pullback++;
-        if (htf && s2 && cmf >= 0.1 && !extended)                                         counts.htf_power++;
-        if (ttmSq === 'fired' && s2 && vsrg)                                             counts.squeeze_fired_preset++;
-        if (ep && cmf >= 0.1 && s2)                                                      counts.episodic_pivot_preset++;
-        if (ttScore >= 7 && sectorConfirmed && cmf >= 0.1 && accPos && !extended && s2)  counts.super++;
-        if (s2 && buyNow)                                                                counts.fast_swing++;
+        if (buyable)                     counts.pullback++;
+        if (htf)                         counts.htf_power++;
+        if (ttmSq === 'fired')          counts.squeeze_fired_preset++;
+        if (ep)                          counts.episodic_pivot_preset++;
+        if (ttScore >= 7 && cmf >= 0.1)  counts.super++;
+        if (buyNow)                      counts.fast_swing++;
     });
+
 
 
     Object.keys(counts).forEach(function(k) {
