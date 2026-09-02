@@ -393,6 +393,19 @@ class PrecisionScanCandidate(models.Model):
     # ====== Wyckoff (v8) ======
     wyckoff_spring          = models.BooleanField(default=False)  # หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ (Phase C)
     wyckoff_effort_result_warning = models.BooleanField(default=False)  # Volume พุ่งมากแต่ราคาแทบไม่ขยับ/ลง — สัญญาณอ่อนแรง/แจกจ่าย
+
+    # ====== Ultra-Precision Phase 1 Indicators ======
+    htf_setup          = models.BooleanField(default=False)         # High Tight Flag / Power Play pattern
+    htf_surge_pct      = models.FloatField(default=0.0)             # % Price surge in 4-8 weeks
+    htf_base_depth     = models.FloatField(default=0.0)             # % Base depth contraction
+    ttm_squeeze_state  = models.CharField(max_length=20, default='none') # 'building', 'fired', 'none'
+    ttm_squeeze_length = models.IntegerField(default=0)             # Number of squeeze bars
+    episodic_pivot     = models.BooleanField(default=False)         # Episodic Pivot (Gap Up >= 5% & Vol >= 3x)
+    ep_gap_pct         = models.FloatField(default=0.0)             # Gap Up %
+    is_extended        = models.BooleanField(default=False)         # Avoidance: Extended >25% from MA50
+    ma50_dist_pct      = models.FloatField(default=0.0)             # % Distance from MA50
+    adr_20d_pct        = models.FloatField(default=0.0)             # Average Daily Range 20d %
+
     wyckoff_selling_climax   = models.BooleanField(default=False)  # จุดเริ่ม Phase A: volume พุ่ง+แท่งแดงยาวหลังขาลง แล้วมี Automatic Rally ยืนยัน
     wyckoff_upthrust         = models.BooleanField(default=False)  # ทะลุแนวต้านฐานแจกจ่ายหลอกๆ แล้วร่วงกลับ — สัญญาณเตือนแจกจ่าย/ขาลง (คู่ตรงข้าม Spring)
 

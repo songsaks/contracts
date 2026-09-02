@@ -2221,10 +2221,43 @@ def precision_momentum_scanner(request):
                             c1 = df.iloc[-2]
                             inside_bar_flag = c0['High'] <= c1['High'] and c0['Low'] >= c1['Low']
 
+                        # ====== Ultra-Precision Phase 1 Indicators ======
+                        htf_setup_flag = False
+                        htf_surge_val = htf_base_val = 0.0
+                        ttm_sq_state = 'none'
+                        ttm_sq_len = 0
+                        ep_flag = False
+                        ep_gap_val = 0.0
+                        is_ext_flag = False
+                        ma50_dist_val = adr_20d_val = 0.0
+                        try:
+                            from stocks.utils.ultra_indicators import (
+                                calculate_htf_setup, calculate_ttm_squeeze,
+                                calculate_episodic_pivot, calculate_avoidance_and_adr
+                            )
+                            htf_setup_flag, htf_surge_val, htf_base_val = calculate_htf_setup(df)
+                            ttm_sq_state, ttm_sq_len = calculate_ttm_squeeze(df)
+                            ep_flag, ep_gap_val = calculate_episodic_pivot(df)
+                            is_ext_flag, ma50_dist_val, adr_20d_val = calculate_avoidance_and_adr(df)
+
+                            if htf_setup_flag:
+                                integrated_score += 15
+                            if ttm_sq_state == 'fired':
+                                integrated_score += 15
+                            elif ttm_sq_state == 'building':
+                                integrated_score += 5
+                            if ep_flag:
+                                integrated_score += 10
+                            if is_ext_flag:
+                                integrated_score -= 15
+                        except Exception:
+                            pass
+
                         if vcp_setup_flag:
                             integrated_score += 10
                             if vcp_tightness_val <= 10:
                                 integrated_score += 5
+
                         
                         # Pocket Pivot
                         if pp_at_ma50_flag:
@@ -2336,7 +2369,19 @@ def precision_momentum_scanner(request):
                             'ehlers_itl_bullish': tech.get('ehlers_itl_bullish', False),
                             'vp_poc_price': tech.get('vp_poc_price', None),
                             'vp_status': tech.get('vp_status') or '',
+                            # Ultra-Precision Phase 1
+                            'htf_setup': htf_setup_flag,
+                            'htf_surge_pct': htf_surge_val,
+                            'htf_base_depth': htf_base_val,
+                            'ttm_squeeze_state': ttm_sq_state,
+                            'ttm_squeeze_length': ttm_sq_len,
+                            'episodic_pivot': ep_flag,
+                            'ep_gap_pct': ep_gap_val,
+                            'is_extended': is_ext_flag,
+                            'ma50_dist_pct': ma50_dist_val,
+                            'adr_20d_pct': adr_20d_val,
                         }
+
 
                     except Exception as e:
                         import logging
@@ -2507,7 +2552,19 @@ def precision_momentum_scanner(request):
                             ehlers_itl_bullish=r.get('ehlers_itl_bullish', False),
                             vp_poc_price=r.get('vp_poc_price'),
                             vp_status=r.get('vp_status') or '',
+                            # Ultra-Precision Phase 1
+                            htf_setup=r.get('htf_setup', False),
+                            htf_surge_pct=r.get('htf_surge_pct', 0.0),
+                            htf_base_depth=r.get('htf_base_depth', 0.0),
+                            ttm_squeeze_state=r.get('ttm_squeeze_state', 'none'),
+                            ttm_squeeze_length=r.get('ttm_squeeze_length', 0),
+                            episodic_pivot=r.get('episodic_pivot', False),
+                            ep_gap_pct=r.get('ep_gap_pct', 0.0),
+                            is_extended=r.get('is_extended', False),
+                            ma50_dist_pct=r.get('ma50_dist_pct', 0.0),
+                            adr_20d_pct=r.get('adr_20d_pct', 0.0),
                         ))
+
 
                     if bulk_candidates:
                         PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
@@ -3149,9 +3206,11 @@ def precision_momentum_scanner(request):
             float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
         ):
             pyramid_ready.add(_c.symbol)
-    context['pyramid_ready'] = pyramid_ready
+    from stocks.utils.market_timing import get_market_timing_status
+    context['market_timing'] = get_market_timing_status(market='SET')
 
     return render(request, 'stocks/precision_scan.html', context)
+
 
 
 # ====== Portfolio Momentum Scan - สแกนเฉพาะหุ้นใน Portfolio ======
@@ -6303,9 +6362,11 @@ def us_precision_scanner(request):
             float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
         ):
             pyramid_ready.add(_c.symbol)
-    context['pyramid_ready'] = pyramid_ready
+    from stocks.utils.market_timing import get_market_timing_status
+    context['market_timing'] = get_market_timing_status(market='US')
 
     return render(request, 'stocks/us_precision_scan.html', context)
+
 
 
 
