@@ -155,7 +155,8 @@
 (function () {
     var _timer = null;
     var _symbol = '{{ symbol|escapejs }}';
-    var _baseUrl = '/stocks/momentum/us/quick-ai/' + encodeURIComponent(_symbol) + '/';
+    var _baseUrl = '{{ poll_url|default:"" }}' || ('/stocks/momentum/us/quick-ai/' + encodeURIComponent(_symbol) + '/');
+
 
     function poll() {
         fetch(_baseUrl + '?mq_status=1', { credentials: 'same-origin' })

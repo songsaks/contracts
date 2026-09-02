@@ -720,20 +720,27 @@ def core_analyze(request, symbol):
 def momentum_quick_analysis(request, symbol):
     """
     Short-term CrewAI multi-agent analysis for a momentum candidate.
-    Returns JSON - designed to be called from a modal (no page reload).
-
-    Flow:
-      1. POST/GET → start background analysis → return {'state': 'running'}
-      2. Poll ?mq_status=1 until {'state': 'done', 'result': '...'}
-      3. Render markdown in modal via marked.js
+    Supports both AJAX modal calls (returns UTF-8 JSON) and direct browser tab navigation (renders HTML page).
     """
     import threading as _th
 
     from django.core.cache import cache as _cp
-    from django.http import JsonResponse as _JR
+    from django.http import JsonResponse
+    from django.shortcuts import render
+
+    def _JR(data, **kwargs):
+        return JsonResponse(data, json_dumps_params={'ensure_ascii': False}, **kwargs)
 
     user_id   = request.user.id
     cache_key = f'mq_analysis_{user_id}_{symbol}'
+
+    # Check if request is AJAX / API call
+    is_json_request = (
+        request.GET.get('mq_status') == '1' or
+        request.GET.get('format') == 'json' or
+        request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+        'application/json' in request.headers.get('accept', '')
+    )
 
     # ── Poll ─────────────────────────────────────────────────────────
     if request.GET.get('mq_status') == '1':
@@ -742,13 +749,22 @@ def momentum_quick_analysis(request, symbol):
 
     # ── Already running ───────────────────────────────────────────────
     cached = _cp.get(cache_key)
-    if cached and cached.get('state') == 'running':
-        return _JR({'state': 'running'})
-
-    # ── Return cached done result ─────────────────────────────────────
-    if cached and cached.get('state') == 'done':
-        _cp.delete(cache_key)
-        return _JR({'state': 'done', 'result': cached.get('result', '')})
+    if cached:
+        if cached.get('state') == 'running':
+            if not is_json_request:
+                return render(request, 'stocks/us_momentum_crew_page.html', {
+                    'symbol': symbol,
+                    'poll_url': request.path,
+                })
+            return _JR({'state': 'running'})
+        if cached.get('state') == 'done':
+            if not is_json_request:
+                return render(request, 'stocks/us_momentum_crew_page.html', {
+                    'symbol': symbol,
+                    'poll_url': request.path,
+                })
+            _cp.delete(cache_key)
+            return _JR({'state': 'done', 'result': cached.get('result', '')})
 
     # ── Collect scan data from Candidate models ───────────────
     scan_data = {}
@@ -839,7 +855,16 @@ def momentum_quick_analysis(request, symbol):
     market = cand.market if cand else 'SET'
     _cp.set(cache_key, {'state': 'running'}, timeout=600)
     _th.Thread(target=_run_bg, args=(cache_key, symbol, scan_data, market, user_id), daemon=True).start()
+
+    if not is_json_request:
+        return render(request, 'stocks/us_momentum_crew_page.html', {
+            'symbol': symbol,
+            'scan_data': scan_data,
+            'poll_url': request.path,
+        })
+
     return _JR({'state': 'running', 'cache_key': cache_key})
+
 
 
 # ====== CrewAI Export - Word / PDF ======

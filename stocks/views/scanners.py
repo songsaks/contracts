@@ -4611,15 +4611,26 @@ Write in Thai language, markdown format:
 def us_momentum_quick_analysis(request, symbol):
     """
     Quick CrewAI multi-agent analysis for a US momentum stock.
-    AJAX endpoint - returns JSON, displayed in a modal.
+    Supports both AJAX modal calls (returns UTF-8 JSON) and direct browser tab navigation (renders HTML page).
     """
     import threading as _th
 
     from django.core.cache import cache as _cp
-    from django.http import JsonResponse as _JR
+    from django.http import JsonResponse
+    from django.shortcuts import render
+
+    def _JR(data, **kwargs):
+        return JsonResponse(data, json_dumps_params={'ensure_ascii': False}, **kwargs)
 
     user_id   = request.user.id
     cache_key = f'us_mq_analysis_{user_id}_{symbol}'
+
+    is_json_request = (
+        request.GET.get('mq_status') == '1' or
+        request.GET.get('format') == 'json' or
+        request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+        'application/json' in request.headers.get('accept', '')
+    )
 
     # Poll
     if request.GET.get('mq_status') == '1':
@@ -4628,8 +4639,18 @@ def us_momentum_quick_analysis(request, symbol):
     cached = _cp.get(cache_key)
     if cached:
         if cached.get('state') == 'running':
+            if not is_json_request:
+                return render(request, 'stocks/us_momentum_crew_page.html', {
+                    'symbol': symbol,
+                    'poll_url': request.path,
+                })
             return _JR({'state': 'running'})
         if cached.get('state') == 'done':
+            if not is_json_request:
+                return render(request, 'stocks/us_momentum_crew_page.html', {
+                    'symbol': symbol,
+                    'poll_url': request.path,
+                })
             _cp.delete(cache_key)
             return _JR({'state': 'done', 'result': cached.get('result', '')})
 
@@ -4689,7 +4710,16 @@ def us_momentum_quick_analysis(request, symbol):
             _c2.set(ckey, {'state': 'done', 'result': f'## Error\n\n{exc}'}, timeout=60)
 
     _th.Thread(target=_run_us_crew, args=(cache_key, symbol, scan_data), daemon=True).start()
+
+    if not is_json_request:
+        return render(request, 'stocks/us_momentum_crew_page.html', {
+            'symbol': symbol,
+            'scan_data': scan_data,
+            'poll_url': request.path,
+        })
+
     return _JR({'state': 'running'})
+
 
 
 @login_required
