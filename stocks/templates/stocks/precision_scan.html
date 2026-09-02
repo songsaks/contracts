@@ -1452,38 +1452,47 @@
                 <div class="d-flex flex-wrap gap-2 align-items-center">
                     <span class="small text-muted fw-bold text-uppercase me-1"><i class="fas fa-bookmark me-1"></i> Quick Presets:</span>
                     
-                    <!-- หมวดที่ 1: ซื้อย่อ / ซุ่มเก็บในฐาน -->
-                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">🛡️ ซื้อย่อ/ในฐาน:</span>
+                    <!-- หมวดที่ 1: ซื้อย่อ / ปลอดภัย -->
+                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">🛡️ ซื้อย่อ/ในโซน:</span>
                     <button type="button" id="preset-pullback" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:700;background:#059669;color:white;border:none;"
-                            title="S2 + อยู่ในโซนซื้อ — หุ้นขาขึ้นย่อตัวในโซนซื้อยังไม่ extended"
+                            title="In Zone + CMF>=0.1 + ACC>DIST + Stage 2 + Safe — หุ้นต้นทุนได้เปรียบ ย่อในโซนซื้อและไม่ extended"
                             onclick="applyPreset('pullback')">1. 🎯 หุ้นย่อในโซนซื้อ</button>
-                    <button type="button" id="preset-base" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
-                            style="font-size:0.7rem;font-weight:600;background:#0d9488;color:white;border:none;"
-                            title="S2 + Pocket Pivot + CMF+≥0.1 + ACC>DIST — สะสมในฐาน สถาบันเก็บของหนาแน่น"
-                            onclick="applyPreset('base')">2. 💙 Base Accumulation</button>
 
                     <span class="text-white-50 opacity-25 mx-1">|</span>
 
-                    <!-- หมวดที่ 2: ตาม Breakout ต้นคลื่น -->
-                    <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">🚀 ต้นคลื่น/Breakout:</span>
+                    <!-- หมวดที่ 2: Ultra-Precision Models (โมเดลชั้นสูง) -->
+                    <span class="badge bg-purple bg-opacity-25 text-purple border border-purple border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600; background:#f3e8ff; color:#7e22ce;">🚀 Ultra-Models:</span>
+                    <button type="button" id="preset-htf_power" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
+                            style="font-size:0.7rem;font-weight:700;background:#dc2626;color:white;border:none;"
+                            title="HTF + Stage 2 + CMF+ >= 0.1 + Safe — หุ้นพุ่ง 100% แล้วพักตัวแคบ เตรียมระเบิดราคาต่อ"
+                            onclick="applyPreset('htf_power')">2. 🚀 HTF Power Play</button>
+                    <button type="button" id="preset-squeeze_fired_preset" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
+                            style="font-size:0.7rem;font-weight:700;background:#16a34a;color:white;border:none;"
+                            title="Squeeze Fired + Stage 2 + Vol Surge — หุ้นเพิ่งจุดชนวนระเบิดความผันผวนหลุดกรอบวันแรก"
+                            onclick="applyPreset('squeeze_fired_preset')">3. ⚡ Squeeze Fired</button>
+                    <button type="button" id="preset-episodic_pivot_preset" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
+                            style="font-size:0.7rem;font-weight:700;background:#059669;color:white;border:none;"
+                            title="Episodic Pivot + CMF+ >= 0.1 + Stage 2 — หุ้นเปิด Gap Up +4.5%+ พร้อม Vol 3x+ จากงบ/ข่าวใหญ่"
+                            onclick="applyPreset('episodic_pivot_preset')">4. 💥 Episodic Pivot</button>
+
+                    <span class="text-white-50 opacity-25 mx-1">|</span>
+
+                    <!-- หมวดที่ 3: เกรด A+ & Breakout -->
+                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">💥 Super & Breakout:</span>
+                    <button type="button" id="preset-super" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
+                            style="font-size:0.7rem;font-weight:700;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;border:none;"
+                            title="Trend Template + Sector Confirmed + CMF + ACC + Safe — หุ้นเกรด A+ คุณภาพสูงสุด"
+                            onclick="applyPreset('super')">5. 💣 รวมหุ้นเกรด A+</button>
                     <button type="button" id="preset-fast_swing" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;background:#ec4899;color:white;border:none;"
-                            title="S2 + Breakout วันนี้ (Buy Now) + Vol Surge"
-                            onclick="applyPreset('fast_swing')">3. 🔥 Breakout วันนี้ (Buy Now)</button>
-
-                    <span class="text-white-50 opacity-25 mx-1">|</span>
-
-                    <!-- หมวดที่ 3: สายซิ่ง / หุ้นผู้นำพอร์ต -->
-                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">💥 สายซิ่ง/ผู้นำ:</span>
-                    <button type="button" id="preset-high_momentum" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
-                            style="font-size:0.7rem;font-weight:600;background:#dc2626;color:white;border:none;"
-                            title="S2 + Vol Surge + Ichimoku≥3 + CMF+≥0.1 + Trend Template + Sector Confirmed"
-                            onclick="applyPreset('high_momentum')">4. ⚡ High Momentum</button>
+                            title="Stage 2 + Breakout วันนี้ (Buy Now)"
+                            onclick="applyPreset('fast_swing')">6. 🔥 Breakout วันนี้</button>
 
                     <button type="button" id="preset-clear" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;"
                             onclick="applyPreset('clear')">✕ Clear</button>
+
                 </div>
                 <!-- Active preset condition display -->
                 <div id="activePresetBar" style="display:none;margin-top:6px;" class="d-flex flex-wrap gap-1 align-items-center">
@@ -3772,36 +3781,52 @@ function applyPreset(presetType) {
     const buyable    = document.getElementById('buyableFilterSET');
     const trendTemplate = document.getElementById('trendTemplateFilterSET');
     const sectorConfirmed = document.getElementById('sectorConfirmedFilterSET');
+    const htf        = document.getElementById('htfFilterSET');
+    const squeezeFired = document.getElementById('squeezeFiredFilterSET');
+    const squeezeOn  = document.getElementById('squeezeOnFilterSET');
+    const ep         = document.getElementById('epFilterSET');
+    const safe       = document.getElementById('safeFilterSET');
 
     // Reset all
-    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, insideBar, accDist, buyable, trendTemplate, sectorConfirmed].forEach(el => {
+    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, insideBar, accDist, buyable, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe].forEach(el => {
         if (el) el.checked = false;
     });
 
-    if (presetType === 'base') {
-        // Stage 2 + Pocket Pivot + CMF+ (≥0.1) + ACC > DIST
-        if (stage2)  stage2.checked  = true;
-        if (pp)      pp.checked      = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (accDist) accDist.checked = true;
-    } else if (presetType === 'high_momentum') {
-        // Stage 2 + Vol Surge + Ichimoku ≥ 3 + CMF+ (≥0.1) + Trend Template + Sector Confirmed
-        if (stage2)  stage2.checked  = true;
-        if (vol)     vol.checked     = true;
-        if (ichi)    ichi.checked    = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (trendTemplate) trendTemplate.checked = true;
-        if (sectorConfirmed) sectorConfirmed.checked = true;
-    } else if (presetType === 'fast_swing') {
-        // Stage 2 + BUY NOW
-        if (stage2) stage2.checked = true;
-        if (buynow) buynow.checked = true;
-    } else if (presetType === 'pullback') {
-        // Stage 2 + อยู่ในโซนซื้อ (In Zone) + CMF+ (≥0.1) + ACC > DIST
+    if (presetType === 'pullback') {
+        // อยู่ในโซนซื้อ (In Zone) + CMF+ (≥0.1) + ACC > DIST + Stage 2 + Safe
         if (stage2)  stage2.checked  = true;
         if (buyable) buyable.checked = true;
         if (cmfPos)  cmfPos.checked  = true;
         if (accDist) accDist.checked = true;
+        if (safe)    safe.checked    = true;
+    } else if (presetType === 'htf_power') {
+        // HTF Power Play + Stage 2 + CMF+ (≥0.1) + Safe
+        if (htf)     htf.checked     = true;
+        if (stage2)  stage2.checked  = true;
+        if (cmfPos)  cmfPos.checked  = true;
+        if (safe)    safe.checked    = true;
+    } else if (presetType === 'squeeze_fired_preset') {
+        // Squeeze Fired + Stage 2 + Vol Surge
+        if (squeezeFired) squeezeFired.checked = true;
+        if (stage2)       stage2.checked       = true;
+        if (vol)          vol.checked          = true;
+    } else if (presetType === 'episodic_pivot_preset') {
+        // Episodic Pivot + CMF+ (≥0.1) + Stage 2
+        if (ep)      ep.checked      = true;
+        if (cmfPos)  cmfPos.checked  = true;
+        if (stage2)  stage2.checked  = true;
+    } else if (presetType === 'super') {
+        // Super Grade A+: Trend Template + Sector Confirmed + CMF+ (≥0.1) + ACC > DIST + Safe
+        if (trendTemplate)   trendTemplate.checked   = true;
+        if (sectorConfirmed) sectorConfirmed.checked = true;
+        if (cmfPos)          cmfPos.checked          = true;
+        if (accDist)         accDist.checked         = true;
+        if (safe)            safe.checked            = true;
+        if (stage2)          stage2.checked          = true;
+    } else if (presetType === 'fast_swing') {
+        // Breakout วันนี้ (Buy Now) + Stage 2
+        if (buynow) buynow.checked = true;
+        if (stage2) stage2.checked = true;
     }
 
 
@@ -3828,14 +3853,17 @@ function applyPreset(presetType) {
 }
 
 var PRESET_CONDITIONS_SET = {
-    'base':             ['S2','Pocket Pivot','CMF+≥0.1','ACC>DIST'],
-    'high_momentum':    ['S2','Vol Surge≥1.5x','Ichimoku≥3','CMF+≥0.1','📐 Trend Template ≥7/8','👥 Sector Confirmed'],
-    'fast_swing':       ['S2','BUY NOW'],
-    'pullback':         ['S2','อยู่ในโซนซื้อ'],
+    'pullback':              ['Stage 2', 'In Zone', 'CMF+≥0.1', 'ACC>DIST', '🛡️ Safe'],
+    'htf_power':             ['🚩 HTF', 'Stage 2', 'CMF+≥0.1', '🛡️ Safe'],
+    'squeeze_fired_preset':  ['⚡ Squeeze Fired!', 'Stage 2', 'Vol Surge'],
+    'episodic_pivot_preset': ['💥 Episodic Pivot', 'CMF+≥0.1', 'Stage 2'],
+    'super':                 ['Trend Template ≥7/8', 'Sector Confirmed', 'CMF+≥0.1', 'ACC>DIST', '🛡️ Safe'],
+    'fast_swing':            ['Breakout วันนี้ (Buy Now)', 'Stage 2'],
 };
 var PRESET_COLORS_SET = {
-    'base':'#059669','high_momentum':'#dc2626','fast_swing':'#ec4899','pullback':'#059669'
+    'pullback':'#059669', 'htf_power':'#dc2626', 'squeeze_fired_preset':'#16a34a', 'episodic_pivot_preset':'#059669', 'super':'#7c3aed', 'fast_swing':'#ec4899'
 };
+
 
 function _showPresetBarSET(presetType) {
     const bar  = document.getElementById('activePresetBar');
@@ -4067,8 +4095,9 @@ function _highlightPresetSET(presetType) {
 // ── Preset match counts on buttons ────────────────────────────────────
 function _updatePresetCountsSET() {
     var rows = document.querySelectorAll('#scanTableSET tbody tr');
-    var counts = { super: 0, launcher_breakout: 0, base: 0, high_momentum: 0, safety: 0, fast_swing: 0, pullback: 0 };
+    var counts = { pullback: 0, htf_power: 0, squeeze_fired_preset: 0, episodic_pivot_preset: 0, super: 0, fast_swing: 0 };
     rows.forEach(function(row) {
+
         var d = row.dataset;
         var s2 = d.stage2 === 'true';
         var pp = d.pp === 'true';
@@ -4077,37 +4106,19 @@ function _updatePresetCountsSET() {
         var canslim = d.canslim === 'true';
         var accDays = parseInt(d.accDays || '0');
         var distDays = parseInt(d.distDays || '0');
-        var accPos = accDays > distDays && accDays >= 4;   // เกณฑ์เดียวกับ badge ACC{n}d ในตาราง
-        var launcher = parseInt(d.launcher || '0');
-        var insideBar = d.insideBar === 'true';
-        var vsrg = d.volsurge === 'true';
-        var ichi = parseInt(d.ichi || '0');
-        var rsi = parseFloat(d.rsi || '0');
-        var itl = d.itl === 'true';
-        var rvol = parseFloat(d.rvol || '0');
-        var turtleDist = parseFloat(d.turtleDist || '99.0');
-        var buyNow = rvol >= 1.5 && turtleDist <= 0.5;
-        var inzone = d.inzone === 'true';
-        var prox = parseFloat(d.prox || '99');
-        var price = parseFloat(d.price || '0');
-        var ma50 = parseFloat(d.ma50 || '0');
-        var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-        // ตัดเงื่อนไข catch-all (nearMa50/turtleDist + cmf>=-0.05) ออก เหลือแค่อยู่ในโซนซื้อจริงๆ
-        // และต้องมีแรงซื้อ/เงินไหลเข้ายืนยัน (RVOL≥1.2, CMF≥0) กันสัญญาณหลอกที่ราคาแตะโซนแต่ไม่มี volume รองรับ
-        var buyable = (inzone || prox <= 5) && rvol >= 1.2 && cmf >= 0;
-        var ttScore = parseInt(d.ttScore || '0');
-        var sectorConfirmed = d.sectorConfirmed === 'true';
+        var htf = d.htf === 'true';
+        var ttmSq = d.ttmSq || 'none';
+        var ep = d.ep === 'true';
+        var extended = d.extended === 'true';
 
-        // เงื่อนไขต้องตรงกับ applyPreset()/_applyFiltersSET() ทุกตัว ไม่งั้นตัวเลข badge จะไม่ตรงกับผลกรองจริง
-        // หมายเหตุ: At POC Only ถูกแยกเป็น filter เดี่ยว ไม่ผูกกับ preset ไหนแล้ว
-        if (s2 && pp && cmf >= 0.1 && vcp && canslim && accPos && ttScore >= 7 && sectorConfirmed) counts.super++;
-        if (s2 && launcher >= 70 && vcp && insideBar)                                             counts.launcher_breakout++;
-        if (s2 && pp && cmf >= 0.1 && accPos)                                                      counts.base++;
-        if (s2 && vsrg && ichi >= 3 && cmf >= 0.1 && ttScore >= 7 && sectorConfirmed)              counts.high_momentum++;
-        if (rsi < 70 && s2 && itl && buyNow)                                                       counts.safety++;
-        if (s2 && buyNow)                                                                          counts.fast_swing++;
-        if (s2 && buyable && cmf >= 0.1 && accPos)                                                  counts.pullback++;
+        if (s2 && buyable && cmf >= 0.1 && accPos && !extended)                           counts.pullback++;
+        if (htf && s2 && cmf >= 0.1 && !extended)                                         counts.htf_power++;
+        if (ttmSq === 'fired' && s2 && vsrg)                                             counts.squeeze_fired_preset++;
+        if (ep && cmf >= 0.1 && s2)                                                      counts.episodic_pivot_preset++;
+        if (ttScore >= 7 && sectorConfirmed && cmf >= 0.1 && accPos && !extended && s2)  counts.super++;
+        if (s2 && buyNow)                                                                counts.fast_swing++;
     });
+
 
     Object.keys(counts).forEach(function(k) {
         var btn = document.getElementById('preset-' + k);
