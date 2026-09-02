@@ -3770,10 +3770,13 @@ function applyPreset(presetType) {
         if (stage2) stage2.checked = true;
         if (buynow) buynow.checked = true;
     } else if (presetType === 'pullback') {
-        // Stage 2 + อยู่ในโซนซื้อ (ซื้อได้ตอนนี้)
+        // Stage 2 + อยู่ในโซนซื้อ (In Zone) + CMF+ (≥0.1) + ACC > DIST
         if (stage2)  stage2.checked  = true;
         if (buyable) buyable.checked = true;
+        if (cmfPos)  cmfPos.checked  = true;
+        if (accDist) accDist.checked = true;
     }
+
 
     // Update active button visual states
     document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -4067,8 +4070,9 @@ function _updatePresetCountsSET() {
         if (s2 && vsrg && ichi >= 3 && cmf >= 0.1 && ttScore >= 7 && sectorConfirmed)              counts.high_momentum++;
         if (rsi < 70 && s2 && itl && buyNow)                                                       counts.safety++;
         if (s2 && buyNow)                                                                          counts.fast_swing++;
-        if (s2 && buyable)                                                                         counts.pullback++;
+        if (s2 && buyable && cmf >= 0.1 && accPos)                                                  counts.pullback++;
     });
+
     Object.keys(counts).forEach(function(k) {
         var btn = document.getElementById('preset-' + k);
         if (!btn) return;
