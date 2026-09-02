@@ -3481,8 +3481,23 @@ function _applyFiltersUS() {
                 if (currentHorizonFilterUS === 'long' && !isLong) show = false;
             }
 
+            // Apply Ultra-Precision Model Filter
+            if (show) {
+                var htf = row.dataset.htf === 'true';
+                var ttmSq = row.dataset.ttmSq || 'none';
+                var ep = row.dataset.ep === 'true';
+                var extended = row.dataset.extended === 'true';
+
+                if (currentUltraFilterUS === 'htf' && !htf) show = false;
+                if (currentUltraFilterUS === 'squeeze_fired' && ttmSq !== 'fired') show = false;
+                if (currentUltraFilterUS === 'squeeze_building' && ttmSq !== 'building') show = false;
+                if (currentUltraFilterUS === 'ep' && !ep) show = false;
+                if (currentUltraFilterUS === 'safe' && extended) show = false;
+            }
+
             row.style.display = show ? '' : 'none';
             if (show) visible++;
+
         });
         
         console.log("Filtered visible count:", visible);
@@ -4066,7 +4081,10 @@ function pollPrecisionStatus() {
         });
 }
 
+var currentUltraFilterUS = 'all';
+
 function filterUltraUS(type, btn) {
+    currentUltraFilterUS = type;
     var buttons = document.querySelectorAll('#ultraFilterUS .btn-ultra-filter');
     buttons.forEach(function(b) {
         b.classList.remove('active');
@@ -4075,35 +4093,9 @@ function filterUltraUS(type, btn) {
     btn.classList.add('active');
     btn.style.opacity = '1.0';
 
-    var rows = document.querySelectorAll('#scanTableUS tbody tr');
-    rows.forEach(function(row) {
-        var htf = row.getAttribute('data-htf') === 'true';
-        var ttmSq = row.getAttribute('data-ttm-sq');
-        var ep = row.getAttribute('data-ep') === 'true';
-        var extended = row.getAttribute('data-extended') === 'true';
-
-        var show = false;
-        if (type === 'all') {
-            show = true;
-        } else if (type === 'htf') {
-            show = htf;
-        } else if (type === 'squeeze_fired') {
-            show = (ttmSq === 'fired');
-        } else if (type === 'squeeze_building') {
-            show = (ttmSq === 'building');
-        } else if (type === 'ep') {
-            show = ep;
-        } else if (type === 'safe') {
-            show = !extended;
-        }
-
-        if (show) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+    _applyFiltersUS();
 }
+
 
 function confirmRescanPrecision() {
 
