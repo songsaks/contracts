@@ -2231,10 +2231,11 @@ def precision_momentum_scanner(request):
                         is_ext_flag = False
                         ma50_dist_val = adr_20d_val = 0.0
                         try:
-                            from stocks.utils.ultra_indicators import (
+                            from stocks.ultra_indicators import (
                                 calculate_htf_setup, calculate_ttm_squeeze,
                                 calculate_episodic_pivot, calculate_avoidance_and_adr
                             )
+
                             htf_setup_flag, htf_surge_val, htf_base_val = calculate_htf_setup(df)
                             ttm_sq_state, ttm_sq_len = calculate_ttm_squeeze(df)
                             ep_flag, ep_gap_val = calculate_episodic_pivot(df)
@@ -3206,8 +3207,9 @@ def precision_momentum_scanner(request):
             float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
         ):
             pyramid_ready.add(_c.symbol)
-    from stocks.utils.market_timing import get_market_timing_status
+    from stocks.market_timing import get_market_timing_status
     context['market_timing'] = get_market_timing_status(market='SET')
+
 
     return render(request, 'stocks/precision_scan.html', context)
 
@@ -6362,8 +6364,9 @@ def us_precision_scanner(request):
             float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
         ):
             pyramid_ready.add(_c.symbol)
-    from stocks.utils.market_timing import get_market_timing_status
+    from stocks.market_timing import get_market_timing_status
     context['market_timing'] = get_market_timing_status(market='US')
+
 
     return render(request, 'stocks/us_precision_scan.html', context)
 
