@@ -1,7 +1,7 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
 
-{% block title %}CrewAI — {{ symbol }} US Analysis{% endblock %}
+{% block title %}CrewAI — {{ symbol }} {% if market == 'US' %}US{% endif %} Analysis{% endblock %}
 
 {% block content %}
 <div class="container py-4" style="max-width:900px;">
@@ -10,26 +10,33 @@
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
-                <span style="font-size:1.4rem;">🇺🇸</span>
+                <span style="font-size:1.4rem;">{% if market == 'US' %}🇺🇸{% else %}🇹🇭{% endif %}</span>
                 <h2 class="fw-bold mb-0" style="color:#1e293b;letter-spacing:-0.025em;">
                     CrewAI Analysis — <span style="color:#3b82f6;">{{ symbol }}</span>
                 </h2>
             </div>
             <p class="text-muted small mb-0">
                 <i class="fas fa-robot me-1" style="color:#6366f1;"></i>
-                3 US Expert Agents · Technical · Risk · Catalyst
+                {% if market == 'US' %}3 US Expert Agents{% else %}3 Expert Agents{% endif %} · Technical · Risk · Catalyst
             </p>
         </div>
         <div class="d-flex gap-2">
+            {% if market == 'US' %}
             <a href="{% url 'stocks:us_momentum_scanner' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                 <i class="fas fa-arrow-left me-1"></i> กลับ US Scanner
             </a>
-            <a href="{% url 'stocks:entry_finder' symbol %}?market=US" target="_blank"
+            {% else %}
+            <a href="{% url 'stocks:minervini_sepa_scanner' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <i class="fas fa-arrow-left me-1"></i> กลับ SET Scanner
+            </a>
+            {% endif %}
+            <a href="{% url 'stocks:entry_finder' symbol %}{% if market == 'US' %}?market=US{% endif %}" target="_blank"
                class="btn btn-sm rounded-pill px-3" style="background:#ef4444;color:white;border:none;">
                 <i class="fas fa-crosshairs me-1"></i> Entry Finder
             </a>
         </div>
     </div>
+
 
     <!-- Scan data summary card -->
     {% if scan_data %}

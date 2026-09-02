@@ -664,7 +664,7 @@
                             <div><span class="checkmark-green">✓</span> Vol Surge {{ item.rvol|floatformat:1 }}x</div>
                             {% if item.vcp_setup %}<div><span class="checkmark-red">✓</span> VCP {{ item.vcp_contractions }}T (Tight)</div>{% endif %}
                         </div>
-                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100 qualified-btn">Sniper Chart</a>
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}?market=US" class="btn btn-sm w-100 qualified-btn">Sniper Chart</a>
                     </div>
                 </div>
                 {% endfor %}
@@ -705,7 +705,8 @@
                             <div><span class="checkmark-green">✓</span> ADX {{ item.adx|floatformat:0 }}</div>
                             {% if item.launcher_score > 0 %}<div><span style="color:#dc2626;font-weight:700;">🚀</span> L Score {{ item.launcher_score }}</div>{% endif %}
                         </div>
-                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100 recommendation-btn">Sniper Chart</a>
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}?market=US" class="btn btn-sm w-100 recommendation-btn">Sniper Chart</a>
+
                     </div>
                 </div>
                 {% endfor %}
@@ -2444,7 +2445,8 @@
                                     </a>
                                     <a href="{% url 'stocks:analyze' item.symbol %}" class="btn btn-outline-primary btn-sm action-btn-sm" style="font-size:0.65rem;" target="_blank" title="AI Fast Summary"><i class="fas fa-magic"></i></a>
                                     <a href="{% url 'stocks:crew_analyze' item.symbol %}" class="btn btn-warning btn-sm action-btn-sm fw-bold text-dark" style="font-size:0.65rem;" target="_blank" title="CrewAI Agent Analysis (Deep)"><i class="fas fa-robot"></i></a>
-                                    <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
+                                    <a href="{% url 'stocks:entry_finder' item.symbol %}?market=US" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
+
                                     <a href="{% url 'stocks:stock_chart' item.symbol %}?market=US" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line"></i></a>
                                     <button class="btn btn-sm action-btn-sm watchlist-toggle-btn"
                                             data-symbol="{{ item.symbol }}"
