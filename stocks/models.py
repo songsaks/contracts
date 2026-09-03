@@ -538,6 +538,43 @@ class PrecisionScanCandidate(models.Model):
             return None
 
     @property
+    def rec_entered(self):
+        """REC อยู่ในจังหวะ 'เข้า/ถือ' จริง (ไม่ใช่ 'รอราคาย่อเข้าโซน')
+        ใช้ตัดสินใจว่าจะโชว์กฎ trailing stop หรือไม่ — logic ตรงกับสถานะที่ REC cell แสดง"""
+        try:
+            p = float(self.price or 0)
+        except (TypeError, ValueError):
+            return False
+        if p <= 0:
+            return False
+        # Breakout Buy
+        _td = self.turtle_dist_pct if self.turtle_dist_pct is not None else 99.0
+        if (self.rvol or 0) >= 1.5 and _td <= 0.5:
+            return True
+        # Buy Zone (ราคาอยู่ในโซนรับ)
+        if self.demand_zone_start and self.demand_zone_end and self.demand_zone_end <= p <= self.demand_zone_start:
+            return True
+        # ถืออยู่ / ถึงเป้า (ราคาเลยโซน supply)
+        if self.supply_zone_start and p >= self.supply_zone_start:
+            return True
+        return False
+
+    @property
+    def show_kacher_stop(self):
+        """โชว์กฎ trailing stop ของ Kacher-Morales เฉพาะเมื่อ
+        (1) มี Pocket Pivot จริง  (2) อยู่ในจังหวะเข้า/ถือ  (3) มี MA50"""
+        return bool((self.ma50 or 0) > 0 and self.rec_entered
+                    and (self.pocket_pivot or getattr(self, 'pp_at_ma50', False)))
+
+    @property
+    def kacher_stop_broken(self):
+        """ราคาปิดต่ำกว่า MA50 แล้ว = trailing stop โดนแล้ว (ไม่ควรเข้าใหม่)"""
+        try:
+            return (self.ma50 or 0) > 0 and float(self.price or 0) < float(self.ma50)
+        except (TypeError, ValueError):
+            return False
+
+    @property
     def ehlers_pattern_data(self):
         from .utils import classify_ehlers_pattern
         return classify_ehlers_pattern(

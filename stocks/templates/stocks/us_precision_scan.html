@@ -1173,7 +1173,7 @@
                                     <div class="col-md-6">
                                         <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#faf5ff;">
                                             <span class="badge flex-shrink-0 shadow-sm" style="background:linear-gradient(135deg,#8E2DE2,#4A00E0);color:white;font-size:0.62rem;">PK ⚡</span>
-                                            <div><strong>Pocket Pivot</strong> — Volume วันขาขึ้นวันนี้ มากกว่า Volume วันขาลงสูงสุดใน 10 วันที่ผ่านมา เป็นสัญญาณว่าสถาบันเริ่มเข้าซื้อเงียบๆ ภายในฐาน คิดค้นโดย Chris Kacher & Gil Morales (ลูกศิษย์ O'Neil)</div>
+                                            <div><strong>Pocket Pivot</strong> — Volume วันขาขึ้นวันนี้ มากกว่า Volume วันขาลงสูงสุดใน 10 วันที่ผ่านมา (ถ้าไม่มีวันลงเลย ขยายเป็น 20 วัน) <u>และ</u>ต้องอยู่ในบริบทฐาน/ต้นขาขึ้น: SMA10 &gt; SMA50, ราคาไม่ยืดเกิน 25% เหนือ SMA50, แท่งปิดครึ่งบน — กันสัญญาณหลอกตอนราคาวิ่งมาไกลแล้ว คิดค้นโดย Chris Kacher &amp; Gil Morales (ลูกศิษย์ O'Neil)</div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -1964,7 +1964,7 @@
                                         {% if item.pp_at_ma50 %}
                                         <span class="badge px-1 py-0 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid #fbbf24; font-size: 0.6rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;" title="Pocket Pivot แท้ (Dr.K): เด้งจากแนวรับ SMA50 ในฐาน + CMF ≥ 0 (สถาบันไม่กระจายของ) — คุณภาพสูงสุด">PK<i class="fas fa-star ms-1" style="font-size:0.5rem;color:#fbbf24;"></i></span>
                                         {% else %}
-                                        <span class="badge px-1 py-0 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 0.6rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน (ยังไม่ยืน SMA50)">PK <i class="fas fa-bolt ms-1" style="font-size:0.5rem;"></i></span>
+                                        <span class="badge px-1 py-0 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 0.6rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน + อยู่ในฐาน/ต้นขาขึ้น (SMA10>SMA50, ไม่ยืดเกิน 25% เหนือ SMA50, แท่งปิดครึ่งบน) แต่ยังไม่ยืน SMA50 แบบเด้งจากแนวรับ">PK <i class="fas fa-bolt ms-1" style="font-size:0.5rem;"></i></span>
                                         {% endif %}
                                         {% endif %}
                                         {% if item.vdu_near_zone %}
@@ -2478,8 +2478,10 @@
                                     <div class="fw-bold mb-1">
                                         {% if item.rvol >= 1.5 and item.turtle_dist_pct <= 0.5 %}
                                             <span class="text-danger"><i class="fas fa-rocket"></i> ทะลุแนวต้าน! (Breakout Buy)</span>
+                                            {% if item.kacher_stop_broken %}<div style="font-size:0.66rem;color:#dc2626;font-weight:600;"><i class="fas fa-triangle-exclamation"></i> ราคาต่ำกว่า MA50 {{ item.ma50|floatformat:2 }} — ยังไม่ควรเข้าใหม่</div>{% endif %}
                                         {% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                                             <span class="text-success"><i class="fas fa-fire"></i> ถึงจุดยิง! (Buy Zone)</span>
+                                            {% if item.kacher_stop_broken %}<div style="font-size:0.66rem;color:#dc2626;font-weight:600;"><i class="fas fa-triangle-exclamation"></i> ราคาต่ำกว่า MA50 {{ item.ma50|floatformat:2 }} — ยังไม่ควรเข้าใหม่</div>{% endif %}
                                         {% elif item.supply_zone_start and item.price >= item.supply_zone_start %}
                                             {% if item.ehlers_pattern_data and item.ehlers_pattern_data.num == 1 and not item.exit_signal %}
                                             <span style="color:#059669;"><i class="fas fa-person-running"></i> RUN TREND — เลิกใช้ TP</span>
@@ -2499,10 +2501,13 @@
                                         {% endfor %}
                                     </div>
                                     {% endif %}
-                                    {% if item.ma50 > 0 %}
-                                    <div style="font-size:0.68rem;color:#7c3aed;border-top:1px dashed #e2e8f0;margin-top:3px;padding-top:3px;" title="กฎขายตามตำรา Dr.K / Kacher-Morales: หลังซื้อจาก Pocket Pivot ให้ถือตราบใดที่ราคายืนเหนือเส้นค่าเฉลี่ย — ปิดต่ำกว่า SMA50 = ขายทำกำไร (สายสั้นใช้ SMA10)">
-                                        <i class="fas fa-wave-square"></i> ขายเมื่อหลุด: <b>MA50 {{ item.ma50|floatformat:2 }}</b>{% if item.ma10 > 0 %} <span class="text-muted">/ MA10 {{ item.ma10|floatformat:2 }}</span>{% endif %}
-                                        {% if item.price < item.ma50 %}<span class="badge ms-1" style="background:rgba(220,38,38,0.12);color:#dc2626;font-size:0.55rem;">หลุดแล้ว</span>{% endif %}
+                                    {% if item.show_kacher_stop %}
+                                    <div style="font-size:0.68rem;color:#7c3aed;border-top:1px dashed #e2e8f0;margin-top:3px;padding-top:3px;" title="กฎ trailing stop ตามตำรา Kacher-Morales: หลังเข้าซื้อจาก Pocket Pivot ให้ถือตราบใดที่ราคายืนเหนือเส้นค่าเฉลี่ย — ปิดต่ำกว่า SMA50 = ตัดขาดทุน/ทำกำไร (สายสั้นใช้ SMA10) — เป็นเงื่อนไข ไม่ใช่คำสั่งขายทันที">
+                                        {% if item.kacher_stop_broken %}
+                                        <i class="fas fa-wave-square"></i> <span class="text-danger fw-bold">หลุด MA50 {{ item.ma50|floatformat:2 }} แล้ว — ตัดขาดทุน</span>
+                                        {% else %}
+                                        <i class="fas fa-wave-square"></i> ถ้าเข้าแล้ว — ตัดขาดทุนเมื่อปิดต่ำกว่า <b>MA50 {{ item.ma50|floatformat:2 }}</b>{% if item.ma10 > 0 %} <span class="text-muted">(สายสั้น MA10 {{ item.ma10|floatformat:2 }})</span>{% endif %}
+                                        {% endif %}
                                     </div>
                                     {% endif %}
                                 {% else %}

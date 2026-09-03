@@ -2090,19 +2090,40 @@ def precision_momentum_scanner(request):
                                     _prior_prev_c = closes[_start - 1:_end - 1]
                                     _down_mask = _prior_c < _prior_prev_c
                                     if not _down_mask.any():
-                                        continue
+                                        # ไม่มีวันลงใน 10 วัน → ขยาย lookback เป็น 20 วัน (Morales & Kacher fallback)
+                                        _start = len(volumes) + _i - 20
+                                        if _start < 1:
+                                            continue
+                                        _prior_v = volumes[_start:_end]
+                                        _prior_c = closes[_start:_end]
+                                        _prior_prev_c = closes[_start - 1:_end - 1]
+                                        _down_mask = _prior_c < _prior_prev_c
+                                        if not _down_mask.any():
+                                            continue
                                     _max_down_vol = float(_prior_v[_down_mask].max())
                                     if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
-                                        pocket_pivot_flag = True
-                                        # PP-at-MA50 (⭐): ต้องครบ 3 เงื่อนไข —
-                                        #   1) ราคายืนเหนือ SMA50 ไม่เกิน 8% (เด้งจากแนวรับในฐาน)
-                                        #   2) CMF ≥ 0 (เงินสถาบันไม่ได้กำลังกระจายของ)
-                                        # ป้องกันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution
-                                        _pp_cmf = tech.get('cmf', 0.0) or 0.0
-                                        if ma50_val > 0 and _pp_cmf >= 0:
-                                            _pp_close = float(closes[_i])
-                                            if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
-                                                pp_at_ma50_flag = True
+                                        _pp_close = float(closes[_i])
+                                        # ====== Context filter (Morales & Kacher) — PP ต้องอยู่ในฐาน/ต้นขาขึ้น ======
+                                        #   • โครงสร้างขาขึ้น: SMA10 > SMA50
+                                        #   • ไม่ยืด: ราคาปิดเหนือ SMA50 ไม่เกิน 25% (กันจุดที่ราคาวิ่งมาไกลแล้ว)
+                                        #   • แท่งสัญญาณปิดครึ่งบนของช่วงราคา (ไม่ใช่แท่งกลับตัว/ไส้ยาว)
+                                        try:
+                                            _pp_hi = float(df['High'].values[_i]); _pp_lo = float(df['Low'].values[_i])
+                                            _upper_half = (_pp_hi - _pp_lo) <= 0 or (_pp_close - _pp_lo) / (_pp_hi - _pp_lo) >= 0.5
+                                        except Exception:
+                                            _upper_half = True
+                                        _uptrend_struct = ma10_val > 0 and ma50_val > 0 and ma10_val > ma50_val
+                                        _not_extended = ma50_val <= 0 or (_pp_close - ma50_val) / ma50_val <= 0.25
+                                        if _uptrend_struct and _not_extended and _upper_half:
+                                            pocket_pivot_flag = True
+                                            # PP-at-MA50 (⭐): ต้องครบเงื่อนไขเพิ่ม —
+                                            #   1) ราคายืนเหนือ SMA50 ไม่เกิน 8% (เด้งจากแนวรับในฐาน)
+                                            #   2) CMF ≥ 0 (เงินสถาบันไม่ได้กำลังกระจายของ)
+                                            # ป้องกันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution
+                                            _pp_cmf = tech.get('cmf', 0.0) or 0.0
+                                            if ma50_val > 0 and _pp_cmf >= 0:
+                                                if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
+                                                    pp_at_ma50_flag = True
                                         break
                         except Exception:
                             pass
@@ -5306,19 +5327,40 @@ def us_precision_scanner(request):
                                     _prior_prev_c = closes[_start - 1:_end - 1]
                                     _down_mask = _prior_c < _prior_prev_c
                                     if not _down_mask.any():
-                                        continue
+                                        # ไม่มีวันลงใน 10 วัน → ขยาย lookback เป็น 20 วัน (Morales & Kacher fallback)
+                                        _start = len(volumes) + _i - 20
+                                        if _start < 1:
+                                            continue
+                                        _prior_v = volumes[_start:_end]
+                                        _prior_c = closes[_start:_end]
+                                        _prior_prev_c = closes[_start - 1:_end - 1]
+                                        _down_mask = _prior_c < _prior_prev_c
+                                        if not _down_mask.any():
+                                            continue
                                     _max_down_vol = float(_prior_v[_down_mask].max())
                                     if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
-                                        pocket_pivot_flag = True
-                                        # PP-at-MA50 (⭐): ต้องครบ 3 เงื่อนไข —
-                                        #   1) ราคายืนเหนือ SMA50 ไม่เกิน 8% (เด้งจากแนวรับในฐาน)
-                                        #   2) CMF ≥ 0 (เงินสถาบันไม่ได้กำลังกระจายของ)
-                                        # ป้องกันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution
-                                        _pp_cmf = tech.get('cmf', 0.0) or 0.0
-                                        if ma50_val > 0 and _pp_cmf >= 0:
-                                            _pp_close = float(closes[_i])
-                                            if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
-                                                pp_at_ma50_flag = True
+                                        _pp_close = float(closes[_i])
+                                        # ====== Context filter (Morales & Kacher) — PP ต้องอยู่ในฐาน/ต้นขาขึ้น ======
+                                        #   • โครงสร้างขาขึ้น: SMA10 > SMA50
+                                        #   • ไม่ยืด: ราคาปิดเหนือ SMA50 ไม่เกิน 25% (กันจุดที่ราคาวิ่งมาไกลแล้ว)
+                                        #   • แท่งสัญญาณปิดครึ่งบนของช่วงราคา (ไม่ใช่แท่งกลับตัว/ไส้ยาว)
+                                        try:
+                                            _pp_hi = float(df['High'].values[_i]); _pp_lo = float(df['Low'].values[_i])
+                                            _upper_half = (_pp_hi - _pp_lo) <= 0 or (_pp_close - _pp_lo) / (_pp_hi - _pp_lo) >= 0.5
+                                        except Exception:
+                                            _upper_half = True
+                                        _uptrend_struct = ma10_val > 0 and ma50_val > 0 and ma10_val > ma50_val
+                                        _not_extended = ma50_val <= 0 or (_pp_close - ma50_val) / ma50_val <= 0.25
+                                        if _uptrend_struct and _not_extended and _upper_half:
+                                            pocket_pivot_flag = True
+                                            # PP-at-MA50 (⭐): ต้องครบเงื่อนไขเพิ่ม —
+                                            #   1) ราคายืนเหนือ SMA50 ไม่เกิน 8% (เด้งจากแนวรับในฐาน)
+                                            #   2) CMF ≥ 0 (เงินสถาบันไม่ได้กำลังกระจายของ)
+                                            # ป้องกันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution
+                                            _pp_cmf = tech.get('cmf', 0.0) or 0.0
+                                            if ma50_val > 0 and _pp_cmf >= 0:
+                                                if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
+                                                    pp_at_ma50_flag = True
                                         break
                         except Exception:
                             pass
@@ -6801,7 +6843,9 @@ def us_sepa_scanner(request):
                         except Exception as _e:
                             _sepa_log.debug(f'[US SEPA] VDU {symbol}: {_e}')
 
-                        # Pocket Pivot
+                        # Pocket Pivot (Morales & Kacher) — up-day vol > max down-day vol ใน 10 วัน
+                        # + context filter: อยู่ในฐาน/ต้นขาขึ้น (SMA10 > SMA50), ไม่ยืด (≤25% เหนือ SMA50),
+                        #   แท่งสัญญาณปิดครึ่งบน
                         pp = False
                         try:
                             vols = df['Volume'].values
@@ -6811,7 +6855,14 @@ def us_sepa_scanner(request):
                                 today_up  = closes[-1] > closes[-2]
                                 dn_vols   = [vols[-(i+2)] for i in range(10) if closes[-(i+2)] < closes[-(i+3)]]
                                 if today_up and dn_vols and today_vol > max(dn_vols):
-                                    pp = True
+                                    _ma10 = float(pd.Series(closes[-10:]).mean())
+                                    _ma50 = float(pd.Series(closes[-50:]).mean()) if len(closes) >= 50 else 0.0
+                                    _hi = float(df['High'].iloc[-1]); _lo = float(df['Low'].iloc[-1])
+                                    _upper_half = (_hi - _lo) <= 0 or (closes[-1] - _lo) / (_hi - _lo) >= 0.5
+                                    _uptrend = _ma50 > 0 and _ma10 > _ma50
+                                    _not_ext = _ma50 <= 0 or (closes[-1] - _ma50) / _ma50 <= 0.25
+                                    if _uptrend and _not_ext and _upper_half:
+                                        pp = True
                         except Exception as _e:
                             _sepa_log.debug(f'[US SEPA] PocketPivot {symbol}: {_e}')
 
