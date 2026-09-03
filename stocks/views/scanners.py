@@ -2112,7 +2112,9 @@ def precision_momentum_scanner(request):
                                             _upper_half = (_pp_hi - _pp_lo) <= 0 or (_pp_close - _pp_lo) / (_pp_hi - _pp_lo) >= 0.5
                                         except Exception:
                                             _upper_half = True
-                                        _uptrend_struct = ma10_val > 0 and ma50_val > 0 and ma10_val > ma50_val
+                                        # ยอมให้ SMA10 ต่ำกว่า SMA50 ได้ไม่เกิน 2% — เคสตำราแท้ "ย่อในฐานลงมาแตะ SMA50 แล้วเด้ง"
+                                        # วันเด้ง SMA10 ที่เพิ่งไหลลงตอนย่อมักอยู่ต่ำกว่า SMA50 นิดหน่อย ไม่ใช่สัญญาณเสีย
+                                        _uptrend_struct = ma10_val > 0 and ma50_val > 0 and ma10_val >= ma50_val * 0.98
                                         _not_extended = ma50_val <= 0 or (_pp_close - ma50_val) / ma50_val <= 0.25
                                         if _uptrend_struct and _not_extended and _upper_half:
                                             pocket_pivot_flag = True
@@ -5349,7 +5351,9 @@ def us_precision_scanner(request):
                                             _upper_half = (_pp_hi - _pp_lo) <= 0 or (_pp_close - _pp_lo) / (_pp_hi - _pp_lo) >= 0.5
                                         except Exception:
                                             _upper_half = True
-                                        _uptrend_struct = ma10_val > 0 and ma50_val > 0 and ma10_val > ma50_val
+                                        # ยอมให้ SMA10 ต่ำกว่า SMA50 ได้ไม่เกิน 2% — เคสตำราแท้ "ย่อในฐานลงมาแตะ SMA50 แล้วเด้ง"
+                                        # วันเด้ง SMA10 ที่เพิ่งไหลลงตอนย่อมักอยู่ต่ำกว่า SMA50 นิดหน่อย ไม่ใช่สัญญาณเสีย
+                                        _uptrend_struct = ma10_val > 0 and ma50_val > 0 and ma10_val >= ma50_val * 0.98
                                         _not_extended = ma50_val <= 0 or (_pp_close - ma50_val) / ma50_val <= 0.25
                                         if _uptrend_struct and _not_extended and _upper_half:
                                             pocket_pivot_flag = True
@@ -6859,7 +6863,7 @@ def us_sepa_scanner(request):
                                     _ma50 = float(pd.Series(closes[-50:]).mean()) if len(closes) >= 50 else 0.0
                                     _hi = float(df['High'].iloc[-1]); _lo = float(df['Low'].iloc[-1])
                                     _upper_half = (_hi - _lo) <= 0 or (closes[-1] - _lo) / (_hi - _lo) >= 0.5
-                                    _uptrend = _ma50 > 0 and _ma10 > _ma50
+                                    _uptrend = _ma50 > 0 and _ma10 >= _ma50 * 0.98
                                     _not_ext = _ma50 <= 0 or (closes[-1] - _ma50) / _ma50 <= 0.25
                                     if _uptrend and _not_ext and _upper_half:
                                         pp = True
