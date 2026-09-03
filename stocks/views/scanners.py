@@ -4919,7 +4919,8 @@ def us_precision_scanner(request):
         
         # เก็บหน้าที่ต้องกลับไปหลังสแกนเสร็จ
         raw_next = request.POST.get('next_url')
-        next_url = 'stocks:minervini_sepa_scanner' if raw_next == 'sepa' else 'stocks:precision_momentum_scanner'
+        next_url = 'stocks:us_sepa_scanner' if raw_next == 'sepa' else 'stocks:us_precision_scanner'
+
 
         # cache.add() เป็น atomic lock - กัน double-submit เปิด background thread ซ้อนกัน
         _init_status = {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}
