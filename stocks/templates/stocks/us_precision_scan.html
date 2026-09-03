@@ -1574,6 +1574,13 @@
                     <div class="tf-chip flex-fill" id="tfStepUS4"><div class="tf-chip-title"><i class="fas fa-stopwatch me-1"></i>ขั้น 4 &middot; จังหวะ</div><div class="tf-chip-val">&mdash;</div></div>
                     <div class="tf-chip flex-fill" id="tfStepUS5"><div class="tf-chip-title"><i class="fas fa-clipboard-check me-1"></i>ขั้น 5 &middot; แผนไม้</div><div class="tf-chip-val">&mdash;</div></div>
                 </div>
+                <div class="rounded-3 p-2 px-3 mt-3" style="background:#faf5ff;border:1px solid #e9d5ff;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold" style="font-size:0.68rem;color:#7c3aed;"><i class="fas fa-chart-line me-1"></i>Win Rate มาตรฐานของแต่ละ Preset (backtest รวมหุ้นทั้งตลาด 3 ปี) — ใช้ถ่วงน้ำหนักอันดับในผลลัพธ์ด้านล่างด้วย</span>
+                        <button class="btn btn-sm py-0 px-2 rounded-pill" id="tfPresetStatsBtnUS" style="font-size:0.62rem;border:1px solid #ddd6fe;color:#7c3aed;background:white;" onclick="loadTfPresetStatsUS(this)"><i class="fas fa-play me-1"></i>โหลดผล</button>
+                    </div>
+                    <div id="tfPresetStatsBoxUS" class="mt-2" style="font-size:0.68rem;"><span class="text-muted">ยังไม่ได้โหลด — กด "โหลดผล" เพื่อให้อันดับด้านล่างคำนวณรวม backtest ด้วย (ไม่งั้นจะจัดอันดับด้วยเงื่อนไขวันนี้อย่างเดียว)</span></div>
+                </div>
                 <div id="tfResultUS" class="mt-3" style="display:none;"></div>
             </div>
         </div>
@@ -1990,6 +1997,8 @@
     data-ma50="{{ item.ma50|default:0 }}"
     data-tt-score="{{ item.trend_template_score|default:0 }}"
     data-sector-confirmed="{{ item.sector_confirmed|yesno:'true,false' }}"
+    data-wyckoff-spring="{{ item.wyckoff_spring|yesno:'true,false' }}"
+    data-wyckoff-er-warning="{{ item.wyckoff_effort_result_warning|yesno:'true,false' }}"
     data-htf="{{ item.htf_setup|yesno:'true,false' }}"
     data-ttm-sq="{{ item.ttm_squeeze_state|default:'none' }}"
     data-ep="{{ item.episodic_pivot|yesno:'true,false' }}"
@@ -3746,7 +3755,9 @@ function _tfRowsUS() {
             inzone: d.inzone === 'true', prox: parseFloat(d.prox !== undefined ? d.prox : 99),
             ppPrice: parseFloat(d.ppPrice || 0), zoneLow: parseFloat(d.zoneLow || 0),
             sl: parseFloat(d.slPrice || 0), tp: parseFloat(d.tpPrice || 0), price: parseFloat(d.price || 0),
-            launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true'
+            launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true',
+            spring: d.wyckoffSpring === 'true', erWarning: d.wyckoffErWarning === 'true',
+            sectorConfirmed: d.sectorConfirmed === 'true', ttScore: parseInt(d.ttScore || 0)
         };
     });
 }
@@ -3808,10 +3819,18 @@ function _tfDo4US() {
     const cur = '$';
     _tfStateUS.inst.forEach(function(r) {
         const bo = (r.turtleDist < 90 && r.price > 0) ? (r.price * (1 + r.turtleDist / 100)) : 0;
+        // อยู่ในโซนซื้อ (inzone) อย่างเดียวไม่พอ ต้องมี volume/เงินไหลเข้ายืนยันด้วย ไม่งั้นถือเป็นแค่ alert
+        // (แก้ปัญหาหุ้นเข้าโซนซื้อเยอะเกินไปทั้งที่ไม่มีแรงซื้อรองรับ)
         if (r.rsi >= 80) {
             r.timing = 'skip'; r.action = 'Overextended (RSI ' + Math.round(r.rsi) + ') — รอย่อ';
-        } else if (r.inzone) {
+        } else if (r.spring) {
+            // Wyckoff Spring: หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ — จุดเข้าที่ SL แคบสุด
+            // ถือเป็นสัญญาณเข้าได้เอง ไม่ต้องรอ RVOL/CMF เหมือนเงื่อนไข inzone ทั่วไป
+            r.timing = 'enter'; r.action = '🌀 Wyckoff Spring — หลุดแนวรับแล้วดีดกลับ (SL แคบ) — เข้าได้';
+        } else if (r.inzone && r.rvol >= 1.2 && r.cmf >= 0) {
             r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
+        } else if (r.inzone) {
+            r.timing = 'alert'; r.action = 'IN ZONE แต่รอ Vol/เงินไหลเข้า (RVOL ' + r.rvol.toFixed(1) + 'x, CMF ' + r.cmf.toFixed(2) + ')';
         } else if (r.turtleDist <= 0.5 && r.rvol >= 1.5) {
             r.timing = 'enter'; r.action = 'BREAKOUT + Vol ' + r.rvol.toFixed(1) + 'x — เข้าได้';
         } else if (r.turtleDist <= 3) {
@@ -3821,6 +3840,9 @@ function _tfDo4US() {
         } else {
             r.timing = 'skip'; r.action = 'ราคาอยู่กลางทาง — ไม่มีจุดเข้าชัด';
         }
+        // Sector Confirmation (Livermore "Leading Sisters"): ไม่บล็อกการเข้า แค่ทำเป็น soft warning
+        // เพราะหุ้นวิ่งเดี่ยวไม่มีกลุ่มยืนยันเสี่ยง False Breakout สูงกว่าปกติ
+        r.sectorWeak = r.timing !== 'skip' && !r.sectorConfirmed;
     });
     const pass = _tfStateUS.inst.filter(r => r.timing !== 'skip');
     _tfStateUS.timed = pass;
@@ -3829,13 +3851,52 @@ function _tfDo4US() {
         _tfStateUS.inst.length + ' → ' + pass.length + ' ตัว <span style="font-weight:400;opacity:0.75;">(เข้าได้ ' + nEnter + ')</span>');
 }
 
+// จับคู่แถวหุ้นกับ preset (ชื่อเดียวกับที่ backend ใช้ใน backtest) เพื่อให้กดดู win rate มาตรฐานของ preset นั้นได้ตรงๆ
+function _tfMatchedPresetsUS(r) {
+    const m = [];
+    if (r.s2 && r.pp && r.cmf >= 0.1 && r.vcp && r.canslim) m.push('superformance');
+    if (r.s2 && r.launcher >= 70 && r.vcp && r.insideBar) m.push('launcher_breakout');
+    if (r.s2 && r.pp && r.cmf >= 0.1) m.push('base_accumulation');
+    if (r.s2 && r.rvol >= 1.5 && r.cmf >= 0.1) m.push('high_momentum');
+    if (r.rsi < 70 && r.s2) m.push('safety_first');
+    return m;
+}
+
+function scrollToPresetStatUS(preset) {
+    const box = document.getElementById('tfPresetStatsBoxUS');
+    const doScroll = function() {
+        const row = document.getElementById('tfPresetRow_' + preset);
+        if (!row) return;
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.style.transition = 'background-color 0.3s';
+        row.style.backgroundColor = '#ede9fe';
+        setTimeout(function() { row.style.backgroundColor = ''; }, 1800);
+    };
+    if (box && box.querySelector('#tfPresetRow_' + preset)) {
+        doScroll();
+    } else {
+        const btn = document.getElementById('tfPresetStatsBtnUS');
+        loadTfPresetStatsUS(btn);
+        const check = setInterval(function() {
+            if (box && box.querySelector('#tfPresetRow_' + preset)) {
+                clearInterval(check);
+                doScroll();
+            }
+        }, 300);
+        setTimeout(function() { clearInterval(check); }, 90000);
+    }
+}
+
 // STEP 5: Rank + trade-plan cards
 function _tfDo5US() {
     const cur = '$';
     const list = _tfStateUS.timed.slice();
     list.forEach(function(r) {
+        // Trend Template (0-8, +3/ข้อ = สูงสุด +24) และ Sector Confirmed (+10) ถ่วงน้ำหนักคะแนนแทนการ hard-filter
+        // เพื่อให้หุ้นที่ตรงเป้าตาม Minervini/Livermore ขึ้นอันดับต้นเองโดยไม่ตัดหุ้นดีตัวอื่นทิ้ง
         r.score = r.stars.length * 25 + (r.timing === 'enter' ? 30 : 15) + (r.pp ? 20 : 0)
-                + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0);
+                + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0)
+                + (r.ttScore || 0) * 3 + (r.sectorConfirmed ? 10 : 0);
     });
     // จัดกลุ่มก่อนเรียง: ตัวที่ "เข้าได้ตอนนี้" ขึ้นก่อนเสมอ แล้วค่อยเรียงคะแนนภายในกลุ่ม
     const enters = list.filter(r => r.timing === 'enter').sort((a, b) => b.score - a.score);
@@ -3855,34 +3916,127 @@ function _tfDo5US() {
         : (_tfStateUS.sizeF === 0.5 ? '<div class="small fw-bold mb-2 p-2 rounded-2" style="background:#fffbeb;border:1px solid #fde68a;color:#b45309;"><i class="fas fa-circle-info me-1"></i> ตลาด Sideways — ใช้ขนาดไม้ครึ่งเดียวของปกติ</div>' : '');
     let html = blockedNote + '<div class="rounded-3 p-2 px-3" style="background:white;border:1px solid #e2e8f0;">';
     html += '<div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">'
-          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS)</span>'
+          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS + Trend Template + Sector)</span>'
           + '<button class="btn btn-sm py-1 px-3 rounded-pill fw-bold" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;font-size:0.7rem;" onclick="addTfTopToWatchlistUS(this)">'
           + '<i class="fas fa-plus-circle me-1"></i> บันทึก ' + top.length + ' ตัวนี้ลง Watchlist'
           + '</button></div>';
     let _lastTiming = null;
     top.forEach(function(r, i) {
         if (r.timing !== _lastTiming) {
-            html += '<div class="small fw-bold mt-2 mb-1" style="font-size:0.68rem;color:' + (r.timing === 'enter' ? '#15803d' : '#b45309') + ';">'
+            if (_lastTiming !== null) html += '</div>'; // ปิด row การ์ดของกลุ่มก่อนหน้า
+            html += '<div class="small fw-bold mt-2 mb-2" style="font-size:0.7rem;color:' + (r.timing === 'enter' ? '#15803d' : '#b45309') + ';">'
                 + (r.timing === 'enter' ? '🟢 เข้าได้ตอนนี้' : '🟡 ตั้ง alert รอจังหวะ') + '</div>';
+            html += '<div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-2 mb-2">';
             _lastTiming = r.timing;
         }
         const stars = r.stars.map(s => '<span class="tf-star">' + s + ' ✓</span>').join(' ');
-        const rrWarning = (r.rr && r.rr < 1.5) ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;padding:2px 5px;" title="Risk/Reward ต่ำกว่า 1:1.5 ควรระวัง">⚠️ RR ต่ำ (' + r.rr.toFixed(1) + ')</span>' : '';
-        html += '<div class="tf-res-row">'
-            + '<span class="fw-bold text-muted" style="min-width:18px;font-size:0.75rem;">' + (i + 1) + '</span>'
-            + '<a href="javascript:void(0)" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)" class="badge rounded-pill text-decoration-none fw-bold" style="background:rgba(124,58,237,0.1);color:#7c3aed;font-size:0.75rem;padding:5px 12px;">' + r.symbol + (i === 0 ? ' 🏆' : '') + '</a>'
-            + (stars ? '<span class="d-flex gap-1">' + stars + '</span>' : '')
-            + '<span class="tf-status ' + r.timing + '">' + r.action + '</span>'
-            + '<span class="small text-muted ms-auto" style="font-size:0.68rem;white-space:nowrap;">'
-            + 'PP ' + cur + r.ppPrice.toFixed(2) + ' &middot; SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span> &middot; RR 1:' + (r.rr || 0).toFixed(1)
-            + rrWarning
-            + '</span>'
-            + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #e2e8f0;color:#64748b;" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)"><i class="fas fa-arrow-down me-1"></i>ไปที่แถว</button>'
-            + '</div>';
+        const rrWarning = (r.rr && r.rr < 1.5) ? '<span class="badge bg-warning text-dark" style="font-size:0.6rem;padding:2px 5px;" title="Risk/Reward ต่ำกว่า 1:1.5 ควรระวัง">⚠️ RR ต่ำ</span>' : '';
+        const erWarning = r.erWarning ? '<span class="badge" style="background:rgba(220,38,38,0.1);color:#dc2626;font-size:0.6rem;padding:2px 5px;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ ระวังไว้แม้ผ่านเกณฑ์อื่นครบ">⚠️ E-R</span>' : '';
+        const sectorWarning = r.sectorWeak ? '<span class="badge" style="background:rgba(217,119,6,0.1);color:#b45309;font-size:0.6rem;padding:2px 5px;" title="Sector Confirmation: หุ้นกลุ่มเดียวกันน้อยกว่า 30% อยู่ใน Stage2 — วิ่งเดี่ยวโดยไม่มีกลุ่มยืนยัน เสี่ยง False Breakout สูงกว่าปกติ (Livermore Leading Sisters)">⚠️ วิ่งเดี่ยว</span>' : '';
+        const matchedPresets = _tfMatchedPresetsUS(r);
+        const presetPills = matchedPresets.map(p =>
+            '<span class="badge rounded-pill" role="button" onclick="scrollToPresetStatUS(&quot;' + p + '&quot;)" '
+            + 'title="ดู Win Rate มาตรฐานของ ' + p + ' (การ์ดสีม่วงด้านบน)" '
+            + 'style="background:rgba(124,58,237,0.08);color:#6d28d9;border:1px solid #ddd6fe;font-size:0.58rem;padding:2px 6px;cursor:pointer;">'
+            + '<i class="fas fa-chart-simple me-1"></i>' + p + '</span>'
+        ).join(' ');
+        const tierClass = r.timing === 'enter' ? 'recommendation-high' : 'recommendation-medium';
+        html += '<div class="col">'
+          + '<div class="h-100 p-3 position-relative recommendation-card ' + tierClass + '">'
+            + '<span class="position-absolute" style="top:-10px;left:12px;background:' + (r.timing === 'enter' ? '#16a34a' : '#d97706') + ';color:white;border-radius:999px;font-size:0.65rem;font-weight:700;padding:1px 8px;">#' + (i + 1) + '</span>'
+            + '<div class="d-flex align-items-center justify-content-between mb-1 mt-1">'
+              + '<a href="javascript:void(0)" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)" class="fw-bold text-decoration-none recommendation-symbol" style="font-size:1rem;">' + r.symbol + (i === 0 ? ' 🏆' : '') + '</a>'
+              + '<span class="fw-bold px-2 rounded-pill buy-badge ' + (r.score >= 100 ? 'buy-badge-high' : r.score >= 70 ? 'buy-badge-medium' : 'buy-badge-low') + '" style="font-size:0.78rem;">' + Math.round(r.score) + '</span>'
+            + '</div>'
+            + '<div class="mb-2 d-flex align-items-center gap-1 flex-wrap">'
+              + '<span class="tf-status ' + r.timing + '" style="font-size:0.68rem;">' + r.action + '</span>'
+            + '</div>'
+            + (stars || presetPills ? '<div class="mb-2 d-flex flex-wrap gap-1">' + stars + presetPills + '</div>' : '')
+            + '<ul class="mb-2 ps-0 recommendation-reasons">'
+              + '<li><span class="checkmark-green">✓</span> PP ' + cur + r.ppPrice.toFixed(2) + '</li>'
+              + '<li><span class="checkmark-green">✓</span> SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span></li>'
+              + '<li><span class="checkmark-green">✓</span> RR 1:' + (r.rr || 0).toFixed(1) + ' &middot; RS ' + r.rs + '</li>'
+            + '</ul>'
+            + (rrWarning || erWarning || sectorWarning ? '<div class="mb-2 d-flex flex-wrap gap-1">' + rrWarning + erWarning + sectorWarning + '</div>' : '')
+            + '<div class="d-flex gap-1">'
+              + '<button class="btn btn-sm flex-fill recommendation-btn" style="font-size:0.68rem;" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)"><i class="fas fa-arrow-down me-1"></i>ไปที่แถว</button>'
+              + '<button class="btn btn-sm flex-fill recommendation-btn" style="font-size:0.68rem;" onclick="runTfBacktestUS(&quot;' + r.symbol + '&quot;, this)"><i class="fas fa-clock-rotate-left me-1"></i>Backtest</button>'
+            + '</div>'
+            + '<div class="tf-bt-result small text-muted mt-1" data-symbol="' + r.symbol + '" style="font-size:0.62rem;"></div>'
+          + '</div>'
+        + '</div>';
     });
-    html += '</div>';
+    html += '</div></div>'; // ปิด row การ์ดกลุ่มสุดท้าย + ปิด container นอก
     box.innerHTML = html;
     box.style.display = 'block';
+}
+
+function runTfBacktestUS(symbol, btn) {
+    const resultSpan = document.querySelector('.tf-bt-result[data-symbol="' + symbol + '"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+    if (resultSpan) resultSpan.textContent = ' กำลังทดสอบย้อนหลัง...';
+    fetch("{% url 'stocks:api_backtest_presets' %}?symbol=" + encodeURIComponent(symbol))
+        .then(r => r.json())
+        .then(data => {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-clock-rotate-left me-1"></i>Backtest'; }
+            if (!resultSpan) return;
+            if (data.error || !data.results) {
+                resultSpan.textContent = ' ไม่สามารถทดสอบได้ (' + (data.error || 'unknown') + ')';
+                return;
+            }
+            const withTrades = data.results.filter(x => x.trades_count > 0).sort((a, b) => b.win_rate_pct - a.win_rate_pct);
+            if (!withTrades.length) {
+                resultSpan.textContent = ' ไม่มีสัญญาณย้อนหลังพอสำหรับทดสอบ';
+                return;
+            }
+            const best = withTrades[0];
+            const lowSampleTag = best.low_sample
+                ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.58rem;padding:1px 5px;" title="น้อยกว่า 10 เทรด สถิติยังไม่นิ่งพอให้เชื่อถือได้ ดูเป็นข้อมูลอ้างอิงเท่านั้น">⚠️ sample น้อย</span>'
+                : '';
+            resultSpan.innerHTML = ' &middot; Backtest 3y (' + best.preset + '): Win ' + best.win_rate_pct
+                + '% &middot; ' + best.trades_count + ' trades &middot; avg ' + (best.avg_return_pct >= 0 ? '+' : '') + best.avg_return_pct + '%'
+                + lowSampleTag;
+            resultSpan.title = withTrades.map(x => x.preset + ': win ' + x.win_rate_pct + '%, ' + x.trades_count + ' trades, avg ' + x.avg_return_pct + '%, maxDD ' + x.max_drawdown_pct + '%' + (x.low_sample ? ' (sample น้อย)' : '')).join('\n');
+        })
+        .catch(err => {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-clock-rotate-left me-1"></i>Backtest'; }
+            if (resultSpan) resultSpan.textContent = ' เกิดข้อผิดพลาด';
+        });
+}
+
+function loadTfPresetStatsUS(btn) {
+    btn = btn || document.getElementById('tfPresetStatsBtnUS');
+    const box = document.getElementById('tfPresetStatsBoxUS');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังรัน (อาจใช้เวลา 30-60 วิ)...'; }
+    if (box) box.innerHTML = '<span class="text-muted">กำลังทดสอบย้อนหลังกับหุ้นตัวอย่างในตลาด...</span>';
+    fetch("{% url 'stocks:api_backtest_presets_universe' %}")
+        .then(r => r.json())
+        .then(data => {
+            if (btn) { btn.style.display = 'none'; }
+            if (!box) return;
+            if (data.error || !data.results) {
+                box.innerHTML = '<span class="text-danger">ไม่สามารถทดสอบได้ (' + (data.error || 'unknown') + ')</span>';
+                if (btn) { btn.disabled = false; btn.style.display = ''; btn.innerHTML = '<i class="fas fa-play me-1"></i>โหลดผล'; }
+                return;
+            }
+            const sorted = data.results.slice().sort((a, b) => (b.win_rate_pct || 0) - (a.win_rate_pct || 0));
+            let rows = sorted.map(x => {
+                if (!x.trades_count) {
+                    return '<div id="tfPresetRow_' + x.preset + '" class="d-flex justify-content-between py-1 border-bottom" style="border-radius:4px;"><span>' + x.preset + '</span><span class="text-muted">ไม่มีสัญญาณในช่วงทดสอบ</span></div>';
+                }
+                const lowTag = x.low_sample ? ' <span class="badge bg-warning text-dark" style="font-size:0.56rem;padding:1px 4px;">sample น้อย</span>' : '';
+                return '<div id="tfPresetRow_' + x.preset + '" class="d-flex justify-content-between py-1 border-bottom" style="border-radius:4px;">'
+                    + '<span>' + x.preset + lowTag + '</span>'
+                    + '<span>Win <b>' + x.win_rate_pct + '%</b> &middot; ' + x.trades_count + ' trades ('
+                    + x.symbols_with_signal + '/' + x.symbols_tested + ' หุ้น) &middot; avg '
+                    + (x.avg_return_pct >= 0 ? '+' : '') + x.avg_return_pct + '% &middot; maxDD ' + x.max_drawdown_pct + '%</span></div>';
+            }).join('');
+            box.innerHTML = '<div class="small text-muted mb-1">ทดสอบจากหุ้น ' + data.universe_size + ' ตัว (top market cap)' + (data.cached ? ' &middot; ผลจาก cache (อัปเดตทุก 24 ชม.)' : '') + '</div>' + rows;
+        })
+        .catch(err => {
+            if (box) box.innerHTML = '<span class="text-danger">เกิดข้อผิดพลาด</span>';
+            if (btn) { btn.disabled = false; btn.style.display = ''; btn.innerHTML = '<i class="fas fa-play me-1"></i>โหลดผล'; }
+        });
 }
 
 const _tfFnsUS = [_tfDo1US, _tfDo2US, _tfDo3US, _tfDo4US, _tfDo5US];
@@ -3921,6 +4075,17 @@ function tfResetUS() {
     if (btn) btn.innerHTML = '<i class="fas fa-forward-step me-1"></i> ทีละขั้น (1/5)';
 }
 
+function getCsrfTokenHeader() {
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfInput) return csrfInput.value;
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+        const c = cookies[i].trim();
+        if (c.startsWith('csrftoken=')) return c.substring('csrftoken='.length);
+    }
+    return '';
+}
+
 function addTfTopToWatchlistUS(btn) {
     if (!_tfStateUS || !_tfStateUS.timed || !_tfStateUS.timed.length) {
         alert('ยังไม่มีหุ้นที่ผ่าน Trade Flow');
@@ -3945,16 +4110,7 @@ function addTfTopToWatchlistUS(btn) {
     let existingList = [];
     let errorList = [];
 
-    const csrfToken = (function() {
-        const input = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (input) return input.value;
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const c = cookies[i].trim();
-            if (c.startsWith('csrftoken=')) return c.substring('csrftoken='.length);
-        }
-        return '';
-    })();
+    const csrfToken = getCsrfTokenHeader();
 
     let promises = top.map(r => {
         return fetch("{% url 'stocks:watchlist_item_toggle' %}", {
@@ -3994,7 +4150,7 @@ function addTfTopToWatchlistUS(btn) {
             btn.innerHTML = origText;
         }
 
-        let msg = '📋 ผลการบันทึก Watchlist (US Market):\n\n';
+        let msg = '📋 ผลการบันทึก Watchlist:\n\n';
         if (addedList.length > 0) {
             msg += '🟢 เพิ่มใหม่สำเร็จ (' + addedList.length + ' ตัว): ' + addedList.join(', ') + '\n';
         }
@@ -4007,6 +4163,16 @@ function addTfTopToWatchlistUS(btn) {
 
         alert(msg);
     });
+}
+
+function tfResetUS() {
+    _tfStepUS = 0;
+    _tfStateUS = {};
+    for (let i = 1; i <= 5; i++) _tfChipUS(i, '', i === 1 ? 'กด &#9654; เพื่อเริ่ม' : '&mdash;');
+    const box = document.getElementById('tfResultUS');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+    const btn = document.getElementById('tfNextBtnUS');
+    if (btn) btn.innerHTML = '<i class="fas fa-forward-step me-1"></i> ทีละขั้น (1/5)';
 }
 
 
