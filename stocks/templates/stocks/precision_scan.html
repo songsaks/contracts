@@ -1475,6 +1475,10 @@
                             style="font-size:0.7rem;font-weight:700;background:#059669;color:white;border:none;"
                             title="Episodic Pivot + CMF+ >= 0.1 + Stage 2 — หุ้นเปิด Gap Up +4.5%+ พร้อม Vol 3x+ จากงบ/ข่าวใหญ่"
                             onclick="applyPreset('episodic_pivot_preset')">4. 💥 Episodic Pivot</button>
+                    <button type="button" id="preset-base_accumulation" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
+                            style="font-size:0.7rem;font-weight:700;background:#0d9488;color:white;border:none;"
+                            title="Pocket Pivot + CMF+ >= 0.1 + ACC > DIST — สะสมในฐาน สถาบันเก็บของหนาแน่น ก่อน breakout"
+                            onclick="applyPreset('base_accumulation')">5. 💙 Base Accumulation</button>
 
                     <span class="text-white-50 opacity-25 mx-1">|</span>
 
@@ -1483,11 +1487,11 @@
                     <button type="button" id="preset-super" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:700;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;border:none;"
                             title="Trend Template + Sector Confirmed + CMF + ACC + Safe — หุ้นเกรด A+ คุณภาพสูงสุด"
-                            onclick="applyPreset('super')">5. 💣 รวมหุ้นเกรด A+</button>
+                            onclick="applyPreset('super')">6. 💣 รวมหุ้นเกรด A+</button>
                     <button type="button" id="preset-fast_swing" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;background:#ec4899;color:white;border:none;"
                             title="Stage 2 + Breakout วันนี้ (Buy Now)"
-                            onclick="applyPreset('fast_swing')">6. 🔥 Breakout วันนี้</button>
+                            onclick="applyPreset('fast_swing')">7. 🔥 Breakout วันนี้</button>
 
                     <button type="button" id="preset-clear" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;"
@@ -3809,6 +3813,11 @@ function applyPreset(presetType) {
     } else if (presetType === 'episodic_pivot_preset') {
         // Episodic Pivot — หุ้นเปิด Gap Up +4.5%+ พร้อม Vol 3x+
         if (ep) ep.checked = true;
+    } else if (presetType === 'base_accumulation') {
+        // Base Accumulation — สะสมในฐาน: Pocket Pivot + CMF+ + ACC>DIST
+        if (pp)      pp.checked      = true;
+        if (cmfPos)  cmfPos.checked  = true;
+        if (accDist) accDist.checked = true;
     } else if (presetType === 'super') {
         // Super Grade A+: Trend Template + CMF+
         if (trendTemplate) trendTemplate.checked = true;
@@ -3846,11 +3855,12 @@ var PRESET_CONDITIONS_SET = {
     'htf_power':             ['🚩 HTF Power Play'],
     'squeeze_fired_preset':  ['⚡ Squeeze Fired!'],
     'episodic_pivot_preset': ['💥 Episodic Pivot'],
+    'base_accumulation':     ['⚡ Pocket Pivot', '💰 CMF+≥0.1', '📈 ACC>DIST'],
     'super':                 ['📐 Trend Template ≥7/8', '💰 CMF+≥0.1'],
     'fast_swing':            ['🔥 Breakout วันนี้ (Buy Now)'],
 };
 var PRESET_COLORS_SET = {
-    'pullback':'#059669', 'htf_power':'#dc2626', 'squeeze_fired_preset':'#16a34a', 'episodic_pivot_preset':'#059669', 'super':'#7c3aed', 'fast_swing':'#ec4899'
+    'pullback':'#059669', 'htf_power':'#dc2626', 'squeeze_fired_preset':'#16a34a', 'episodic_pivot_preset':'#059669', 'base_accumulation':'#0d9488', 'super':'#7c3aed', 'fast_swing':'#ec4899'
 };
 
 
