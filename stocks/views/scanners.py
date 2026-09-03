@@ -6848,25 +6848,49 @@ def us_sepa_scanner(request):
                             _sepa_log.debug(f'[US SEPA] VDU {symbol}: {_e}')
 
                         # Pocket Pivot (Morales & Kacher) — up-day vol > max down-day vol ใน 10 วัน
-                        # + context filter: อยู่ในฐาน/ต้นขาขึ้น (SMA10 > SMA50), ไม่ยืด (≤25% เหนือ SMA50),
-                        #   แท่งสัญญาณปิดครึ่งบน
+                        # เช็คทั้งแท่งวันนี้และเมื่อวาน (-1, -2); ถ้า 10 วันไม่มีวันลงเลย ขยายเป็น 20 วัน
+                        # + context filter: อยู่ในฐาน/ต้นขาขึ้น (SMA10 >= SMA50*0.98), ไม่ยืด (≤25% เหนือ SMA50),
+                        #   แท่งสัญญาณปิดครึ่งบน — logic เดียวกับ SET/US precision scanner
                         pp = False
                         try:
                             vols = df['Volume'].values
                             closes = df['Close'].values
-                            if len(vols) >= 12:
-                                today_vol = vols[-1]
-                                today_up  = closes[-1] > closes[-2]
-                                dn_vols   = [vols[-(i+2)] for i in range(10) if closes[-(i+2)] < closes[-(i+3)]]
-                                if today_up and dn_vols and today_vol > max(dn_vols):
-                                    _ma10 = float(pd.Series(closes[-10:]).mean())
-                                    _ma50 = float(pd.Series(closes[-50:]).mean()) if len(closes) >= 50 else 0.0
-                                    _hi = float(df['High'].iloc[-1]); _lo = float(df['Low'].iloc[-1])
-                                    _upper_half = (_hi - _lo) <= 0 or (closes[-1] - _lo) / (_hi - _lo) >= 0.5
-                                    _uptrend = _ma50 > 0 and _ma10 >= _ma50 * 0.98
-                                    _not_ext = _ma50 <= 0 or (closes[-1] - _ma50) / _ma50 <= 0.25
-                                    if _uptrend and _not_ext and _upper_half:
-                                        pp = True
+                            highs = df['High'].values
+                            lows = df['Low'].values
+                            if len(vols) >= 14:
+                                _ma10 = float(pd.Series(closes[-10:]).mean())
+                                _ma50 = float(pd.Series(closes[-50:]).mean()) if len(closes) >= 50 else 0.0
+                                for _i in [-1, -2]:
+                                    if float(closes[_i]) <= float(closes[_i - 1]):
+                                        continue  # not an up day
+                                    _end   = len(vols) + _i
+                                    _start = _end - 10
+                                    if _start < 1:
+                                        continue
+                                    _prior_c = closes[_start:_end]
+                                    _prior_v = vols[_start:_end]
+                                    _prior_prev_c = closes[_start - 1:_end - 1]
+                                    _down_mask = _prior_c < _prior_prev_c
+                                    if not _down_mask.any():
+                                        _start = _end - 20
+                                        if _start < 1:
+                                            continue
+                                        _prior_v = vols[_start:_end]
+                                        _prior_c = closes[_start:_end]
+                                        _prior_prev_c = closes[_start - 1:_end - 1]
+                                        _down_mask = _prior_c < _prior_prev_c
+                                        if not _down_mask.any():
+                                            continue
+                                    _max_down_vol = float(_prior_v[_down_mask].max())
+                                    if float(vols[_i]) > _max_down_vol and _max_down_vol > 0:
+                                        _pp_close = float(closes[_i])
+                                        _hi = float(highs[_i]); _lo = float(lows[_i])
+                                        _upper_half = (_hi - _lo) <= 0 or (_pp_close - _lo) / (_hi - _lo) >= 0.5
+                                        _uptrend = _ma50 > 0 and _ma10 >= _ma50 * 0.98
+                                        _not_ext = _ma50 <= 0 or (_pp_close - _ma50) / _ma50 <= 0.25
+                                        if _uptrend and _not_ext and _upper_half:
+                                            pp = True
+                                        break
                         except Exception as _e:
                             _sepa_log.debug(f'[US SEPA] PocketPivot {symbol}: {_e}')
 
