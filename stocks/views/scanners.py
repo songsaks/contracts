@@ -5118,14 +5118,14 @@ def us_precision_scanner(request):
                         import logging as _lg; _scan_log = _lg.getLogger('stocks.scan')
                         current_price = float(df['Close'].iloc[-1])
 
-                        # 1. Turnover >= 10M THB
-                        if avg_turnover_20 < 10_000_000:
-                            _scan_log.info(f"[SCAN SKIP] {symbol}: Turnover ฿{avg_turnover_20/1e6:.1f}M < 10M")
+                        # 1. Dollar volume >= $25M/day (US institutional liquidity)
+                        if avg_turnover_20 < 25_000_000:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Dollar Vol ${avg_turnover_20/1e6:.1f}M < $25M")
                             return None
 
-                        # 2. Minimum Price >= 1.00
-                        if current_price < 1.00:
-                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 1.00")
+                        # 2. Minimum Price >= $10 (O'Neil/Minervini avoid low-priced stocks)
+                        if current_price < 10.00:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ${current_price} < $10.00")
                             return None
 
                         # ====== Early Accumulation (Pre-Breakout Volume Surge & Tightness) ======
@@ -5185,9 +5185,9 @@ def us_precision_scanner(request):
                             return None
 
                         # ====== Trend Template Filter ======
-                        near_high  = current_price >= year_high * 0.65
+                        near_high  = current_price >= year_high * 0.75  # Minervini Trend Template: within 25% of 52w high
                         if not near_high and not early_accumulation:
-                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 65% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ${current_price} < 75% of 52wH ${year_high} ({current_price/year_high*100:.0f}%)")
                             return None
 
                         import logging; logger = logging.getLogger('stocks')
