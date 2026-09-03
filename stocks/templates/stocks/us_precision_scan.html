@@ -1972,7 +1972,7 @@
                                         <span class="badge px-1 py-0" style="background:#7c3aed;color:white;font-size:0.55rem;" title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่า avg — สัญญาณ Accumulation">VDU</span>
                                         {% endif %}
                                         {% if item.inside_bar %}<span class="badge" style="background:rgba(8,145,178,0.12);color:#0e7490;border:1px solid rgba(8,145,178,0.3);font-size:0.6rem;">IB</span>{% endif %}
-                                        {% if item.acc_days > item.dist_days and item.acc_days >= 2 %}<span class="badge" style="background:rgba(5,150,105,0.12);color:#047857;border:1px solid rgba(5,150,105,0.3);font-size:0.6rem;">ACC {{ item.acc_days }}d</span>{% elif item.dist_days > item.acc_days and item.dist_days >= 2 %}<span class="badge" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.6rem;">DIST {{ item.dist_days }}d</span>{% endif %}
+                                        {% if item.acc_days >= 4 and item.acc_days > item.dist_days %}<span class="badge" style="background:rgba(5,150,105,0.12);color:#047857;border:1px solid rgba(5,150,105,0.3);font-size:0.6rem;" title="Accumulation: {{ item.acc_days }} วันสะสม vs {{ item.dist_days }} วันขาย ใน 10 วัน — เงินสถาบันไหลเข้า">ACC {{ item.acc_days }}d</span>{% elif item.dist_days >= 4 and item.dist_days > item.acc_days %}<span class="badge" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.6rem;" title="Distribution: {{ item.dist_days }} วันขาย vs {{ item.acc_days }} วันสะสม ใน 10 วัน — เงินสถาบันไหลออก">DIST {{ item.dist_days }}d</span>{% endif %}
                                         {% if item.is_52w_breakout %}
                                         <span class="badge px-1 py-0" style="background:#f59e0b;color:white;font-size:0.55rem;" title="52-Week High Breakout — ทะลุ/แตะ New High">🏔 HI</span>
                                         {% endif %}
@@ -3483,7 +3483,7 @@ function _applyFiltersUS() {
                        (!buynowOn || isBuyNow) &&
                        (!cmfPosOn || cmf >= 0.1) &&
                        (!insideBarOn || insideBar) &&
-                       (!accDistOn || (accDays > distDays && accDays >= 2)) &&
+                       (!accDistOn || (accDays > distDays && accDays >= 4)) &&
                        (!trendTemplateOn || ttScore >= 7) &&
                        (!sectorConfirmedOn || sectorConfirmed) &&
                        (!htfOn          || htf) &&
@@ -3601,7 +3601,7 @@ function _updatePresetCountsUS() {
         var cmf = parseFloat(d.cmf || '0');
         var accDays = parseInt(d.accDays || '0');
         var distDays = parseInt(d.distDays || '0');
-        var accPos = accDays > distDays && accDays >= 2;
+        var accPos = accDays > distDays && accDays >= 4;
         var vsrg = d.volsurge === 'true';
         var rvol = parseFloat(d.rvol || '0');
         var turtleDist = parseFloat(d.turtleDist || '99.0');
