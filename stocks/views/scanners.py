@@ -4973,13 +4973,14 @@ def us_precision_scanner(request):
                 from stocks.models import PrecisionScanCandidate
 
                 from stocks.utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS, refresh_all_thai_symbols as _RATS
-                sym_list = _GTRS(market='US', limit=400, auto_refresh=True)
+                # auto_refresh มีผลเฉพาะ market='SET' ในตัว helper — ส่ง False ให้ตรงกับ SET scanner
+                sym_list = _GTRS(market='US', limit=400, auto_refresh=False)
                 if not sym_list:
                     try:
                         _RATS()
                     except Exception:
                         pass
-                    sym_list = _GTRS(market='US', limit=400, auto_refresh=True)
+                    sym_list = _GTRS(market='US', limit=400, auto_refresh=False)
 
 
                 User = get_user_model()
@@ -5483,7 +5484,7 @@ def us_precision_scanner(request):
                             c1 = df.iloc[-2]
                             inside_bar_flag = c0['High'] <= c1['High'] and c0['Low'] >= c1['Low']
 
-                        # ====== Ultra-Precision Phase 1 Indicators ====== (parity กับ SET)
+                        # ====== Ultra-Precision Phase 1 Indicators ======
                         htf_setup_flag = False
                         htf_surge_val = htf_base_val = 0.0
                         ttm_sq_state = 'none'
