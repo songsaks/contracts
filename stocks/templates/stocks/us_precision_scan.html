@@ -3546,8 +3546,8 @@ function _applyFiltersUS() {
             var price    = parseFloat(row.dataset.price || '0');
             var ma50     = parseFloat(row.dataset.ma50 || '0');
             var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-            var notExtended = inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0;
-            var isBuyable = inzone || prox <= 5 || (s2 && notExtended && rsi <= 72 && cmf >= -0.05);
+            // In Zone (unified SET+US): Stage 2 + ยังไม่ extended + RSI ≤ 68 + CMF ≥ 0 + อยู่ในโซน/ย่อใกล้ MA50
+            var isBuyable = s2 && !extended && rsi <= 68 && cmf >= 0 && (inzone || prox <= 5 || nearMa50);
 
             var show = (!rsiOn || rsi < 70) &&
                        (!buyableOn || isBuyable) &&
@@ -3683,6 +3683,7 @@ function _updatePresetCountsUS() {
         var pp = d.pp === 'true';
         var cmf = parseFloat(d.cmf || '0');
         var rsi = parseFloat(d.rsi || '0');
+        var extended = d.extended === 'true';
         var accDays = parseInt(d.accDays || '0');
         var distDays = parseInt(d.distDays || '0');
         var accPos = accDays > distDays && accDays >= 4;
@@ -3697,10 +3698,9 @@ function _updatePresetCountsUS() {
         var ttmSq = d.ttmSq || 'none';
         var ep = d.ep === 'true';
 
-        // isBuyable / isBuyNow — สูตรเดียวกับ _applyFiltersUS เป๊ะ
+        // isBuyable / isBuyNow — สูตรเดียวกับ _applyFilters (unified SET+US)
         var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-        var notExtended = inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0;
-        var isBuyable = inzone || prox <= 5 || (s2 && notExtended && rsi <= 72 && cmf >= -0.05);
+        var isBuyable = s2 && !extended && rsi <= 68 && cmf >= 0 && (inzone || prox <= 5 || nearMa50);
         var isBuyNow  = rvol >= 1.5 && turtleDist <= 0.5;
 
         if (isBuyable)                      counts.pullback++;
