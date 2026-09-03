@@ -4196,6 +4196,7 @@ function _updatePresetCountsSET() {
         var ttmSq = d.ttmSq || 'none';
         var ep = d.ep === 'true';
 
+        // isBuyable / isBuyNow — สูตรเดียวกับ _applyFiltersSET เป๊ะ
         var isBuyable = (inzone || prox <= 5) && rvol >= 1.2 && cmf >= 0;
         var isBuyNow  = rvol >= 1.5 && turtleDist <= 0.5;
 

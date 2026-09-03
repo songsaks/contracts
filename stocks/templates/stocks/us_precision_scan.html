@@ -3690,13 +3690,17 @@ function _updatePresetCountsUS() {
         var turtleDist = parseFloat(d.turtleDist || '99.0');
         var inzone = d.inzone === 'true';
         var prox = parseFloat(d.prox || '99');
-        var extended = d.extended === 'true';
+        var price = parseFloat(d.price || '0');
+        var ma50 = parseFloat(d.ma50 || '0');
         var ttScore = parseInt(d.ttScore || '0');
         var htf = d.htf === 'true';
         var ttmSq = d.ttmSq || 'none';
         var ep = d.ep === 'true';
 
-        var isBuyable = inzone || prox <= 5 || (s2 && !extended && rsi <= 72 && cmf >= -0.05);
+        // isBuyable / isBuyNow — สูตรเดียวกับ _applyFiltersUS เป๊ะ
+        var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
+        var notExtended = inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0;
+        var isBuyable = inzone || prox <= 5 || (s2 && notExtended && rsi <= 72 && cmf >= -0.05);
         var isBuyNow  = rvol >= 1.5 && turtleDist <= 0.5;
 
         if (isBuyable)                      counts.pullback++;
