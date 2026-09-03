@@ -4176,28 +4176,36 @@ function _highlightPresetSET(presetType) {
 // ── Preset match counts on buttons ────────────────────────────────────
 function _updatePresetCountsSET() {
     var rows = document.querySelectorAll('#scanTableSET tbody tr');
-    var counts = { pullback: 0, htf_power: 0, squeeze_fired_preset: 0, episodic_pivot_preset: 0, super: 0, fast_swing: 0 };
+    // นับให้ตรงกับผลจริงหลังกด Preset นั้น (predicate เดียวกับ _applyFiltersSET หลัง applyPreset)
+    var counts = { pullback: 0, htf_power: 0, squeeze_fired_preset: 0, episodic_pivot_preset: 0, base_accumulation: 0, super: 0, fast_swing: 0 };
     rows.forEach(function(row) {
 
         var d = row.dataset;
         var s2 = d.stage2 === 'true';
         var pp = d.pp === 'true';
         var cmf = parseFloat(d.cmf || '0');
-        var vcp = d.vcp === 'true';
-        var canslim = d.canslim === 'true';
         var accDays = parseInt(d.accDays || '0');
         var distDays = parseInt(d.distDays || '0');
+        var accPos = accDays > distDays && accDays >= 4;
+        var rvol = parseFloat(d.rvol || '0');
+        var turtleDist = parseFloat(d.turtleDist || '99.0');
+        var inzone = d.inzone === 'true';
+        var prox = parseFloat(d.prox || '99');
+        var ttScore = parseInt(d.ttScore || '0');
         var htf = d.htf === 'true';
         var ttmSq = d.ttmSq || 'none';
         var ep = d.ep === 'true';
-        var extended = d.extended === 'true';
 
-        if (buyable)                     counts.pullback++;
-        if (htf)                         counts.htf_power++;
-        if (ttmSq === 'fired')          counts.squeeze_fired_preset++;
-        if (ep)                          counts.episodic_pivot_preset++;
-        if (ttScore >= 7 && cmf >= 0.1)  counts.super++;
-        if (buyNow)                      counts.fast_swing++;
+        var isBuyable = (inzone || prox <= 5) && rvol >= 1.2 && cmf >= 0;
+        var isBuyNow  = rvol >= 1.5 && turtleDist <= 0.5;
+
+        if (isBuyable)                      counts.pullback++;
+        if (htf)                            counts.htf_power++;
+        if (ttmSq === 'fired')             counts.squeeze_fired_preset++;
+        if (ep)                             counts.episodic_pivot_preset++;
+        if (pp && cmf >= 0.1 && accPos)    counts.base_accumulation++;
+        if (ttScore >= 7 && cmf >= 0.1)    counts.super++;
+        if (isBuyNow)                       counts.fast_swing++;
     });
 
 

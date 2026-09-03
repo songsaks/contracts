@@ -3675,34 +3675,37 @@ function _restoreFilterStateUS() {
 // ── Preset match counts on buttons ────────────────────────────────────
 function _updatePresetCountsUS() {
     var rows = document.querySelectorAll('#scanTableUS tbody tr');
-    var counts = { pullback: 0, htf_power: 0, squeeze_fired_preset: 0, episodic_pivot_preset: 0, super: 0, fast_swing: 0 };
+    // นับให้ตรงกับผลจริงหลังกด Preset นั้น (predicate เดียวกับ _applyFiltersUS หลัง applyPreset)
+    var counts = { pullback: 0, htf_power: 0, squeeze_fired_preset: 0, episodic_pivot_preset: 0, base_accumulation: 0, super: 0, fast_swing: 0 };
     rows.forEach(function(row) {
         var d = row.dataset;
         var s2 = d.stage2 === 'true';
+        var pp = d.pp === 'true';
         var cmf = parseFloat(d.cmf || '0');
+        var rsi = parseFloat(d.rsi || '0');
         var accDays = parseInt(d.accDays || '0');
         var distDays = parseInt(d.distDays || '0');
         var accPos = accDays > distDays && accDays >= 4;
-        var vsrg = d.volsurge === 'true';
         var rvol = parseFloat(d.rvol || '0');
         var turtleDist = parseFloat(d.turtleDist || '99.0');
-        var buyNow = rvol >= 1.5 && turtleDist <= 0.5;
         var inzone = d.inzone === 'true';
         var prox = parseFloat(d.prox || '99');
-        var buyable = inzone || prox <= 5;
+        var extended = d.extended === 'true';
         var ttScore = parseInt(d.ttScore || '0');
-        var sectorConfirmed = d.sectorConfirmed === 'true';
         var htf = d.htf === 'true';
         var ttmSq = d.ttmSq || 'none';
         var ep = d.ep === 'true';
-        var extended = d.extended === 'true';
 
-        if (s2 && buyable && cmf >= 0.1 && accPos && !extended)                           counts.pullback++;
-        if (htf && s2 && cmf >= 0.1 && !extended)                                         counts.htf_power++;
-        if (ttmSq === 'fired' && s2 && vsrg)                                             counts.squeeze_fired_preset++;
-        if (ep && cmf >= 0.1 && s2)                                                      counts.episodic_pivot_preset++;
-        if (ttScore >= 7 && sectorConfirmed && cmf >= 0.1 && accPos && !extended && s2)  counts.super++;
-        if (s2 && buyNow)                                                                counts.fast_swing++;
+        var isBuyable = inzone || prox <= 5 || (s2 && !extended && rsi <= 72 && cmf >= -0.05);
+        var isBuyNow  = rvol >= 1.5 && turtleDist <= 0.5;
+
+        if (isBuyable)                      counts.pullback++;
+        if (htf)                            counts.htf_power++;
+        if (ttmSq === 'fired')             counts.squeeze_fired_preset++;
+        if (ep)                             counts.episodic_pivot_preset++;
+        if (pp && cmf >= 0.1 && accPos)    counts.base_accumulation++;
+        if (ttScore >= 7 && cmf >= 0.1)    counts.super++;
+        if (isBuyNow)                       counts.fast_swing++;
     });
 
 
