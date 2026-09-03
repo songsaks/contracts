@@ -1587,118 +1587,140 @@
 
             <!-- RS Filter + Quick Filters -->
             <div class="px-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="rsiFilter70US" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-rsi" for="rsiFilter70US" style="cursor:pointer;">🔥 RSI < 70</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="stage2FilterUS" onchange="filterByStage2('US', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-stage2" for="stage2FilterUS" style="cursor:pointer;">Stage 2 Only</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="ppFilterUS" onchange="filterByPP('US', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-pp" for="ppFilterUS" style="cursor:pointer;">PK (Pocket Pivot)</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="volSurgeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-volsurge" for="volSurgeFilterUS" style="cursor:pointer;">⚡ Vol Surge ≥1.5x</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="ichiFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-ichi" for="ichiFilterUS" style="cursor:pointer;">☁ Ichi ≥ 3</label>
-                </div>
-                <!-- Launcher Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="launcherFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-launcher" for="launcherFilterUS" style="cursor:pointer;">🚀 Launcher Only</label>
-                </div>
-                <!-- VCP Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="vcpFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-vcp" for="vcpFilterUS" style="cursor:pointer;">🎯 VCP Only</label>
-                    <a href="{% url 'stocks:vcp_manual' %}" target="_blank" class="text-decoration-none" title="วิธีดู VCP" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
-                </div>
-                
-                <!-- VP Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="vpFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-vp" for="vpFilterUS" style="cursor:pointer;">🧲 At POC Only</label>
-                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="At POC (Point of Control): ราคาที่มีปริมาณซื้อขายสะสมมากที่สุดใน 120 วันล่าสุด — มักเป็นแนวรับ/แนวต้านสำคัญ กรองเฉพาะหุ้นที่ราคาปัจจุบันอยู่ใกล้ระดับนี้ (ในกรอบ ±3%) เท่านั้น เป็นตัวกรองที่ค่อนข้างเข้มงวด แนะนำให้ใช้เดี่ยวๆ ไม่ควรรวมกับเงื่อนไขอื่นเยอะเกินไป"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- ITL Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="itlFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-itl" for="itlFilterUS" style="cursor:pointer;">📈 ITL Bullish</label>
-                    <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="text-decoration-none" title="Ehlers ITL: ราคา > ITL Daily > ITL Weekly" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
-                </div>
-                <!-- CMF Positive Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="cmfPositiveFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="cmfPositiveFilterUS" style="cursor:pointer; color:#059669;">💰 CMF+ ≥ 0.1</label>
-                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="CMF+ ≥ 0.1: กรองเฉพาะหุ้นที่สถาบันสะสมชัดเจน (Chaikin Money Flow ≥ 0.1)"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- Inside Bar Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="insideBarFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="insideBarFilterUS" style="cursor:pointer; color:#0e7490;">📦 Inside Bar</label>
-                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Inside Bar: แท่งวันนี้อยู่ภายใน range ของเมื่อวาน (High < prev High AND Low > prev Low) สัญญาณ compression ก่อนเบรก"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- ACC > DIST Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="accDistFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="accDistFilterUS" style="cursor:pointer; color:#15803d;">📈 ACC > DIST</label>
-                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="ACC > DIST: วันสะสม (ราคาขึ้น+Volume สูง) มากกว่าวันขาย ใน 25 วัน = สถาบันกำลังเก็บของ"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- Buyable Uptrend Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
-                    <input class="form-check-input" type="checkbox" id="buyableFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-bold" for="buyableFilterUS" style="cursor:pointer; color:#059669;">🎯 อยู่ในโซนซื้อ (In Zone)</label>
-                    <span style="font-size:0.85rem;color:#059669;cursor:pointer;" title="อยู่ในโซนซื้อ (In Zone): เทรนด์ขาขึ้น (Stage 2) ที่ยังไม่ extended — อยู่ในโซนซื้อ Demand Zone หรือย่อมาใกล้จุดเข้า MA50 ≤ 5% + RSI ≤ 68 + CMF ≥ 0. กรองทิ้งพวก AT TP เหลือเฉพาะหุ้นย่อในโซนซื้อต้นทุนได้เปรียบ"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- Trend Template Filter (Minervini 8-point) -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="trendTemplateFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="trendTemplateFilterUS" style="cursor:pointer; color:#0f766e;">📐 Trend Template ≥7/8</label>
-                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Minervini Trend Template: ผ่านอย่างน้อย 7 ใน 8 เงื่อนไข (SMA50>150>200 เรียงชั้น, SMA200 ชันขึ้น, ราคาเหนือทุกเส้น, ห่างจาก 52w low ≥25%, ห่างจาก 52w high ≤25%, RS≥70)"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- Sector Confirmed Filter (Livermore Leading Sisters) -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="sectorConfirmedFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="sectorConfirmedFilterUS" style="cursor:pointer; color:#2563eb;">👥 Sector Confirmed</label>
-                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Sector Confirmation (Livermore Leading Sisters): หุ้นในกลุ่มอุตสาหกรรมเดียวกัน ≥30% อยู่ใน Stage2 ด้วย — ไม่ใช่หุ้นวิ่งเดี่ยวที่เสี่ยง False Breakout"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- CAN SLIM Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="canslimFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="canslimFilterUS" style="cursor:pointer; color:#d97706;">⭐ CAN SLIM เท่านั้น</label>
-                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CAN SLIM: กรองหุ้นขาขึ้นหลัก (Stage 2) + หุ้นผู้นำ (RS >= 80) + กำไร/รายได้โตโดดเด่น (EPS/Rev Growth >= 20%) + มีรายใหญ่สะสม (CMF >= 0.1 หรือเกิด Pocket Pivot)"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- BUY NOW Filter -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="buynowFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="buynowFilterUS" style="cursor:pointer; color:#dc2626;">🔥 Breakout วันนี้ (Buy Now)</label>
-                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="Breakout วันนี้ (Buy Now): กรองหุ้นที่มีสัญญาณซื้อด่วนที่สุด ณ วันนี้ (RVol >= 1.5x และราคาจ่อเบรค/เพิ่งเบรคเอาท์ไม่เกิน 0.5% ของแนวต้าน)"><i class="fas fa-question-circle"></i></span>
-                </div>
-                <!-- Category D: Ultra-Precision Models Switches -->
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="htfFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="htfFilterUS" style="cursor:pointer; color:#dc2626;" title="High Tight Flag (Qullamaggie Model): Surge +70-100% with tight base <=25%">🚩 HTF Power Play</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="squeezeFiredFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="squeezeFiredFilterUS" style="cursor:pointer; color:#16a34a;" title="TTM Squeeze Fired (John Carter Model): Volatility expansion day 1">⚡ Squeeze Fired!</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="squeezeOnFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="squeezeOnFilterUS" style="cursor:pointer; color:#d97706;" title="TTM Squeeze On: Volatility compression building up">🟡 Squeeze On</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="epFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="epFilterUS" style="cursor:pointer; color:#059669;" title="Episodic Pivot (Gap Up Model): Gap Up +4.5%+ with Vol 3x+">💥 Episodic Pivot</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="safeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="safeFilterUS" style="cursor:pointer; color:#2563eb;" title="Safe Avoidance Filter: Hide stocks extended >25% from MA50">🛡️ Safe (Not Extended)</label>
+                <div class="w-100 d-flex flex-column gap-2">
+
+                    <!-- หมวด A: เทรนด์ / คุณภาพ -->
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.62rem;font-weight:700;min-width:118px;">A · เทรนด์/คุณภาพ</span>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="rsiFilter70US" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold filter-label-rsi" for="rsiFilter70US" style="cursor:pointer;">🔥 RSI < 70</label>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="trendTemplateFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="trendTemplateFilterUS" style="cursor:pointer; color:#0f766e;">📐 Trend Template ≥7/8 (Stage 2)</label>
+                            <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Minervini Trend Template: ผ่านอย่างน้อย 7 ใน 8 เงื่อนไข (SMA50>150>200 เรียงชั้น, SMA200 ชันขึ้น, ราคาเหนือทุกเส้น, ห่างจาก 52w low ≥25%, ห่างจาก 52w high ≤25%, RS≥70) — ครอบคลุมเงื่อนไข Stage 2 อยู่แล้ว"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="sectorConfirmedFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="sectorConfirmedFilterUS" style="cursor:pointer; color:#2563eb;">👥 Sector Confirmed</label>
+                            <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Sector Confirmation (Livermore Leading Sisters): หุ้นในกลุ่มอุตสาหกรรมเดียวกัน ≥30% อยู่ใน Stage2 ด้วย — ไม่ใช่หุ้นวิ่งเดี่ยวที่เสี่ยง False Breakout"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                    </div>
+
+                    <!-- หมวด B: แรงเงินสถาบัน -->
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <span class="badge rounded-pill px-2 py-1" style="background:#ecfdf5;color:#059669;font-size:0.62rem;font-weight:700;min-width:118px;">B · แรงเงินสถาบัน</span>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="cmfPositiveFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="cmfPositiveFilterUS" style="cursor:pointer; color:#059669;">💰 CMF+ ≥ 0.1</label>
+                            <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="CMF+ ≥ 0.1: กรองเฉพาะหุ้นที่สถาบันสะสมชัดเจน (Chaikin Money Flow ≥ 0.1)"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="accDistFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="accDistFilterUS" style="cursor:pointer; color:#15803d;">📈 ACC > DIST</label>
+                            <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Accumulation > Distribution: วัน Acc (ราคาขึ้น+วอลุ่มสูง) มากกว่าวัน Dist ใน 10 วัน — เงินสถาบันไหลเข้าสุทธิ ยืนยันการสะสม"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="ppFilterUS" onchange="filterByPP('US', this.checked)" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold filter-label-pp" for="ppFilterUS" style="cursor:pointer;">⚡ PK / Vol Surge ≥1.5x</label>
+                            <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Pocket Pivot หรือ Volume Surge ≥ 1.5x — สัญญาณวอลุ่มเข้าผิดปกติ (เปิดคู่กับ Vol Surge ในหมวดขั้นสูงได้ถ้าต้องการเข้มขึ้น)"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                    </div>
+
+                    <!-- หมวด C: จังหวะเข้า -->
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <span class="badge rounded-pill px-2 py-1" style="background:#fef2f2;color:#dc2626;font-size:0.62rem;font-weight:700;min-width:118px;">C · จังหวะเข้า</span>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
+                            <input class="form-check-input" type="checkbox" id="buyableFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-bold" for="buyableFilterUS" style="cursor:pointer; color:#059669;">🎯 อยู่ในโซนซื้อ (In Zone)</label>
+                            <span style="font-size:0.85rem;color:#059669;cursor:pointer;" title="อยู่ในโซนซื้อ (In Zone): เทรนด์ขาขึ้น (Stage 2) ที่ยังไม่ extended — อยู่ในโซนซื้อ Demand Zone หรือย่อมาใกล้จุดเข้า MA50 ≤ 5% + RSI ≤ 68 + CMF ≥ 0. กรองทิ้งพวก AT TP เหลือเฉพาะหุ้นย่อในโซนซื้อต้นทุนได้เปรียบ"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="buynowFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="buynowFilterUS" style="cursor:pointer; color:#dc2626;">🔥 Breakout วันนี้ (Buy Now)</label>
+                            <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="Breakout วันนี้ (Buy Now): กรองหุ้นที่มีสัญญาณซื้อด่วนที่สุด ณ วันนี้ (RVol >= 1.5x และราคาจ่อเบรค/เพิ่งเบรคเอาท์ไม่เกิน 0.5% ของแนวต้าน)"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="vpFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold filter-label-vp" for="vpFilterUS" style="cursor:pointer;">🧲 At POC Only</label>
+                            <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="At POC (Point of Control): ราคาที่มีปริมาณซื้อขายสะสมมากที่สุดใน 120 วันล่าสุด — มักเป็นแนวรับ/แนวต้านสำคัญ กรองเฉพาะหุ้นที่ราคาปัจจุบันอยู่ใกล้ระดับนี้ (ในกรอบ ±3%) เท่านั้น เป็นตัวกรองที่ค่อนข้างเข้มงวด แนะนำให้ใช้เดี่ยวๆ ไม่ควรรวมกับเงื่อนไขอื่นเยอะเกินไป"><i class="fas fa-question-circle"></i></span>
+                        </div>
+                    </div>
+
+                    <!-- หมวด D: Ultra-Precision Models -->
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff;color:#7e22ce;font-size:0.62rem;font-weight:700;min-width:118px;">D · Ultra-Precision</span>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="htfFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="htfFilterUS" style="cursor:pointer; color:#dc2626;" title="High Tight Flag (Qullamaggie Model): หุ้นพุ่งแรง 70-100%+ แล้วพักตัวแคบ <=25%">🚩 HTF Power Play</label>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="squeezeFiredFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="squeezeFiredFilterUS" style="cursor:pointer; color:#16a34a;" title="TTM Squeeze Fired (John Carter Model): หุ้นเพิ่งจุดชนวนระเบิดความผันผวนหลุดกรอบวันแรก">⚡ Squeeze Fired!</label>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="squeezeOnFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="squeezeOnFilterUS" style="cursor:pointer; color:#d97706;" title="TTM Squeeze On: หุ้นกำลังบีบตัวแน่นสะสมพลัง เหมาะสำหรับทำการบ้านล่วงหน้า">🟡 Squeeze On</label>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="epFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="epFilterUS" style="cursor:pointer; color:#059669;" title="Episodic Pivot (Gap Up Model): หุ้นเปิด Gap Up +4.5%+ พร้อม Vol 3x+ จากงบ/ข่าวใหญ่">💥 Episodic Pivot</label>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="safeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="safeFilterUS" style="cursor:pointer; color:#2563eb;" title="Safe Avoidance Filter: ซ่อนหุ้นที่ยืดตัวเกิน 25% จากเส้น MA50 ป้องกันการหลงไปไล่ซื้อยอดดอย">🛡️ Safe (ไม่ Extended)</label>
+                        </div>
+                    </div>
+
+
+                    <!-- ขั้นสูง: confirmation ซ้อน — พับเก็บ ปิดไว้โดย default -->
+                    <div>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small fw-semibold" data-bs-toggle="collapse" data-bs-target="#advFiltersUS" aria-expanded="false" style="color:#64748b;">
+                            <i class="fas fa-sliders-h me-1"></i> ตัวกรองขั้นสูง (Confirmation) ▾
+                        </button>
+                        <div class="collapse" id="advFiltersUS">
+                            <div class="d-flex flex-wrap gap-3 align-items-center mt-2 pt-2 border-top">
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="stage2FilterUS" onchange="filterByStage2('US', this.checked)" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold filter-label-stage2" for="stage2FilterUS" style="cursor:pointer;">Stage 2 Only</label>
+                                </div>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="volSurgeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold filter-label-volsurge" for="volSurgeFilterUS" style="cursor:pointer;">⚡ Vol Surge ≥1.5x</label>
+                                </div>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="ichiFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold filter-label-ichi" for="ichiFilterUS" style="cursor:pointer;">☁ Ichi ≥ 3</label>
+                                </div>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="itlFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold filter-label-itl" for="itlFilterUS" style="cursor:pointer;">📈 ITL Bullish</label>
+                                    <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="text-decoration-none" title="Ehlers ITL: ราคา > ITL Daily > ITL Weekly" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
+                                </div>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="vcpFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold filter-label-vcp" for="vcpFilterUS" style="cursor:pointer;">🎯 VCP Only</label>
+                                    <a href="{% url 'stocks:vcp_manual' %}" target="_blank" class="text-decoration-none" title="วิธีดู VCP" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
+                                </div>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="launcherFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold filter-label-launcher" for="launcherFilterUS" style="cursor:pointer;">🚀 Launcher Only</label>
+                                </div>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="insideBarFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold" for="insideBarFilterUS" style="cursor:pointer; color:#0e7490;">📦 Inside Bar</label>
+                                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Inside Bar: แท่งวันนี้ High < High เมื่อวาน และ Low > Low เมื่อวาน — compression ก่อนเบรก มักเกิดพร้อม VCP/Launcher เป็น pre-breakout setup ที่ดี"><i class="fas fa-question-circle"></i></span>
+                                </div>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="checkbox" id="canslimFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-semibold" for="canslimFilterUS" style="cursor:pointer; color:#d97706;">⭐ CAN SLIM เท่านั้น</label>
+                                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CAN SLIM: กรองหุ้นขาขึ้นหลัก (Stage 2) + หุ้นผู้นำ (RS >= 80) + กำไร/รายได้โตโดดเด่น (EPS/Rev Growth >= 20%) + มีรายใหญ่สะสม (CMF >= 0.1 หรือเกิด Pocket Pivot)"><i class="fas fa-question-circle"></i></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <select id="sectorFilterUS" onchange="_applyFiltersUS()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
@@ -2475,6 +2497,11 @@
 
                             <!-- RECOMMENDATION -->
                             <td class="small" style="font-size:0.78rem;line-height:1.35;min-width:165px;background:rgba(248,250,252,0.5);">
+                                {% if item.badge_analysis_summary %}
+                                <div style="font-size:0.7rem; color:#fde68a; background:rgba(15, 23, 42, 0.85); padding:6px; border-radius:6px; margin-bottom:5px; border:1px solid rgba(253, 230, 138, 0.3); font-weight:600; line-height:1.3; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                    {{ item.badge_analysis_summary }}
+                                </div>
+                                {% endif %}
                                 {% if item.technical_score >= 70 %}
                                     <div class="fw-bold mb-1">
                                         {% if item.rvol >= 1.5 and item.turtle_dist_pct <= 0.5 %}
