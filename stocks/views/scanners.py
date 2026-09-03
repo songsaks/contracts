@@ -978,6 +978,60 @@ def us_recommendations(request):
 # ====== Morning Briefing - รายงานสรุปประจำวัน ======
 
 # ============================================================
+# _momentum_extra_signals — สัญญาณเสริมของ Momentum scanner
+#   stage2 (Minervini SMA150), bb_squeeze, macd_crossover, rel_1m, rel_3m
+#   ใช้ร่วมกันทั้ง SET และ US momentum scanner เพื่อให้ผลตรงกัน
+# ============================================================
+def _momentum_extra_signals(df, current_price, idx_1m=0.0, idx_3m=0.0):
+    import pandas_ta as _ta
+    out = {'stage2': False, 'bb_squeeze': False, 'macd_crossover': False,
+           'rel_1m': 0.0, 'rel_3m': 0.0}
+    # Stage 2 (Minervini): ราคา > SMA150 และ SMA150 กำลังชี้ขึ้น
+    try:
+        s150 = _ta.sma(df['Close'], length=150)
+        if s150 is not None and not s150.empty and len(s150.dropna()) >= 20:
+            out['stage2'] = (current_price > float(s150.iloc[-1])) and (float(s150.iloc[-1]) > float(s150.iloc[-20]))
+    except Exception:
+        pass
+    # BB Squeeze: bandwidth ปัจจุบัน ≤ เปอร์เซ็นไทล์ที่ 20 ของช่วง
+    try:
+        bb = _ta.bbands(df['Close'])
+        if bb is not None and not bb.empty:
+            bu = next((c for c in bb.columns if 'BBU' in c), None)
+            bl = next((c for c in bb.columns if 'BBL' in c), None)
+            bm = next((c for c in bb.columns if 'BBM' in c), None)
+            if bu and bl and bm:
+                bw = (bb[bu] - bb[bl]) / bb[bm]
+                if float(bw.iloc[-1]) <= float(bw.quantile(0.2)):
+                    out['bb_squeeze'] = True
+    except Exception:
+        pass
+    # MACD bullish crossover ใน 3 แท่งล่าสุด
+    try:
+        md = _ta.macd(df['Close'])
+        if md is not None and not md.empty:
+            mc = md.columns[0]
+            ms = next((c for c in md.columns if 'MACDs' in c), None)
+            if mc and ms:
+                for i in range(-3, 0):
+                    if md[mc].iloc[i-1] <= md[ms].iloc[i-1] and md[mc].iloc[i] > md[ms].iloc[i]:
+                        out['macd_crossover'] = True
+                        break
+    except Exception:
+        pass
+    # Relative Momentum เทียบดัชนีตลาด
+    try:
+        cl = df['Close'].dropna()
+        if len(cl) >= 22:
+            out['rel_1m'] = round(float((cl.iloc[-1] - cl.iloc[-22]) / cl.iloc[-22] * 100) - idx_1m, 2)
+        if len(cl) >= 66:
+            out['rel_3m'] = round(float((cl.iloc[-1] - cl.iloc[-66]) / cl.iloc[-66] * 100) - idx_3m, 2)
+    except Exception:
+        pass
+    return out
+
+
+# ============================================================
 # ฟังก์ชัน: momentum_scanner
 # วัตถุประสงค์: สแกนหาหุ้นที่มี Momentum แข็งแกร่ง (SET Market)
 #   วิเคราะห์ปัจจัย: RS Score, Volume Surge, Price Action,
@@ -1049,6 +1103,7 @@ def momentum_scanner(request):
                     from stocks.utils import (
                         analyze_momentum_technical,
                         find_supply_demand_zones,
+                        find_supply_demand_zones_v2,
                     )
                     from stocks.utils import get_top_ranked_symbols as _GTRS
                     User = get_user_model()
@@ -1072,7 +1127,22 @@ def momentum_scanner(request):
                     scan_end_date  = _now_bkk.date() + _td(days=1)
                     scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
                     scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')
-                    
+
+                    # ── SET Index 1m/3m return — baseline สำหรับ Relative Momentum (เทียบ rel_1m/rel_3m) ──
+                    set_1m = set_3m = 0.0
+                    try:
+                        _si = _yf.download("^SET.BK", start=scan_start_str, end=scan_end_str, interval="1d", progress=False)
+                        if _si is not None and not _si.empty:
+                            if isinstance(_si.columns, _pd.MultiIndex):
+                                _si.columns = _si.columns.droplevel(1)
+                            _sc = _si['Close'].dropna()
+                            if len(_sc) >= 22:
+                                set_1m = float((_sc.iloc[-1] - _sc.iloc[-22]) / _sc.iloc[-22] * 100)
+                            if len(_sc) >= 66:
+                                set_3m = float((_sc.iloc[-1] - _sc.iloc[-66]) / _sc.iloc[-66] * 100)
+                    except Exception:
+                        pass
+
                     # --- STAGE 1: Fast Screening (Turbo Chunks) ---
                     from yahooquery import Ticker as _TQ
                     _c.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'Stage 1: 🔎 Fast Screening...'}, timeout=900)
@@ -1132,13 +1202,23 @@ def momentum_scanner(request):
                             df['MFI'] = _ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
                             
                             tech = analyze_momentum_technical_v2(df)
-                            if tech.get('rsi', 0) < 35: return None 
-                            
+                            if tech.get('rsi', 0) < 35: return None
+
+                            _cp = float(df['Close'].iloc[-1])
+                            _extra = _momentum_extra_signals(df, _cp, set_1m, set_3m)
+
+                            _sd = find_supply_demand_zones_v2(df)
+                            _prox = 999.0
+                            if _sd and _sd.get('start'):
+                                _prox = 0.0 if _cp <= _sd['start'] else round((_cp - _sd['start']) / _sd['start'] * 100, 2)
+
                             return {
                                 'symbol': symbol, 'df': df, 'tech': tech,
-                                'price': float(df['Close'].iloc[-1]),
+                                'price': _cp,
                                 'year_high': float(df['High'].tail(252).max()),
-                                'sd_zone': find_supply_demand_zones(df)
+                                'sd_zone': _sd,
+                                'zone_proximity': _prox,
+                                **_extra,
                             }
                         except Exception: return None
 
@@ -1178,12 +1258,19 @@ def momentum_scanner(request):
                                                 h['MFI'] = _ta.mfi(h['High'], h['Low'], h['Close'], h['Volume'], length=14)
                                             except Exception: pass
                                             tech = analyze_momentum_technical_v2(h)
-                                            if tech.get('rsi', 0) > 30: 
+                                            if tech.get('rsi', 0) > 30:
+                                                 _hcp = float(h['Close'].iloc[-1])
+                                                 _hsd = find_supply_demand_zones_v2(h)
+                                                 _hprox = 999.0
+                                                 if _hsd and _hsd.get('start'):
+                                                     _hprox = 0.0 if _hcp <= _hsd['start'] else round((_hcp - _hsd['start']) / _hsd['start'] * 100, 2)
                                                  res = {
                                                     'symbol': symbol, 'df': h, 'tech': tech,
-                                                    'price': float(h['Close'].iloc[-1]),
+                                                    'price': _hcp,
                                                     'year_high': float(h['High'].tail(252).max()),
-                                                    'sd_zone': find_supply_demand_zones(h)
+                                                    'sd_zone': _hsd,
+                                                    'zone_proximity': _hprox,
+                                                    **_momentum_extra_signals(h, _hcp, set_1m, set_3m),
                                                 }
                                 except Exception: pass
                                 
@@ -1263,10 +1350,15 @@ def momentum_scanner(request):
                             risk_reward_ratio=rr_val,
                             year_high=r['year_high'], 
                             upside_to_high=((r['year_high'] - r['price'])/r['price'])*100 if r['price'] > 0 else 0,
-                            sector=f['sector'], 
-                            eps_growth=f['eps_growth'], 
+                            sector=f['sector'],
+                            eps_growth=f['eps_growth'],
                             rev_growth=f['rev_growth'],
-                            stage2=r['price'] > float(df['EMA200'].iloc[-1]) if 'EMA200' in df.columns else False
+                            stage2=r.get('stage2', False),
+                            bb_squeeze=r.get('bb_squeeze', False),
+                            macd_crossover=r.get('macd_crossover', False),
+                            rel_1m=r.get('rel_1m', 0.0),
+                            rel_3m=r.get('rel_3m', 0.0),
+                            zone_proximity=r.get('zone_proximity', 999.0),
                         ))
                     if bulk_objs:
                         _MC.objects.bulk_create(bulk_objs)
