@@ -414,74 +414,155 @@
                                 <i class="fas fa-trophy"></i>
                             </span>
                             <div>
-                                <h5 class="mb-0 fw-bold" style="color:#2d1b54; font-size:1.1rem;">คู่มือการเลือกกลยุทธ์ Quick Presets (เรียงลำดับตามดีที่สุด/ความน่าจะเป็นสูงสุด)</h5>
-                                <div class="text-muted small mt-1">คัดสรรกลยุทธ์เทรดตามรูปแบบสไตล์ต่างๆ โดยเรียงลำดับประสิทธิภาพจากมากไปน้อย</div>
+                                <h5 class="mb-0 fw-bold" style="color:#2d1b54; font-size:1.1rem;">คู่มือ Quick Presets — 7 กลยุทธ์ แยกตามสไตล์เทรด</h5>
+                                <div class="text-muted small mt-1">แต่ละ Preset ติ๊กชุด filter ให้อัตโนมัติ — ด้านล่างอธิบายว่าแต่ละอันหาหุ้นแบบไหน ทำไมได้ผล และควรใช้เมื่อไหร่</div>
                             </div>
                         </div>
 
                         <div class="row g-3">
-                            <!-- Preset 1 -->
+                            <!-- Preset 1 · Pullback -->
                             <div class="col-md-6 col-lg-3">
-                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #059669 !important; transition: transform 0.2s;">
+                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #059669 !important;">
                                     <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="badge px-2 py-1 bg-success bg-opacity-10 text-success fw-bold" style="font-size:0.75rem;">1 · ความเสี่ยงต่ำสุด</span>
+                                        <span class="badge px-2 py-1 bg-success bg-opacity-10 text-success fw-bold" style="font-size:0.72rem;">1 · ความเสี่ยงต่ำสุด</span>
                                         <span class="fs-5">🎯</span>
                                     </div>
-                                    <h6 class="fw-bold mb-2 text-dark">หุ้นย่อในโซนซื้อ (Pullback)</h6>
-                                    <div class="small mb-2">
-                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">อยู่ในโซนซื้อ (In Zone)</span>
+                                    <h6 class="fw-bold mb-1 text-dark">หุ้นย่อในโซนซื้อ <span class="text-muted fw-normal" style="font-size:0.8rem;">(Pullback)</span></h6>
+                                    <div class="small mb-2" style="line-height:1.7;">
+                                        <strong>เงื่อนไข:</strong> <span class="badge" style="background:#dcfce7;color:#15803d;">In Zone</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= Stage 2 + อยู่ใน Demand Zone หรือย่อใกล้ MA50 ≤ 5% + RSI ≤ 68 + CMF ≥ 0 + ยังไม่ extended (ตัดพวก AT TP ทิ้ง)</span>
                                     </div>
-                                    <p class="text-muted mb-0 small" style="line-height:1.5;">หุ้นขาขึ้นที่ย่อตัวกลับเข้าโซนซื้อ (Demand Zone / ใกล้ MA50) โดยยังไม่ extended — ต้นทุนได้เปรียบ วาง Stop ใต้โซนได้สั้น RR ดีที่สุด ใช้บ่อยที่สุด</p>
+                                    <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นขาขึ้นที่ "พักหายใจ" ย่อกลับเข้าโซนซื้อ ไม่ใช่หุ้นที่วิ่งขึ้นมาไกลแล้ว<br><strong class="text-dark">ทำไมได้ผล:</strong> ซื้อตอนย่อ = ต้นทุนต่ำกว่าจุดเบรก, Stop สั้น (ใต้โซน/ใต้ MA50), RR ดีที่สุดในบรรดา preset ทั้งหมด และเทรนด์ยืนยันแล้วจึงเจอ false breakout น้อย</p>
+                                    <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                                        <strong>ใช้เมื่อ:</strong> ตลาดไม่ใช่ขาลงชัด — เป็น preset เริ่มต้นที่แนะนำ · พอร์ตทุกระยะ<br>
+                                        <strong>เข้า/Stop:</strong> เข้าในโซนหรือเด้งจาก MA50 พร้อมวอลุ่ม · Stop ใต้ Demand Zone / swing low ล่าสุด
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Preset 2 -->
+                            <!-- Preset 2 · HTF Power Play -->
                             <div class="col-md-6 col-lg-3">
-                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #0d9488 !important; transition: transform 0.2s;">
+                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #dc2626 !important;">
                                     <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.75rem; background:#ccfbf1; color:#0f766e;">2 · สะสมในฐาน</span>
-                                        <span class="fs-5">💙</span>
+                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.72rem; background:#fee2e2; color:#b91c1c;">2 · Ultra-Model</span>
+                                        <span class="fs-5">🚀</span>
                                     </div>
-                                    <h6 class="fw-bold mb-2 text-dark">Base Accumulation</h6>
-                                    <div class="small mb-2">
-                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">Pocket Pivot</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span> + <span class="badge" style="background:#dcfce7;color:#166534;">ACC &gt; DIST</span>
+                                    <h6 class="fw-bold mb-1 text-dark">HTF Power Play <span class="text-muted fw-normal" style="font-size:0.78rem;">(High Tight Flag · Qullamaggie)</span></h6>
+                                    <div class="small mb-2" style="line-height:1.7;">
+                                        <strong>เงื่อนไข:</strong> <span class="badge" style="background:#fee2e2;color:#b91c1c;">HTF Setup</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= ราคาพุ่งแรง ~70–100%+ ใน 4–8 สัปดาห์ แล้วพักตัวแคบ ≤ 25% เป็นรูปธง</span>
                                     </div>
-                                    <p class="text-muted mb-0 small" style="line-height:1.5;">หุ้นกำลังสร้างฐาน มี Pocket Pivot + ยืนยันเงินสถาบันไหลเข้าจริง (CMF ≥ 0.1 และวันสะสม &gt; วันขาย) เหมาะซื้อ within base ก่อน breakout</p>
+                                    <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นที่เพิ่งมี "ระเบิดราคา" รอบใหญ่แล้วพักตัวแบบไม่คืนกำไร — แพทเทิร์นหายากแต่ให้ผลตอบแทนสูงสุดในสถิติ O'Neil<br><strong class="text-dark">ทำไมได้ผล:</strong> การพุ่งแรง = มี catalyst จริง + รายใหญ่เข้า, การพักแคบ = ไม่มีแรงขาย, เบรกธงมักวิ่งต่ออีกรอบใหญ่</p>
+                                    <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                                        <strong>ใช้เมื่อ:</strong> ตลาด Bull เท่านั้น · พอร์ตระยะสั้น–กลาง · รับความผันผวนสูงได้<br>
+                                        <strong>เข้า/Stop:</strong> เบรกขอบบนของธงพร้อมวอลุ่ม · Stop ใต้ Low ของธง (5–10%) · <strong>ไซซ์เล็ก</strong> เพราะ ADR สูง
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Preset 3 -->
+                            <!-- Preset 3 · Squeeze Fired -->
                             <div class="col-md-6 col-lg-3">
-                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #ec4899 !important; transition: transform 0.2s;">
+                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #16a34a !important;">
                                     <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.75rem; background-color: rgba(236, 72, 153, 0.1); color: #db2777;">3 · เข้าวันนี้</span>
-                                        <span class="fs-5">🔥</span>
-                                    </div>
-                                    <h6 class="fw-bold mb-2 text-dark">Breakout วันนี้ (Buy Now)</h6>
-                                    <div class="small mb-2">
-                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">BUY NOW</span>
-                                    </div>
-                                    <p class="text-muted mb-0 small" style="line-height:1.5;">หุ้นแนวโน้มขาขึ้นที่เพิ่ง/กำลังเบรกแนวต้านพร้อมวอลุ่ม ณ วันนี้ เหมาะเล่นรอบสั้น Swing/Day trade — เข้าเมื่อวอลุ่มยืนยัน อย่าไล่เกินจุด</p>
-                                </div>
-                            </div>
-
-                            <!-- Preset 4 -->
-                            <div class="col-md-6 col-lg-3">
-                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #ef4444 !important; transition: transform 0.2s;">
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="badge px-2 py-1 bg-danger bg-opacity-10 text-danger fw-bold" style="font-size:0.75rem;">4 · สายซิ่ง/ผู้นำ</span>
+                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.72rem; background:#dcfce7; color:#15803d;">3 · Ultra-Model</span>
                                         <span class="fs-5">⚡</span>
                                     </div>
-                                    <h6 class="fw-bold mb-2 text-dark">High Momentum</h6>
-                                    <div class="small mb-2">
-                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">Vol Surge ≥ 1.5x</span> + <span class="badge bg-light text-dark">Ichimoku ≥ 3</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span> + <span class="badge" style="background:#e0f2fe;color:#0369a1;">Trend Template ≥7/8</span> + <span class="badge" style="background:#dbeafe;color:#1e40af;">Sector Confirmed</span>
+                                    <h6 class="fw-bold mb-1 text-dark">Squeeze Fired <span class="text-muted fw-normal" style="font-size:0.78rem;">(TTM Squeeze · John Carter)</span></h6>
+                                    <div class="small mb-2" style="line-height:1.7;">
+                                        <strong>เงื่อนไข:</strong> <span class="badge" style="background:#dcfce7;color:#15803d;">Squeeze Fired</span> + <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge bg-light text-dark">Vol Surge</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= Bollinger Bands เพิ่งขยายหลุดออกจาก Keltner Channel (บีบตัวจบ) วันแรก</span>
                                     </div>
-                                    <p class="text-muted mb-0 small" style="line-height:1.5;">หุ้นแรงเหวี่ยงสูง เงินไหลเข้ารุนแรง ยืนยันด้วย Ichimoku ≥ 3/4 + CMF ≥ 0.1 + กลุ่มยืนยัน — หุ้นผู้นำตลาดจริงในภาวะ Bullish</p>
+                                    <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นที่ความผันผวนบีบตัวแน่นสุดแล้ว "จุดชนวน" ออกวันแรก<br><strong class="text-dark">ทำไมได้ผล:</strong> ความผันผวนต่ำ→สูงเป็นวัฏจักร วันที่บีบตัวจบพร้อมวอลุ่มคือจุดเริ่มของการเคลื่อนไหวแรง จับได้ตั้งแต่วันแรกก่อนคนอื่น</p>
+                                    <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                                        <strong>ใช้เมื่อ:</strong> ทุกสภาพตลาด (เป็นสัญญาณ timing) · พอร์ตระยะสั้น<br>
+                                        <strong>เข้า/Stop:</strong> เข้าวันที่ fired หรือ pullback แรก · Stop ใต้ Keltner กลาง / EMA20
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Preset 4 · Episodic Pivot -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #059669 !important;">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.72rem; background:#d1fae5; color:#047857;">4 · Ultra-Model</span>
+                                        <span class="fs-5">💥</span>
+                                    </div>
+                                    <h6 class="fw-bold mb-1 text-dark">Episodic Pivot <span class="text-muted fw-normal" style="font-size:0.78rem;">(EP · Gap-Up · Qullamaggie)</span></h6>
+                                    <div class="small mb-2" style="line-height:1.7;">
+                                        <strong>เงื่อนไข:</strong> <span class="badge" style="background:#d1fae5;color:#047857;">Episodic Pivot</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span> + <span class="badge bg-light text-dark">Stage 2</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= เปิด Gap Up ≥ +4.5% พร้อมวอลุ่ม ≥ 3 เท่า</span>
+                                    </div>
+                                    <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นนิ่ง ๆ ในฐานที่จู่ ๆ gap กระโดดจากงบระเบิด/ข่าวเปลี่ยนพื้นฐาน<br><strong class="text-dark">ทำไมได้ผล:</strong> gap ใหญ่ + วอลุ่มมหาศาล = ตลาดประเมินมูลค่าใหม่ (institutional repricing) มักมี drift ต่ออีก 1–3 เดือน (anomaly PEAD)</p>
+                                    <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                                        <strong>ใช้เมื่อ:</strong> ช่วงประกาศงบ · พอร์ตระยะสั้น–กลาง<br>
+                                        <strong>เข้า/Stop:</strong> เข้าวัน gap หรือ day 1–2 · Stop ใต้ Low ของแท่ง gap (ปิดต่ำกว่า = สัญญาณเสีย ออกทันที)
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Preset 5 · Base Accumulation -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #0d9488 !important;">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.72rem; background:#ccfbf1; color:#0f766e;">5 · สะสมในฐาน</span>
+                                        <span class="fs-5">💙</span>
+                                    </div>
+                                    <h6 class="fw-bold mb-1 text-dark">Base Accumulation</h6>
+                                    <div class="small mb-2" style="line-height:1.7;">
+                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Pocket Pivot</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span> + <span class="badge" style="background:#dcfce7;color:#166534;">ACC &gt; DIST</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= วอลุ่มวันขึ้น &gt; วอลุ่มวันลงสูงสุด 10 วัน (ในฐาน) + เงินสถาบันไหลเข้า + วันสะสม ≥ 4 และมากกว่าวันขาย</span>
+                                    </div>
+                                    <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นในฐานที่มีร่องรอย "สถาบันเก็บของเงียบ ๆ" ก่อน breakout<br><strong class="text-dark">ทำไมได้ผล:</strong> ซื้อ within base ก่อนเบรก = ต้นทุนดีสุด และการมี 3 สัญญาณสะสมพร้อมกันลดโอกาสฐานล้มเหลว</p>
+                                    <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                                        <strong>ใช้เมื่อ:</strong> ตลาดพักฐาน / sideways ที่ยังหาผู้นำรอบหน้า · พอร์ตระยะกลาง<br>
+                                        <strong>เข้า/Stop:</strong> เข้าที่ Pocket Pivot หรือเด้งในฐาน · Stop ใต้ Low ของฐาน
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Preset 6 · Superperformance -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #7c3aed !important;">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.72rem; background:#ede9fe; color:#6d28d9;">6 · คุณภาพสูงสุด</span>
+                                        <span class="fs-5">💣</span>
+                                    </div>
+                                    <h6 class="fw-bold mb-1 text-dark">รวมหุ้นเกรด A+ <span class="text-muted fw-normal" style="font-size:0.78rem;">(Superperformance · Minervini)</span></h6>
+                                    <div class="small mb-2" style="line-height:1.7;">
+                                        <strong>เงื่อนไข:</strong> <span class="badge" style="background:#e0f2fe;color:#0369a1;">Trend Template ≥ 7/8</span> + <span class="badge" style="background:#dcfce7;color:#15803d;">CMF+ ≥ 0.1</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">Trend Template = SMA50&gt;150&gt;200 เรียงชั้น, SMA200 ชันขึ้น, ราคาเหนือทุกเส้น, ห่าง 52w Low ≥ 25%, ห่าง 52w High ≤ 25%, RS ≥ 70</span>
+                                    </div>
+                                    <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นที่ผ่านโครงสร้างขาขึ้นครบตำรา Minervini + เงินสถาบันไหลเข้าจริง<br><strong class="text-dark">ทำไมได้ผล:</strong> เข้มที่สุด = คัดเหลือเฉพาะ "ผู้ชนะตัวจริง" ของตลาด มักได้หุ้นน้อย (0–5 ตัว) แต่คุณภาพสูงสุด</p>
+                                    <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                                        <strong>ใช้เมื่อ:</strong> อยากได้ shortlist คุณภาพ ไม่เร่งจำนวน · พอร์ตระยะกลาง–ยาว<br>
+                                        <strong>เข้า/Stop:</strong> รอ setup ย่อย (pullback / pocket pivot / breakout) ในหุ้นกลุ่มนี้อีกที · Stop ตาม setup ที่เลือกเข้า
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Preset 7 · Breakout วันนี้ -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="card h-100 border-0 shadow-sm rounded-3 p-3 bg-white" style="border-left: 4px solid #ec4899 !important;">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="badge px-2 py-1 fw-bold" style="font-size:0.72rem; background-color: rgba(236, 72, 153, 0.1); color: #db2777;">7 · เข้าวันนี้</span>
+                                        <span class="fs-5">🔥</span>
+                                    </div>
+                                    <h6 class="fw-bold mb-1 text-dark">Breakout วันนี้ <span class="text-muted fw-normal" style="font-size:0.8rem;">(Buy Now)</span></h6>
+                                    <div class="small mb-2" style="line-height:1.7;">
+                                        <strong>เงื่อนไข:</strong> <span class="badge bg-light text-dark">Stage 2</span> + <span class="badge" style="background:#fee2e2;color:#b91c1c;">BUY NOW</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= RVol ≥ 1.5x และราคาจ่อเบรก / เพิ่งเบรกไม่เกิน 0.5% ของแนวต้าน</span>
+                                    </div>
+                                    <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นที่มีสัญญาณซื้อด่วนที่สุด ณ วันนี้ — เบรกแนวต้านพร้อมวอลุ่มเดี๋ยวนี้<br><strong class="text-dark">ทำไมได้ผล:</strong> จับ momentum ตั้งแต่จุดเริ่ม · เงื่อนไขน้อย = ได้หุ้นเยอะ ใช้กรองต่อด้วยกลุ่ม A/B เอง</p>
+                                    <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                                        <strong>ใช้เมื่อ:</strong> ตลาด Bull · พอร์ตระยะสั้น (Day / Swing)<br>
+                                        <strong>เข้า/Stop:</strong> เข้าที่จุดเบรกพร้อมวอลุ่ม · Stop ใต้จุดเบรก / ใต้ฐานล่าสุด · <strong>ห้ามไล่</strong> ถ้าเลยจุดเบรกไปเกิน ~3%
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="small text-muted mt-3 pt-2 border-top" style="font-size:0.72rem;">
-                            <i class="fas fa-circle-info me-1"></i> ตัวกรอง Confirmation ที่ละเอียดขึ้น (Ichimoku / ITL / VCP / CAN SLIM / Launcher / Inside Bar / Stage 2) ย้ายไปไว้ใต้ปุ่ม <strong>“ตัวกรองขั้นสูง”</strong> ในแถบผลสแกน เปิดใช้เมื่อต้องการบีบผลให้แคบลง
+                        <div class="small mt-3 pt-2 border-top" style="font-size:0.74rem; color:#475569; line-height:1.7;">
+                            <i class="fas fa-lightbulb me-1" style="color:#f59e0b;"></i> <strong>ลำดับการใช้:</strong> เริ่มจาก <strong>Preset 1 (หุ้นย่อในโซนซื้อ)</strong> ก่อนเสมอ — เสี่ยงต่ำสุด RR ดีสุด · ถ้าได้หุ้นน้อยหรือไม่ถูกใจค่อยลองข้อ 5 → 6 → 7 · ข้อ 2–4 (Ultra-Models) ใช้เฉพาะตอนตลาด Bull และรับความผันผวนสูงได้<br>
+                            <i class="fas fa-circle-info me-1"></i> เลือก Preset ได้ <strong>ครั้งละ 1 อัน</strong> — กด Clear เพื่อล้าง · หลังเลือก Preset ยังเปิด toggle กลุ่ม A/B/C เพิ่มเพื่อบีบผลได้ · ตัวกรอง Confirmation ละเอียด (Ichimoku / ITL / VCP / CAN SLIM / Launcher / Inside Bar / Stage 2) อยู่ใต้ปุ่ม <strong>“ตัวกรองขั้นสูง”</strong>
                         </div>
                     </div>
 
