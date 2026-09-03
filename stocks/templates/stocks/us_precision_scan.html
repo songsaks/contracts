@@ -3476,21 +3476,21 @@ function _applyFiltersUS() {
     try {
         console.log("--- _applyFiltersUS() Triggered ---");
         var rows = document.querySelectorAll('#scanTableUS tbody tr:not(.collapse)');
-        var s2On       = document.getElementById('stage2FilterUS')  && document.getElementById('stage2FilterUS').checked;
-        var ppOn       = document.getElementById('ppFilterUS')      && document.getElementById('ppFilterUS').checked;
-        var volSurgeOn = document.getElementById('volSurgeFilterUS') && document.getElementById('volSurgeFilterUS').checked;
-        var ichiOn     = document.getElementById('ichiFilterUS')    && document.getElementById('ichiFilterUS').checked;
-        var vcpOn      = document.getElementById('vcpFilterUS')     && document.getElementById('vcpFilterUS').checked;
-        var vpOn       = document.getElementById('vpFilterUS')      && document.getElementById('vpFilterUS').checked;
-        var launcherOn = document.getElementById('launcherFilterUS') && document.getElementById('launcherFilterUS').checked;
-        var itlOn      = document.getElementById('itlFilterUS')     && document.getElementById('itlFilterUS').checked;
-        var canslimOn  = document.getElementById('canslimFilterUS')   && document.getElementById('canslimFilterUS').checked;
-        var buynowOn   = document.getElementById('buynowFilterUS')    && document.getElementById('buynowFilterUS').checked;
-        var cmfPosOn   = document.getElementById('cmfPositiveFilterUS') && document.getElementById('cmfPositiveFilterUS').checked;
-        var insideBarOn = document.getElementById('insideBarFilterUS') && document.getElementById('insideBarFilterUS').checked;
-        var accDistOn  = document.getElementById('accDistFilterUS') && document.getElementById('accDistFilterUS').checked;
-        var buyableOn  = document.getElementById('buyableFilterUS') && document.getElementById('buyableFilterUS').checked;
-        var trendTemplateOn = document.getElementById('trendTemplateFilterUS') && document.getElementById('trendTemplateFilterUS').checked;
+        var s2On        = document.getElementById('stage2FilterUS')      && document.getElementById('stage2FilterUS').checked;
+        var ppOn        = document.getElementById('ppFilterUS')          && document.getElementById('ppFilterUS').checked;
+        var cmfPosOn    = document.getElementById('cmfPositiveFilterUS') && document.getElementById('cmfPositiveFilterUS').checked;
+        var volSurgeOn  = document.getElementById('volSurgeFilterUS')    && document.getElementById('volSurgeFilterUS').checked;
+        var ichiOn      = document.getElementById('ichiFilterUS')        && document.getElementById('ichiFilterUS').checked;
+        var vcpOn       = document.getElementById('vcpFilterUS')         && document.getElementById('vcpFilterUS').checked;
+        var vpOn        = document.getElementById('vpFilterUS')          && document.getElementById('vpFilterUS').checked;
+        var launcherOn  = document.getElementById('launcherFilterUS')    && document.getElementById('launcherFilterUS').checked;
+        var itlOn       = document.getElementById('itlFilterUS')         && document.getElementById('itlFilterUS').checked;
+        var canslimOn   = document.getElementById('canslimFilterUS')     && document.getElementById('canslimFilterUS').checked;
+        var buynowOn    = document.getElementById('buynowFilterUS')      && document.getElementById('buynowFilterUS').checked;
+        var insideBarOn = document.getElementById('insideBarFilterUS')   && document.getElementById('insideBarFilterUS').checked;
+        var accDistOn   = document.getElementById('accDistFilterUS')     && document.getElementById('accDistFilterUS').checked;
+        var buyableOn   = document.getElementById('buyableFilterUS')     && document.getElementById('buyableFilterUS').checked;
+        var trendTemplateOn   = document.getElementById('trendTemplateFilterUS')   && document.getElementById('trendTemplateFilterUS').checked;
         var sectorConfirmedOn = document.getElementById('sectorConfirmedFilterUS') && document.getElementById('sectorConfirmedFilterUS').checked;
         var htfOn          = document.getElementById('htfFilterUS')          && document.getElementById('htfFilterUS').checked;
         var squeezeFiredOn = document.getElementById('squeezeFiredFilterUS') && document.getElementById('squeezeFiredFilterUS').checked;
@@ -3506,25 +3506,29 @@ function _applyFiltersUS() {
         var longTermSyms = [];
 
         rows.forEach(function(row) {
-            var symbol = row.dataset.symbol || '';
-            var rsi  = parseFloat(row.dataset.rsi || '0');
-            var s2   = row.dataset.stage2   === 'true';
-            var pp   = row.dataset.pp        === 'true';
-            var cmf  = parseFloat(row.dataset.cmf || '0');
-            var vsrg = row.dataset.volsurge  === 'true';
-            var ichi = parseInt(row.dataset.ichi || '0');
-            var vcp  = row.dataset.vcp       === 'true';
+            var symbol   = row.dataset.symbol || '';
+            var rsi      = parseFloat(row.dataset.rsi || '0');
+            var s2       = row.dataset.stage2    === 'true';
+            var pp       = row.dataset.pp         === 'true';
+            var cmf      = parseFloat(row.dataset.cmf || '0');
+            var vsrg     = row.dataset.volsurge   === 'true';
+            var ichi     = parseInt(row.dataset.ichi || '0');
+            var vcp      = row.dataset.vcp        === 'true';
             var vpStatus = row.dataset.vpStatus || "";
             var launcher = parseInt(row.dataset.launcher || '0');
-            var itl  = row.dataset.itl       === 'true';
-            var canslim = row.dataset.canslim === 'true';
-            var rvol = parseFloat(row.dataset.rvol || '0');
+            var itl      = row.dataset.itl        === 'true';
+            var canslim  = row.dataset.canslim    === 'true';
+            var rvol     = parseFloat(row.dataset.rvol || '0');
+            var turtleDist  = parseFloat(row.dataset.turtleDist || '99.0');
+            var sec      = row.dataset.sector     || '';
             var insideBar = row.dataset.insideBar === 'true';
-            var accDays = parseInt(row.dataset.accDays || '0');
+            var accDays  = parseInt(row.dataset.accDays  || '0');
             var distDays = parseInt(row.dataset.distDays || '0');
-            var turtleDist = parseFloat(row.dataset.turtleDist || '99.0');
-            var sec  = row.dataset.sector    || '';
-            var ttScore = parseInt(row.dataset.ttScore || '0');
+
+            var isShort  = row.dataset.isShortTerm  === 'true';
+            var isMedium = row.dataset.isMediumTerm === 'true';
+            var isLong   = row.dataset.isLongTerm   === 'true';
+            var ttScore  = parseInt(row.dataset.ttScore || '0');
             var sectorConfirmed = row.dataset.sectorConfirmed === 'true';
 
             var htf      = row.dataset.htf === 'true';
@@ -3532,13 +3536,10 @@ function _applyFiltersUS() {
             var ep       = row.dataset.ep === 'true';
             var extended = row.dataset.extended === 'true';
 
-            var isShort = row.dataset.isShortTerm === 'true';
-            var isMedium = row.dataset.isMediumTerm === 'true';
-            var isLong = row.dataset.isLongTerm === 'true';
-
-            var rsiOn     = document.getElementById('rsiFilter70US') && document.getElementById('rsiFilter70US').checked;
+            var rsiOn    = document.getElementById('rsiFilter70US') && document.getElementById('rsiFilter70US').checked;
 
             var isBuyNow = rvol >= 1.5 && turtleDist <= 0.5;
+            var isAccPos = accDays > distDays && accDays >= 4;   // Acc days มากกว่า Dist days (เกณฑ์เดียวกับ badge ACC{n}d ในตาราง)
 
             // ── Buyable Uptrend: ขาขึ้น (S2) + ยังไม่ extended + RR/เงินยังดี ──
             var inzone   = row.dataset.inzone === 'true';
@@ -3549,23 +3550,23 @@ function _applyFiltersUS() {
             // In Zone (unified SET+US): Stage 2 + ยังไม่ extended + RSI ≤ 68 + CMF ≥ 0 + อยู่ในโซน/ย่อใกล้ MA50
             var isBuyable = s2 && !extended && rsi <= 68 && cmf >= 0 && (inzone || prox <= 5 || nearMa50);
 
-            var show = (!rsiOn || rsi < 70) &&
-                       (!buyableOn || isBuyable) &&
-                       (!s2On || s2) &&
-                       (!ppOn || pp) &&
-                       (!secVal || sec === secVal) &&
-                       (!volSurgeOn || vsrg) &&
-                       (!vcpOn || vcp) &&
-                       (!vpOn || vpStatus === "At POC") &&
-                       (!launcherOn || launcher >= 70) &&
-                       (!ichiOn || ichi >= 3) &&
-                       (!itlOn || itl) &&
-                       (!canslimOn || canslim) &&
-                       (!buynowOn || isBuyNow) &&
-                       (!cmfPosOn || cmf >= 0.1) &&
+            var show = (!rsiOn       || rsi < 70) &&
+                       (!buyableOn   || isBuyable) &&
+                       (!s2On        || s2) &&
+                       (!ppOn        || pp) &&
+                       (!secVal      || sec === secVal) &&
+                       (!cmfPosOn    || cmf >= 0.1) &&
+                       (!volSurgeOn  || vsrg) &&
+                       (!vcpOn       || vcp) &&
+                       (!vpOn        || vpStatus === "At POC") &&
+                       (!launcherOn  || launcher >= 70) &&
+                       (!ichiOn      || ichi >= 3) &&
+                       (!itlOn       || itl) &&
+                       (!canslimOn   || canslim) &&
+                       (!buynowOn    || isBuyNow) &&
                        (!insideBarOn || insideBar) &&
-                       (!accDistOn || (accDays > distDays && accDays >= 4)) &&
-                       (!trendTemplateOn || ttScore >= 7) &&
+                       (!accDistOn   || isAccPos) &&
+                       (!trendTemplateOn   || ttScore >= 7) &&
                        (!sectorConfirmedOn || sectorConfirmed) &&
                        (!htfOn          || htf) &&
                        (!squeezeFiredOn || ttmSq === 'fired') &&
