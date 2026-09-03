@@ -3919,10 +3919,16 @@ function applyPreset(presetType) {
         activeBtn.classList.add('active');
         activeBtn.style.opacity = '1';
     }
+    // เคลียร์ตัวกรองรอง (Horizon Group / Ultra-Precision Models / Sector) ทุกครั้งที่กด preset
+    // เพื่อให้ผลในตารางตรงกับจำนวน (N) บนปุ่ม preset — ไม่งั้นถ้าค้าง Horizon=CAN SLIM ไว้อาจโชว์ 0 ตัว
+    if (typeof selectHorizonFilterSET === 'function') selectHorizonFilterSET('all');
+    var _ultraAllBtn = document.querySelector('#ultraFilterSET .btn-ultra-filter');
+    if (_ultraAllBtn && typeof filterUltraSET === 'function') filterUltraSET('all', _ultraAllBtn);
+    var secSel = document.getElementById('sectorFilterSET');
+    if (secSel) secSel.value = '';
+
     if (presetType === 'clear') {
         document.querySelectorAll('.preset-btn').forEach(btn => btn.style.opacity = '1');
-        var secSel = document.getElementById('sectorFilterSET');
-        if (secSel) secSel.value = '';
     }
     window._activePresetSET = (presetType === 'clear') ? '' : presetType;
 

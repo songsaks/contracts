@@ -3439,10 +3439,14 @@ function applyPreset(presetType) {
     const activeBtn = document.getElementById('preset-' + presetType);
     if (activeBtn) activeBtn.classList.add('active');
 
-    if (presetType === 'clear') {
-        var secSel = document.getElementById('sectorFilterUS');
-        if (secSel) secSel.value = '';
-    }
+    // เคลียร์ตัวกรองรอง (Horizon Group / Ultra-Precision Models / Sector) ทุกครั้งที่กด preset
+    // เพื่อให้ผลในตารางตรงกับจำนวน (N) บนปุ่ม preset — ไม่งั้นถ้าค้าง Horizon=CAN SLIM ไว้อาจโชว์ 0 ตัว
+    if (typeof selectHorizonFilterUS === 'function') selectHorizonFilterUS('all');
+    var _ultraAllBtn = document.querySelector('#ultraFilterUS .btn-ultra-filter');
+    if (_ultraAllBtn && typeof filterUltraUS === 'function') filterUltraUS('all', _ultraAllBtn);
+    var secSel = document.getElementById('sectorFilterUS');
+    if (secSel) secSel.value = '';
+
     window._activePresetUS = (presetType === 'clear') ? '' : presetType;
 
     _showPresetBarUS(presetType);
