@@ -266,7 +266,16 @@
                                 <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff;">VDU ✅</span>
                                 {% endif %}
                                 {% if item.pocket_pivot %}
-                                <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;">PP 🔥</span>
+                                {% if item.pp_at_ma50 %}
+                                <span class="badge rounded-pill px-2 py-1" style="background:linear-gradient(135deg,#8E2DE2,#4A00E0);color:#fff;border:1px solid #fbbf24;" title="Pocket Pivot แท้ (Dr.K): เด้งจากแนวรับ SMA50 ในฐาน (≤8% เหนือ SMA50) + CMF ≥ 0 (สถาบันไม่กระจายของ) — คุณภาพสูงสุด">PP&nbsp;★</span>
+                                {% else %}
+                                <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน (ถ้าไม่มีวันลงเลย ขยายเป็น 20 วัน) + อยู่ในฐาน/ต้นขาขึ้น (SMA10≥SMA50, ไม่ยืดเกิน 25% เหนือ SMA50, แท่งปิดครึ่งบน)">PP&nbsp;🔥</span>
+                                {% endif %}
+                                {% if item.ma50 > 0 %}
+                                <div style="font-size:0.62rem;color:#7c3aed;margin-top:2px;" title="กฎ trailing stop ตามตำรา Kacher-Morales: หลังเข้าซื้อจาก Pocket Pivot ให้ถือตราบใดที่ราคายืนเหนือ SMA50 — ปิดต่ำกว่า = ตัดขาดทุน/ทำกำไร (เป็นเงื่อนไข ไม่ใช่คำสั่งขายทันที)">
+                                    {% if item.kacher_stop_broken %}<span class="text-danger fw-bold">หลุด MA50 {{ item.ma50|floatformat:2 }} — ตัด</span>{% else %}<i class="fas fa-wave-square"></i> ถ้าเข้าแล้ว: ตัดเมื่อปิด &lt; MA50 {{ item.ma50|floatformat:2 }}{% endif %}
+                                </div>
+                                {% endif %}
                                 {% endif %}
                                 {% if not item.vcp_vdu and not item.vdu_near_zone and not item.pocket_pivot %}
                                 <span class="text-muted">—</span>

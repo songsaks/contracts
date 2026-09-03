@@ -6852,14 +6852,30 @@ def us_sepa_scanner(request):
                         # + context filter: อยู่ในฐาน/ต้นขาขึ้น (SMA10 >= SMA50*0.98), ไม่ยืด (≤25% เหนือ SMA50),
                         #   แท่งสัญญาณปิดครึ่งบน — logic เดียวกับ SET/US precision scanner
                         pp = False
+                        pp_at_ma50 = False
+                        ma10_v = ma50_v = 0.0
                         try:
                             vols = df['Volume'].values
                             closes = df['Close'].values
                             highs = df['High'].values
                             lows = df['Low'].values
                             if len(vols) >= 14:
-                                _ma10 = float(pd.Series(closes[-10:]).mean())
-                                _ma50 = float(pd.Series(closes[-50:]).mean()) if len(closes) >= 50 else 0.0
+                                ma10_v = float(pd.Series(closes[-10:]).mean())
+                                ma50_v = float(pd.Series(closes[-50:]).mean()) if len(closes) >= 50 else 0.0
+                                # CMF(20) inline — ใช้ยืนยัน pp_at_ma50 (สถาบันไม่ได้กระจายของ)
+                                _cmf20 = 0.0
+                                try:
+                                    _n = min(20, len(closes))
+                                    _c = closes[-_n:]; _h = highs[-_n:]; _l = lows[-_n:]; _v = vols[-_n:]
+                                    _rng = (_h - _l)
+                                    _safe = _rng.copy(); _safe[_safe == 0] = 1.0
+                                    _mfm = ((_c - _l) - (_h - _c)) / _safe
+                                    _mfm[_rng == 0] = 0.0
+                                    _vsum = float(_v.sum())
+                                    if _vsum > 0:
+                                        _cmf20 = float((_mfm * _v).sum() / _vsum)
+                                except Exception:
+                                    _cmf20 = 0.0
                                 for _i in [-1, -2]:
                                     if float(closes[_i]) <= float(closes[_i - 1]):
                                         continue  # not an up day
@@ -6886,10 +6902,14 @@ def us_sepa_scanner(request):
                                         _pp_close = float(closes[_i])
                                         _hi = float(highs[_i]); _lo = float(lows[_i])
                                         _upper_half = (_hi - _lo) <= 0 or (_pp_close - _lo) / (_hi - _lo) >= 0.5
-                                        _uptrend = _ma50 > 0 and _ma10 >= _ma50 * 0.98
-                                        _not_ext = _ma50 <= 0 or (_pp_close - _ma50) / _ma50 <= 0.25
+                                        _uptrend = ma50_v > 0 and ma10_v >= ma50_v * 0.98
+                                        _not_ext = ma50_v <= 0 or (_pp_close - ma50_v) / ma50_v <= 0.25
                                         if _uptrend and _not_ext and _upper_half:
                                             pp = True
+                                            # PP-at-MA50 (⭐): ราคายืนเหนือ SMA50 ไม่เกิน 8% + CMF ≥ 0
+                                            if ma50_v > 0 and _cmf20 >= 0 and _pp_close >= ma50_v \
+                                                    and (_pp_close - ma50_v) / ma50_v <= 0.08:
+                                                pp_at_ma50 = True
                                         break
                         except Exception as _e:
                             _sepa_log.debug(f'[US SEPA] PocketPivot {symbol}: {_e}')
@@ -6924,6 +6944,9 @@ def us_sepa_scanner(request):
                             'vcp_tightness': vcp.get('tightness', 0.0),
                             'vcp_vdu': vcp.get('vdu_confirmed', False),
                             'pocket_pivot': pp,
+                            'pp_at_ma50': pp_at_ma50,
+                            'ma10': round(ma10_v, 2),
+                            'ma50': round(ma50_v, 2),
                             'vdu_near_zone': vdu_near,
                             'adx': round(adx_v, 1),
                             'rsi': round(rsi_v, 1),
@@ -6981,6 +7004,9 @@ def us_sepa_scanner(request):
                         vcp_tightness=r['vcp_tightness'],
                         vcp_vdu=r['vcp_vdu'],
                         pocket_pivot=r['pocket_pivot'],
+                        pp_at_ma50=r.get('pp_at_ma50', False),
+                        ma10=r.get('ma10', 0.0),
+                        ma50=r.get('ma50', 0.0),
                         vdu_near_zone=r['vdu_near_zone'],
                         adx=r['adx'],
                         rsi=r['rsi'],

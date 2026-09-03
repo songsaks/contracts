@@ -922,6 +922,11 @@ class USSepaCandidate(models.Model):
     eps_accel      = models.BooleanField(default=False) # EPS Acceleration: Q ล่าสุด > Q ก่อน
     earnings_pass  = models.BooleanField(default=False) # ผ่านเกณฑ์ Minervini Earnings (EPS≥25 OR Rev≥25)
 
+    # ── Pocket Pivot detail (parity กับ Precision scanner) ──────
+    pp_at_ma50     = models.BooleanField(default=False) # PP แท้ (Dr.K): เด้งจาก SMA50 ในฐาน (≤8% เหนือ SMA50) + CMF ≥ 0
+    ma10           = models.FloatField(default=0.0)     # SMA10 — trailing stop สายสั้น (Kacher/Morales)
+    ma50           = models.FloatField(default=0.0)     # SMA50 — trailing stop / จุดขายหลักตามตำรา
+
     class Meta:
         ordering = ['-scan_run', '-rs_rating']
         indexes  = [models.Index(fields=['user', 'scan_run'])]
@@ -929,6 +934,14 @@ class USSepaCandidate(models.Model):
 
     def __str__(self):
         return f"{self.symbol} RS={self.rs_rating} VCP={self.vcp_setup}"
+
+    @property
+    def kacher_stop_broken(self):
+        """ราคาปิดต่ำกว่า MA50 แล้ว = trailing stop โดนแล้ว (ไม่ควรเข้าใหม่)"""
+        try:
+            return (self.ma50 or 0) > 0 and float(self.price or 0) < float(self.ma50)
+        except (TypeError, ValueError):
+            return False
 
 
 class MorningBriefing(models.Model):
