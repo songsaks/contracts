@@ -162,10 +162,37 @@ def portfolio_exit_plan(request):
                     action_detail = f"ราคาหลุดจุดเฝ้าระวัง (SL) - กำไรยังเหลือ {gain_loss_pct:.1f}% แนะนำขายล็อกกำไรส่วนนี้"
 
             elif near_sl and (sell_score >= 40 or (cmf_val is not None and cmf_val < -0.05) or reversal_score >= 2):
-                if gain_loss_pct < 0:
+                # แรงขาย "จริง" = เงินไหลออกชัด (CMF < -0.05) หรือ Sell Score สูง — ต่างจากแค่โมเมนตัมอ่อน (reversal_score)
+                _real_sell_pressure = (cmf_val is not None and cmf_val < -0.05) or sell_score >= 40
+                if gain_loss_pct < 0 and _real_sell_pressure:
+                    _why = []
+                    if cmf_val is not None and cmf_val < -0.05:
+                        _why.append(f"เงินไหลออก (CMF {cmf_val:.2f})")
+                    if sell_score >= 40:
+                        _why.append(f"Sell Score {sell_score}")
                     action       = 'เตรียม Cut Loss'
                     action_style = 'danger'
-                    action_detail = f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) และมีแรงขายสถาบัน (CMF {cmf_val:.2f}) — แนะนำทยอยขายลดความเสี่ยงล่วงหน้า"
+                    action_detail = (
+                        f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {' และ'.join(_why) or 'มีแรงขาย'} "
+                        f"— แนะนำทยอยขายลดความเสี่ยงล่วงหน้า"
+                    )
+                elif gain_loss_pct < 0:
+                    _wk = []
+                    if not rvol_bullish:
+                        _wk.append("RVOL หันขาลง")
+                    if rel_1m and rel_1m < 0:
+                        _wk.append(f"แพ้ตลาด 1M {rel_1m:.1f}%")
+                    if adx_val and adx_val < 18:
+                        _wk.append("เทรนด์อ่อน (ADX ต่ำ)")
+                    action       = 'เฝ้าระวังใกล้ SL'
+                    action_style = 'warning'
+                    action_detail = (
+                        f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {', '.join(_wk) or 'โมเมนตัมเริ่มอ่อน'} "
+                        f"— ยังไม่มีแรงขายสถาบันชัด (CMF {cmf_val:.2f}) และยังเหนือ Turtle S1/S2 · เตรียมแผนออกถ้าหลุด SL หรือ Turtle S1"
+                        if cmf_val is not None else
+                        f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {', '.join(_wk) or 'โมเมนตัมเริ่มอ่อน'} "
+                        f"— เตรียมแผนออกถ้าหลุด SL หรือ Turtle S1"
+                    )
                 else:
                     action       = 'ขายล็อกกำไร (ใกล้ SL)'
                     action_style = 'warning'
@@ -284,6 +311,7 @@ def portfolio_exit_plan(request):
                 'action':       action,
                 'action_style': action_style,
                 'action_detail': action_detail,
+                'near_sl':      near_sl,
                 'triggers':     triggers,
                 'is_leader':    is_leader,
                 'is_laggard':   is_laggard,

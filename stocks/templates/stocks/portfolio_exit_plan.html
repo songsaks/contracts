@@ -156,8 +156,8 @@
       <div class="flex-shrink-0">
         <span class="px-3 py-2 rounded-3 fw-bold d-inline-block"
               style="font-size:0.78rem;color:white;white-space:nowrap;
-                     background:{% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif item.exit_signal == 'EXIT' %}#d97706{% elif item.exit_signal == 'WATCH' %}#ea580c{% elif item.tp_hit %}#2563eb{% else %}#16a34a{% endif %};">
-          {% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}🚨{% elif item.exit_signal == 'EXIT' %}⚠️{% elif item.exit_signal == 'WATCH' %}👁{% elif item.tp_hit %}🎯{% else %}✓{% endif %}
+                     background:{% if item.action_style == 'danger' %}#dc2626{% elif item.action_style == 'warning' %}#d97706{% elif item.action_style == 'warning-soft' %}#ea580c{% elif item.action_style == 'info' %}#2563eb{% else %}#16a34a{% endif %};">
+          {% if item.action_style == 'danger' %}🚨{% elif item.action_style == 'warning' %}⚠️{% elif item.action_style == 'warning-soft' %}👁{% elif item.action_style == 'info' %}🎯{% else %}✓{% endif %}
           {{ item.action }}
         </span>
       </div>
@@ -165,10 +165,10 @@
 
     <!-- ═══ B: ACTION DETAIL ════════════════════════== -->
     <div class="px-4 py-2"
-         style="background:{% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}rgba(220,38,38,0.06){% elif item.exit_signal == 'EXIT' %}rgba(217,119,6,0.06){% elif item.exit_signal == 'WATCH' %}rgba(234,88,12,0.05){% else %}rgba(22,163,74,0.05){% endif %};
+         style="background:{% if item.action_style == 'danger' %}rgba(220,38,38,0.06){% elif item.action_style == 'warning' %}rgba(217,119,6,0.06){% elif item.action_style == 'warning-soft' %}rgba(234,88,12,0.05){% elif item.action_style == 'info' %}rgba(37,99,235,0.05){% else %}rgba(22,163,74,0.05){% endif %};
                 border-bottom:1px solid #f1f5f9;">
       <span style="font-size:0.8rem;font-weight:600;
-                   color:{% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#991b1b{% elif item.exit_signal == 'EXIT' %}#92400e{% elif item.exit_signal == 'WATCH' %}#9a3412{% else %}#166534{% endif %};">
+                   color:{% if item.action_style == 'danger' %}#991b1b{% elif item.action_style == 'warning' %}#92400e{% elif item.action_style == 'warning-soft' %}#9a3412{% elif item.action_style == 'info' %}#1e40af{% else %}#166534{% endif %};">
         {{ item.action_detail }}
       </span>
     </div>
@@ -305,6 +305,7 @@
           {% if item.sl_hit or item.s2_hit %}#dc2626
           {% elif item.sell_score >= 50 %}#dc2626
           {% elif item.sell_score >= 30 or item.tp_hit %}#d97706
+          {% elif item.near_sl %}#d97706
           {% else %}#16a34a{% endif %};">
           {% if item.sl_hit %}
             ⚠️ ราคาหลุด Stop Loss — ควรขายออกทันที
@@ -318,6 +319,8 @@
             🔴 Sell Score สูง — สัญญาณขายแรง ควรพิจารณาออก
           {% elif item.sell_score >= 30 %}
             🟡 Sell Score ปานกลาง — เริ่มระวัง ติดตามใกล้ชิด
+          {% elif item.near_sl %}
+            🟠 ราคาใกล้ Stop Loss — ยังไม่มีสัญญาณออกชัด แต่ควรเตรียมแผนออก
           {% else %}
             🟢 ยังถือต่อได้ — ไม่มีสัญญาณออกที่ชัดเจน
           {% endif %}
