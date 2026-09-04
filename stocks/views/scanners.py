@@ -2348,13 +2348,15 @@ def precision_momentum_scanner(request):
                         try:
                             from stocks.ultra_indicators import (
                                 calculate_htf_setup, calculate_ttm_squeeze,
-                                calculate_episodic_pivot, calculate_avoidance_and_adr
+                                calculate_episodic_pivot, calculate_avoidance_and_adr,
+                                calculate_best_loser_metrics
                             )
 
                             htf_setup_flag, htf_surge_val, htf_base_val = calculate_htf_setup(df)
                             ttm_sq_state, ttm_sq_len = calculate_ttm_squeeze(df)
                             ep_flag, ep_gap_val = calculate_episodic_pivot(df)
                             is_ext_flag, ma50_dist_val, adr_20d_val = calculate_avoidance_and_adr(df)
+                            best_loser_data = calculate_best_loser_metrics(df, current_price, target_price=sz_start or year_high, stop_price=sl_price)
 
                             if htf_setup_flag:
                                 integrated_score += 15
@@ -2367,7 +2369,8 @@ def precision_momentum_scanner(request):
                             if is_ext_flag:
                                 integrated_score -= 15
                         except Exception:
-                            pass
+                            best_loser_data = {}
+
 
                         if vcp_setup_flag:
                             integrated_score += 10
@@ -2496,7 +2499,16 @@ def precision_momentum_scanner(request):
                             'is_extended': is_ext_flag,
                             'ma50_dist_pct': ma50_dist_val,
                             'adr_20d_pct': adr_20d_val,
+                            # Best Loser Wins metrics
+                            'pyramiding_ready': best_loser_data.get('pyramiding_ready', False),
+                            'anti_avg_down_alert': best_loser_data.get('anti_avg_down_alert', False),
+                            'bl_rr_ratio': best_loser_data.get('rr_ratio', 0.0),
+                            'atr_stop_price': best_loser_data.get('atr_stop_price', 0.0),
+                            'risk_per_share': best_loser_data.get('risk_per_share', 0.0),
+                            'risk_pct': best_loser_data.get('risk_pct', 0.0),
+                            'atr14': best_loser_data.get('atr14', 0.0),
                         }
+
 
 
                     except Exception as e:
@@ -5588,13 +5600,15 @@ def us_precision_scanner(request):
                         try:
                             from stocks.ultra_indicators import (
                                 calculate_htf_setup, calculate_ttm_squeeze,
-                                calculate_episodic_pivot, calculate_avoidance_and_adr
+                                calculate_episodic_pivot, calculate_avoidance_and_adr,
+                                calculate_best_loser_metrics
                             )
 
                             htf_setup_flag, htf_surge_val, htf_base_val = calculate_htf_setup(df)
                             ttm_sq_state, ttm_sq_len = calculate_ttm_squeeze(df)
                             ep_flag, ep_gap_val = calculate_episodic_pivot(df)
                             is_ext_flag, ma50_dist_val, adr_20d_val = calculate_avoidance_and_adr(df)
+                            best_loser_data = calculate_best_loser_metrics(df, current_price, target_price=sz_start or year_high, stop_price=sl_price)
 
                             if htf_setup_flag:
                                 integrated_score += 15
@@ -5607,7 +5621,8 @@ def us_precision_scanner(request):
                             if is_ext_flag:
                                 integrated_score -= 15
                         except Exception:
-                            pass
+                            best_loser_data = {}
+
 
                         if vcp_setup_flag:
                             integrated_score += 10
@@ -5735,7 +5750,16 @@ def us_precision_scanner(request):
                             'is_extended': is_ext_flag,
                             'ma50_dist_pct': ma50_dist_val,
                             'adr_20d_pct': adr_20d_val,
+                            # Best Loser Wins metrics
+                            'pyramiding_ready': best_loser_data.get('pyramiding_ready', False),
+                            'anti_avg_down_alert': best_loser_data.get('anti_avg_down_alert', False),
+                            'bl_rr_ratio': best_loser_data.get('rr_ratio', 0.0),
+                            'atr_stop_price': best_loser_data.get('atr_stop_price', 0.0),
+                            'risk_per_share': best_loser_data.get('risk_per_share', 0.0),
+                            'risk_pct': best_loser_data.get('risk_pct', 0.0),
+                            'atr14': best_loser_data.get('atr14', 0.0),
                         }
+
 
                     except Exception as e:
                         import logging

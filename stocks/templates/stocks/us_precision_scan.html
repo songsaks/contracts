@@ -4591,5 +4591,125 @@ function exportScanCSV(tableId, filename) {
     </div>
 </div>
 
+<!-- ===== TOM HOUGAARD POSITION SIZER MODAL (Best Loser Wins) ===== -->
+<div class="modal fade" id="positionSizerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="background:#0f172a; color:#f8fafc; border-radius:16px;">
+            <div class="modal-header border-bottom border-secondary border-opacity-25 pb-2">
+                <h5 class="modal-title fs-6 fw-bold text-white d-flex align-items-center gap-2">
+                    <span class="badge" style="background:#7c3aed;">Best Loser Wins</span>
+                    <span>🧮 Tom Hougaard Position Sizer</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <div class="alert bg-purple bg-opacity-10 border border-purple border-opacity-25 text-white-50 small p-2 mb-3" style="font-size:0.75rem;">
+                    💡 <strong>หลักการ Best Loser Wins:</strong> คำนวณขนาดยอดซื้อ (Position Size) โดยกำหนด <strong>ความเสี่ยงสูงสุดต่อไม้ไม่เกิน 1%</strong> ของเงินทุนทั้งหมด เพื่อควบคุมผลขาดทุนให้เล็กเสมอ
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label text-muted small fw-semibold mb-1">เงินทุนทั้งหมดในพอร์ต</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-dark text-white-50 border-secondary border-opacity-25">$ / ฿</span>
+                            <input type="number" class="form-control bg-dark text-white border-secondary border-opacity-25 fw-bold" id="sizerCapital" value="10000" oninput="calculatePositionSizer()">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small fw-semibold mb-1">ความเสี่ยงต่อไม้ (Risk %)</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.1" class="form-control bg-dark text-white border-secondary border-opacity-25 fw-bold" id="sizerRiskPct" value="1.0" oninput="calculatePositionSizer()">
+                            <span class="input-group-text bg-dark text-white-50 border-secondary border-opacity-25">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-3 mb-3" style="background:rgba(30,41,59,0.8); border:1px solid rgba(255,255,255,0.1);">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-white-50 small">หุ้นที่เลือก:</span>
+                        <span class="fw-bold text-warning fs-6" id="sizerSymbol">SYMBOL</span>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <label class="form-label text-muted small mb-0" style="font-size:0.7rem;">ราคาเข้าซื้อ (Entry)</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm bg-dark text-white border-secondary border-opacity-25" id="sizerPrice" oninput="calculatePositionSizer()">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label text-danger small mb-0" style="font-size:0.7rem;">จุด Stop Loss</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm bg-dark text-white border-danger border-opacity-50 text-danger" id="sizerStop" oninput="calculatePositionSizer()">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label text-success small mb-0" style="font-size:0.7rem;">จุด Take Profit</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm bg-dark text-white border-success border-opacity-50 text-success" id="sizerTarget" oninput="calculatePositionSizer()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Results Display -->
+                <div class="p-3 rounded-3" style="background:linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.15)); border:1px solid rgba(167,139,250,0.3);">
+                    <div class="row g-2 text-center">
+                        <div class="col-4 border-end border-secondary border-opacity-25">
+                            <div class="text-white-50 small" style="font-size:0.68rem;">งบเสี่ยงสูงสุด (Risk Budget)</div>
+                            <div class="fw-bold text-danger fs-6" id="outRiskBudget">0</div>
+                        </div>
+                        <div class="col-4 border-end border-secondary border-opacity-25">
+                            <div class="text-white-50 small" style="font-size:0.68rem;">จำนวนหุ้นที่ควรซื้อ (Shares)</div>
+                            <div class="fw-bold text-warning fs-5" id="outShares">0</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-white-50 small" style="font-size:0.68rem;">มูลค่าออเดอร์ (Total Trade)</div>
+                            <div class="fw-bold text-info fs-6" id="outTradeValue">0</div>
+                        </div>
+                    </div>
+                    <hr class="my-2 border-secondary border-opacity-25">
+                    <div class="d-flex justify-content-between align-items-center text-white-50 small" style="font-size:0.72rem;">
+                        <span>อัตราผลตอบแทนต่อความเสี่ยง (R:R Ratio): <strong class="text-white" id="outRR">0x</strong></span>
+                        <span>จุดซื้อเพิ่มไม้ 2 (Pyramiding +3%): <strong class="text-success" id="outPyramidTrigger">0</strong></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-4" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openPositionSizerModal(symbol, price, stopLoss, targetPrice, atr) {
+    document.getElementById('sizerSymbol').textContent = symbol;
+    document.getElementById('sizerPrice').value = parseFloat(price || 0).toFixed(2);
+    document.getElementById('sizerStop').value = (stopLoss && parseFloat(stopLoss) > 0 && parseFloat(stopLoss) < parseFloat(price)) ? parseFloat(stopLoss).toFixed(2) : (parseFloat(price) * 0.95).toFixed(2);
+    document.getElementById('sizerTarget').value = (targetPrice && parseFloat(targetPrice) > parseFloat(price)) ? parseFloat(targetPrice).toFixed(2) : (parseFloat(price) * 1.15).toFixed(2);
+    calculatePositionSizer();
+    var modal = new bootstrap.Modal(document.getElementById('positionSizerModal'));
+    modal.show();
+}
+
+function calculatePositionSizer() {
+    var capital = parseFloat(document.getElementById('sizerCapital').value || 0);
+    var riskPct = parseFloat(document.getElementById('sizerRiskPct').value || 0);
+    var price = parseFloat(document.getElementById('sizerPrice').value || 0);
+    var stop = parseFloat(document.getElementById('sizerStop').value || 0);
+    var target = parseFloat(document.getElementById('sizerTarget').value || 0);
+
+    var riskBudget = capital * (riskPct / 100.0);
+    var riskPerShare = price > stop ? (price - stop) : 0;
+    var rewardPerShare = target > price ? (target - price) : 0;
+
+    var shares = (riskPerShare > 0) ? Math.floor(riskBudget / riskPerShare) : 0;
+    var totalTradeValue = shares * price;
+    var rrRatio = (riskPerShare > 0) ? (rewardPerShare / riskPerShare).toFixed(2) : '0.0';
+    var pyramidTrigger = (price * 1.03).toFixed(2);
+
+    document.getElementById('outRiskBudget').textContent = riskBudget.toLocaleString('en-US', {maximumFractionDigits:2});
+    document.getElementById('outShares').textContent = shares.toLocaleString('en-US');
+    document.getElementById('outTradeValue').textContent = totalTradeValue.toLocaleString('en-US', {maximumFractionDigits:2});
+    document.getElementById('outRR').textContent = rrRatio + 'x';
+    document.getElementById('outPyramidTrigger').textContent = pyramidTrigger;
+}
+</script>
+
 {% endblock %}
+
 

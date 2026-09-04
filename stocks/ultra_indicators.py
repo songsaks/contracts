@@ -166,3 +166,91 @@ def calculate_avoidance_and_adr(df):
 
     except Exception:
         return False, 0.0, 0.0
+
+
+def calculate_best_loser_metrics(df, current_price=0.0, target_price=None, stop_price=None):
+    """
+    คำนวณตัววัด Best Loser Wins (Tom Hougaard):
+    1. Pyramiding Ready: หุ้นกำลังอยู่ในขาขึ้น (กำไร +2% ถึง +12% ในช่วง 5 แท่งล่าสุด, ยืนเหนือ EMA10/20, Vol มีทิศทางบวก)
+    2. Anti-Averaging Down Alert: หุ้นหลุด Stop Loss หรือหลุด EMA50 (ห้ามถัวเฉลี่ย!)
+    3. R:R Ratio & Risk% per share (คำนวณ ATR Stop & Target R:R)
+    """
+    try:
+        if len(df) < 20:
+            return {
+                'pyramiding_ready': False,
+                'anti_avg_down_alert': False,
+                'rr_ratio': 0.0,
+                'atr_stop_price': 0.0,
+                'risk_per_share': 0.0,
+                'risk_pct': 0.0,
+                'atr14': 0.0
+            }
+
+        closes = df['Close'].values
+        highs  = df['High'].values
+        lows   = df['Low'].values
+        vols   = df['Volume'].values
+
+        c_price = current_price if current_price > 0 else float(closes[-1])
+
+        # คำนวณ ATR (14)
+        tr = np.maximum(highs[1:] - lows[1:], 
+             np.maximum(np.abs(highs[1:] - closes[:-1]), 
+                        np.abs(lows[1:] - closes[:-1])))
+        tr = np.insert(tr, 0, highs[0] - lows[0])
+        atr14 = float(np.mean(tr[-14:])) if len(tr) >= 14 else float(tr.mean())
+
+        # ATR-based Stop Price (default = current_price - 2 * ATR14)
+        atr_stop = round(c_price - (2.0 * atr14), 2) if atr14 > 0 else round(c_price * 0.95, 2)
+        eff_stop = stop_price if (stop_price and stop_price > 0 and stop_price < c_price) else atr_stop
+
+        risk_per_share = round(c_price - eff_stop, 2)
+        risk_pct = round((risk_per_share / c_price) * 100.0, 1) if c_price > 0 else 0.0
+
+        # R:R Ratio
+        if target_price and target_price > c_price and risk_per_share > 0:
+            reward = target_price - c_price
+            rr_ratio = round(reward / risk_per_share, 2)
+        else:
+            rr_ratio = 0.0
+
+        # EMA 10, 20, 50
+        ema10 = pd.Series(closes).ewm(span=10).mean().iloc[-1]
+        ema20 = pd.Series(closes).ewm(span=20).mean().iloc[-1]
+        ema50 = pd.Series(closes).ewm(span=50).mean().iloc[-1]
+
+        # Pyramiding Ready: ราคา > EMA10 > EMA20, และมีโมเมนตัมกำลังไต่ขึ้นช่วง +2% ถึง +12% ในช่วง 5 แท่งล่าสุด
+        min_5d = float(np.min(closes[-5:]))
+        gain_from_5d_min = ((c_price - min_5d) / min_5d) * 100.0 if min_5d > 0 else 0.0
+        
+        avg_vol_20 = np.mean(vols[-20:]) if len(vols) >= 20 else np.mean(vols)
+        curr_vol = float(vols[-1])
+        vol_surge = curr_vol >= (avg_vol_20 * 1.2) if avg_vol_20 > 0 else False
+
+        pyramiding_ready = (c_price > ema10) and (ema10 >= ema20) and (2.0 <= gain_from_5d_min <= 12.0) and vol_surge
+
+        # Anti-Averaging Down Alert: ราคาหลุด EMA50 หรือ ราคาหลุดจุด Stop Loss
+        anti_avg_down_alert = (c_price < ema50) or (stop_price and c_price <= stop_price)
+
+        return {
+            'pyramiding_ready': pyramiding_ready,
+            'anti_avg_down_alert': anti_avg_down_alert,
+            'rr_ratio': rr_ratio,
+            'atr_stop_price': atr_stop,
+            'risk_per_share': risk_per_share,
+            'risk_pct': risk_pct,
+            'atr14': round(atr14, 2)
+        }
+
+    except Exception:
+        return {
+            'pyramiding_ready': False,
+            'anti_avg_down_alert': False,
+            'rr_ratio': 0.0,
+            'atr_stop_price': 0.0,
+            'risk_per_share': 0.0,
+            'risk_pct': 0.0,
+            'atr14': 0.0
+        }
+
