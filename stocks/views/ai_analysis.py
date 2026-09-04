@@ -105,137 +105,40 @@ def portfolio_exit_plan(request):
                 year_high   = prec_data.year_high or 0
                 cmf_val     = prec_data.cmf
 
-            signals = _compute_signals(prec_data, current_price) if prec_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
-            sell_score   = signals['sell_score']
-            exit_signal  = signals['exit_signal']
-
-            # Boost sell score if Turtle exits are hit
-            if s1_hit: sell_score = max(sell_score, 75)
-            if s2_hit: sell_score = max(sell_score, 90)
+            # ===== คำแนะนำออก/ถือ — ใช้ฟังก์ชันกลาง compute_exit_action (แหล่งเดียวกับ alert engine) =====
+            from stocks.utils import compute_exit_action
+            _ea = compute_exit_action(
+                prec_data, current_price=current_price, entry_price=entry_price,
+                quantity=quantity, turtle_s1=turtle_s1_exit, turtle_s2=turtle_s2_exit,
+            ) if prec_data else None
+            if _ea is None:
+                _ea = {
+                    'action': 'ถือต่อ', 'action_style': 'success',
+                    'action_detail': 'ยังไม่มีข้อมูลสแกน — ตั้ง SL/เป้าตามแผนเดิมและติดตามใกล้ชิด',
+                    'exit_signal': '', 'sell_score': 0, 'reversal_score': 0,
+                    'near_sl': False, 'sl_hit': False, 'tp_hit': False, 's1_hit': s1_hit, 's2_hit': s2_hit,
+                    'is_leader': False, 'is_laggard': False, 'gain_loss_pct': gain_loss_pct,
+                }
+            sell_score     = _ea['sell_score']
+            exit_signal    = _ea['exit_signal']
+            reversal_score = _ea['reversal_score']
+            s1_hit         = _ea['s1_hit']
+            s2_hit         = _ea['s2_hit']
+            sl_hit         = _ea['sl_hit']
+            tp_hit         = _ea['tp_hit']
+            near_sl        = _ea['near_sl']
+            is_leader      = _ea['is_leader']
+            is_laggard     = _ea['is_laggard']
+            action         = _ea['action']
+            action_style   = _ea['action_style']
+            action_detail  = _ea['action_detail']
             
-            if sell_score >= 70: exit_signal = 'STRONG EXIT'
-            elif sell_score >= 50: exit_signal = 'EXIT'
-            elif sell_score >= 30: exit_signal = 'WATCH'
-
-            # ====== Progress Bar: SL → Entry → Current → TP ======
-            progress_pct   = None
-            current_pct    = None
-            entry_pct      = None
-            sl_hit         = False
-            tp_hit         = False
-
+            # ===== Progress Bar: SL -> Entry -> Current -> TP =====
+            current_pct = entry_pct = None
             if sl_price and tp_price and tp_price > sl_price:
-                total_range    = tp_price - sl_price
-                sl_hit         = current_price <= sl_price
-                tp_hit         = current_price >= tp_price
-                current_pct    = min(100, max(0, (current_price - sl_price) / total_range * 100))
-                entry_pct      = min(100, max(0, (entry_price - sl_price) / total_range * 100))
-
-            # ====== Momentum Classification ======
-            # หุ้นผู้นำ (Leader) = Momentum แข็งแกร่งกว่าตลาดมาก
-            is_leader = (rel_3m and rel_3m > 10) or (rel_1m and rel_1m > 5) or (adx_val and adx_val > 30)
-            # หุ้นล้าหลัง (Laggard) = Momentum อ่อนแอกว่าตลาด
-            is_laggard = (rel_3m and rel_3m < -5) or (adx_val and adx_val < 18)
-
-            # ====== Action Recommendation (Momentum & Risk-Aware) ======
-            reversal_score = signals.get('reversal_score', 0)
-            near_sl = bool(sl_price and sl_price > 0 and current_price <= sl_price * 1.025)
-            
-            if exit_signal == 'STRONG EXIT':
-                if gain_loss_pct < 0 or reversal_score >= 3 or not is_leader:
-                    action       = 'ออกทันที'
-                    action_style = 'danger'
-                    action_detail = f"ขายทั้งหมด {quantity:.0f} หุ้น - สัญญาณขายแรงมาก (Sell Score {sell_score}) มีแรงขายสถาบันและทรงเริ่มเสีย"
-                else:
-                    action       = 'ทยอยขาย (Leader)'
-                    action_style = 'warning'
-                    action_detail = f"สัญญาณขายเตือน แต่ยังมีกำไรและเป็นหุ้นผู้นำ - ขายล็อกกำไร 50% เก็บ 50% เผื่อเด้งรันเทรนด์"
-            
-            elif sl_hit:
-                if entry_price > 0 and current_price < entry_price:
-                    action       = 'ตัดขาดทุน (Cut Loss)'
-                    action_style = 'danger'
-                    action_detail = f"ราคาหลุด SL ({sl_price:.2f}) - แนะนำขายทันทีเพื่อปกป้องเงินทุน"
-                else:
-                    action       = 'ล็อกกำไร (Trailing)'
-                    action_style = 'warning'
-                    action_detail = f"ราคาหลุดจุดเฝ้าระวัง (SL) - กำไรยังเหลือ {gain_loss_pct:.1f}% แนะนำขายล็อกกำไรส่วนนี้"
-
-            elif near_sl and (sell_score >= 40 or (cmf_val is not None and cmf_val < -0.05) or reversal_score >= 2):
-                # แรงขาย "จริง" = เงินไหลออกชัด (CMF < -0.05) หรือ Sell Score สูง — ต่างจากแค่โมเมนตัมอ่อน (reversal_score)
-                _real_sell_pressure = (cmf_val is not None and cmf_val < -0.05) or sell_score >= 40
-                if gain_loss_pct < 0 and _real_sell_pressure:
-                    _why = []
-                    if cmf_val is not None and cmf_val < -0.05:
-                        _why.append(f"เงินไหลออก (CMF {cmf_val:.2f})")
-                    if sell_score >= 40:
-                        _why.append(f"Sell Score {sell_score}")
-                    action       = 'เตรียม Cut Loss'
-                    action_style = 'danger'
-                    action_detail = (
-                        f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {' และ'.join(_why) or 'มีแรงขาย'} "
-                        f"— แนะนำทยอยขายลดความเสี่ยงล่วงหน้า"
-                    )
-                elif gain_loss_pct < 0:
-                    _wk = []
-                    if not rvol_bullish:
-                        _wk.append("RVOL หันขาลง")
-                    if rel_1m and rel_1m < 0:
-                        _wk.append(f"แพ้ตลาด 1M {rel_1m:.1f}%")
-                    if adx_val and adx_val < 18:
-                        _wk.append("เทรนด์อ่อน (ADX ต่ำ)")
-                    action       = 'เฝ้าระวังใกล้ SL'
-                    action_style = 'warning'
-                    action_detail = (
-                        f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {', '.join(_wk) or 'โมเมนตัมเริ่มอ่อน'} "
-                        f"— ยังไม่มีแรงขายสถาบันชัด (CMF {cmf_val:.2f}) และยังเหนือ Turtle S1/S2 · เตรียมแผนออกถ้าหลุด SL หรือ Turtle S1"
-                        if cmf_val is not None else
-                        f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {', '.join(_wk) or 'โมเมนตัมเริ่มอ่อน'} "
-                        f"— เตรียมแผนออกถ้าหลุด SL หรือ Turtle S1"
-                    )
-                else:
-                    action       = 'ขายล็อกกำไร (ใกล้ SL)'
-                    action_style = 'warning'
-                    action_detail = f"ราคา ฿{current_price:.2f} ใกล้จุด SL (฿{sl_price:.2f}) — แนะนำขายล็อกกำไรไว้ก่อน"
-
-            elif tp_hit or (tp_price and current_price >= tp_price):
-                if reversal_score < 3:
-                    action       = 'ถึง TP1 (Let Profit Run)'
-                    action_style = 'info'
-                    action_detail = f"ถึงเป้าหมายกำไรแรก ฿{tp_price:.2f} — แนะนำทยอยขายล็อกกำไร 25-50% ส่วนที่เหลือปล่อยวิ่งต่อ (Let Profit Run) ด้วย Trailing Stop"
-                else:
-                    action       = 'ถึง TP1 (ขายล็อกกำไร)'
-                    action_style = 'warning'
-                    action_detail = f"ถึงเป้าหมายกำไร ฿{tp_price:.2f} และเริ่มมีสัญญาณกระจายขาย — แนะนำขายล็อกกำไร 50-70%"
-
-            elif exit_signal == 'EXIT':
-                if gain_loss_pct < 0 or (cmf_val is not None and cmf_val < -0.05) or reversal_score >= 2:
-                    action       = 'ทยอยขาย 50%'
-                    action_style = 'warning'
-                    action_detail = f"มีสัญญาณขาย (Sell Score {sell_score}) และมีเงินไหลออก (CMF {cmf_val:.2f}) — แนะนำทยอยขาย 50% เพื่อลดความเสี่ยง"
-                elif is_leader and gain_loss_pct >= 0:
-                    action       = 'ถือต่อ (Leader)'
-                    action_style = 'success'
-                    action_detail = "มีสัญญาณชะลอตัวเล็กน้อย แต่ยังมีกำไรและทรงหลักยังดี - ถือต่อเพื่อรันเทรนด์"
-                else:
-                    action       = 'ทยอยขาย 50%'
-                    action_style = 'warning'
-                    action_detail = f"หุ้นเริ่มหมดแรงและมีสัญญาณกระจายขาย - ขายครึ่งหนึ่งเก็บกำไรไว้ก่อน"
-
-            elif is_laggard and gain_loss_pct < 0:
-                action       = 'พิจารณาเปลี่ยนตัว'
-                action_style = 'warning-soft'
-                action_detail = "หุ้นเคลื่อนไหวช้ากว่าตลาด (Laggard) - แนะนำพิจารณาเปลี่ยนไปถือหุ้นผู้นำตัวอื่น"
-
-            elif tp_price and current_price >= tp_price * 0.95:
-                action       = 'ใกล้ TP'
-                action_style = 'info'
-                action_detail = f"ราคาใกล้เป้าหมาย ฿{tp_price:.2f} - เตรียมทยอยขายล็อกกำไรบางส่วน"
-
-            else:
-                action       = 'ถือต่อ'
-                action_style = 'success'
-                action_detail = "ยังไม่มีสัญญาณออก และโครงสร้างราคายังดี - ถือรันเทรนด์ต่อไป"
+                _rng = tp_price - sl_price
+                current_pct = min(100, max(0, (current_price - sl_price) / _rng * 100))
+                entry_pct   = min(100, max(0, (entry_price - sl_price) / _rng * 100))
 
             # ====== Active Exit Triggers ======
             triggers = []

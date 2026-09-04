@@ -1489,6 +1489,7 @@ class StockAlertEvent(models.Model):
         REALLOCATE = 'REALLOCATE', 'แนะนำสับเปลี่ยนหุ้นในพอร์ต'
         DISTRIBUTION_WARNING = 'DISTRIBUTION_WARNING', 'สัญญาณกระจายขาย/กลับตัว'
         VDU_WATCH = 'VDU_WATCH', 'จับตาใกล้ชิด (Volume Dry-Up)'
+        EXIT_ACTION = 'EXIT_ACTION', 'คำแนะนำออก/ลดพอร์ต (ตรงกับหน้า Exit Plan)'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_alert_events')
     symbol = models.CharField(max_length=20)

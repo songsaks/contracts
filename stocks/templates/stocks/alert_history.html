@@ -58,6 +58,8 @@
     .sa-event.type-REALLOCATE { border-left-color: #8b5cf6; }
     .sa-event.type-DISTRIBUTION_WARNING { border-left-color: #eab308; }
     .sa-event.type-VDU_WATCH { border-left-color: #0ea5e9; }
+    .sa-event.type-EXIT_ACTION { border-left-color: #d97706; }
+    .sa-event.type-EXIT_ACTION .sa-event-icon { background: rgba(217,119,6,.1); }
     .sa-event.is-read { opacity: 0.5; }
 
     .sa-event-icon {
@@ -138,6 +140,7 @@
             <button type="button" class="sa-filter-btn" data-filter="REALLOCATE">🔄 สับเปลี่ยนหุ้น</button>
             <button type="button" class="sa-filter-btn" data-filter="DISTRIBUTION_WARNING">⚠️ สัญญาณกระจายขาย</button>
             <button type="button" class="sa-filter-btn" data-filter="VDU_WATCH">💧 Volume Dry-Up</button>
+            <button type="button" class="sa-filter-btn" data-filter="EXIT_ACTION">🚪 คำแนะนำออก/ลดพอร์ต</button>
         </div>
         <button type="button" id="sa-mark-all-btn" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-check-double me-1"></i> อ่านแล้วทั้งหมด
@@ -161,7 +164,7 @@
             <a class="sa-event-link" href="{% url 'stocks:stock_chart' e.symbol %}?market={{ e.market }}"
                title="ดูกราฟหุ้น {{ e.symbol }}">
                 <div class="sa-event-icon">
-                    {% if e.alert_type == 'SL' %}🩸{% elif e.alert_type == 'TP' %}💵{% elif e.alert_type == 'BREAKOUT' %}🚀{% elif e.alert_type == 'TP_PARTIAL' %}🚀{% elif e.alert_type == 'TRAILING_EXIT' %}🏁{% elif e.alert_type == 'REALLOCATE' %}🔄{% elif e.alert_type == 'DISTRIBUTION_WARNING' %}⚠️{% elif e.alert_type == 'VDU_WATCH' %}💧{% else %}🎯{% endif %}
+                    {% if e.alert_type == 'SL' %}🩸{% elif e.alert_type == 'TP' %}💵{% elif e.alert_type == 'BREAKOUT' %}🚀{% elif e.alert_type == 'TP_PARTIAL' %}🚀{% elif e.alert_type == 'TRAILING_EXIT' %}🏁{% elif e.alert_type == 'REALLOCATE' %}🔄{% elif e.alert_type == 'DISTRIBUTION_WARNING' %}⚠️{% elif e.alert_type == 'VDU_WATCH' %}💧{% elif e.alert_type == 'EXIT_ACTION' %}🚪{% else %}🎯{% endif %}
                 </div>
                 <div class="sa-event-body">
                     <div class="sa-event-top">

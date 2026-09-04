@@ -222,6 +222,8 @@ def evaluate_user_alerts(user, config):
         is_in_profit = entry_price <= 0 or price > entry_price
         tp_zone_hit = config.alert_take_profit and latest_scan.supply_zone_start and price >= latest_scan.supply_zone_start
 
+        _n_before_chain1 = len(new_events)
+
         # ====== Let Profit Run: TP แรกล็อกกำไรบางส่วน แล้วเทรลราคาส่วนที่เหลือแทนการเทขายทั้งหมดทันที ======
         if p.tp1_hit:
             # อยู่ในโหมดเทรลอยู่แล้ว (ล็อกกำไรบางส่วนไปรอบก่อนหน้า) — อัปเดตจุดสูงสุดแล้วเช็คว่าหลุด trailing stop หรือยัง
@@ -305,6 +307,51 @@ def evaluate_user_alerts(user, config):
                         ),
                     ))
                     cache.set(cache_key, True, timeout=12 * 60 * 60)
+
+        # ====== Exit Action — ข้อความเดียวกับหน้า /stocks/portfolio/exit-plan/ ======
+        # ยิงเฉพาะเมื่อ chain ด้านบน (SL hit / TP / Distribution) ยังไม่ได้แจ้งอะไร และคำแนะนำเป็น danger/warning
+        # กัน spam ด้วย cache-key ที่ผูกกับ "ชื่อ action" — เปลี่ยนสถานะเมื่อไหร่ค่อยแจ้งใหม่
+        _chain1_fired = len(new_events) > _n_before_chain1
+        if (not _chain1_fired
+                and (config.alert_stop_loss or config.alert_take_profit
+                     or getattr(config, 'alert_distribution_warning', False))):
+            try:
+                from stocks.utils import compute_exit_action
+                _ea = compute_exit_action(
+                    latest_scan, current_price=price,
+                    entry_price=entry_price, quantity=float(p.quantity or 0),
+                )
+                # ใกล้จุดตัดสินใจ → ดึง history สั้นๆ มาคำนวณ Turtle S1/S2 ให้ตรงกับหน้า
+                if _ea['near_sl'] or _ea['tp_hit'] or _ea['action_style'] != 'success':
+                    try:
+                        _h = yf.Ticker(_to_yf_symbol(p.symbol, p.market)).history(period='1mo')
+                        if _h is not None and not _h.empty:
+                            _lows = _h['Low'].dropna()
+                            _t1 = float(_lows.tail(10).min()) if len(_lows) >= 10 else 0.0
+                            _t2 = float(_lows.tail(20).min()) if len(_lows) >= 20 else 0.0
+                            _ea = compute_exit_action(
+                                latest_scan, current_price=price,
+                                entry_price=entry_price, quantity=float(p.quantity or 0),
+                                turtle_s1=_t1, turtle_s2=_t2,
+                            )
+                    except Exception:
+                        pass
+
+                if _ea['action_style'] in ('danger', 'warning', 'warning-soft'):
+                    _k = f"stockalert_exitaction_{user.id}_{p.symbol}_{_ea['action']}"
+                    if not cache.get(_k):
+                        new_events.append(StockAlertEvent(
+                            user=user, symbol=p.symbol, market=p.market,
+                            alert_type=StockAlertEvent.AlertType.EXIT_ACTION,
+                            strategy=strategy_label, price=price,
+                            reference_level=latest_scan.stop_loss,
+                            message=f"[{_ea['action']}] {_ea['action_detail']}{_poc_note(latest_scan)}",
+                        ))
+                        cache.set(_k, True, timeout=12 * 60 * 60)
+                        if _ea['action_style'] == 'danger':
+                            weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': _ea['action']})
+            except Exception:
+                pass
 
         if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring):
             # ── ระบุชนิด/ความแรงของสัญญาณให้ตรงกับ Precision scanner ──
