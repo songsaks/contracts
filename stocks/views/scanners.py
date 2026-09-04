@@ -2691,7 +2691,16 @@ def precision_momentum_scanner(request):
                             is_extended=r.get('is_extended', False),
                             ma50_dist_pct=r.get('ma50_dist_pct', 0.0),
                             adr_20d_pct=r.get('adr_20d_pct', 0.0),
+                            # Best Loser Wins
+                            pyramiding_ready=r.get('pyramiding_ready', False),
+                            anti_avg_down_alert=r.get('anti_avg_down_alert', False),
+                            bl_rr_ratio=r.get('bl_rr_ratio', 0.0),
+                            atr_stop_price=r.get('atr_stop_price', 0.0),
+                            risk_per_share=r.get('risk_per_share', 0.0),
+                            risk_pct=r.get('risk_pct', 0.0),
+                            atr14=r.get('atr14', 0.0),
                         ))
+
 
 
                     if bulk_candidates:
@@ -5941,6 +5950,14 @@ def us_precision_scanner(request):
                             is_extended=r.get('is_extended', False),
                             ma50_dist_pct=r.get('ma50_dist_pct', 0.0),
                             adr_20d_pct=r.get('adr_20d_pct', 0.0),
+                            # Best Loser Wins
+                            pyramiding_ready=r.get('pyramiding_ready', False),
+                            anti_avg_down_alert=r.get('anti_avg_down_alert', False),
+                            bl_rr_ratio=r.get('bl_rr_ratio', 0.0),
+                            atr_stop_price=r.get('atr_stop_price', 0.0),
+                            risk_per_share=r.get('risk_per_share', 0.0),
+                            risk_pct=r.get('risk_pct', 0.0),
+                            atr14=r.get('atr14', 0.0),
                         ))
 
                     if bulk_candidates:

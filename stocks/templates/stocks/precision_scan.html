@@ -1797,6 +1797,10 @@
                             <input class="form-check-input" type="checkbox" id="safeFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
                             <label class="form-check-label small fw-semibold" for="safeFilterSET" style="cursor:pointer; color:#2563eb;" title="Safe Avoidance Filter: ซ่อนหุ้นที่ยืดตัวเกิน 25% จากเส้น MA50 ป้องกันการหลงไปไล่ซื้อยอดดอย">🛡️ Safe (ไม่ Extended)</label>
                         </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="rrFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="rrFilterSET" style="cursor:pointer; color:#059669;" title="Best Loser Wins (Tom Hougaard): กรองเฉพาะหุ้นที่มี Risk Reward Ratio ≥ 1:2.0 เพื่อความได้เปรียบทางคณิตศาสตร์">🛡️ R:R ≥ 1:2.0</label>
+                        </div>
                     </div>
 
 
@@ -2181,6 +2185,12 @@
                                         {% endif %}
                                         {% if item.ehlers_itl_bullish %}
                                         <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
+                                        {% endif %}
+                                        {% if item.pyramiding_ready %}
+                                        <span class="badge px-1 py-0" style="background:#16a34a;color:white;font-size:0.55rem;" title="Best Loser Wins (Tom Hougaard): หุ้นกำไรแล้วพร้อม Pyramiding เพิ่มไม้เมื่อกำไรยืด">🔺 Pyramiding Ready</span>
+                                        {% endif %}
+                                        {% if item.anti_avg_down_alert %}
+                                        <span class="badge px-1 py-0" style="background:#dc2626;color:white;font-size:0.55rem;" title="Best Loser Wins (Tom Hougaard): หุ้นติดลบอยู่ในโซนอันตราย ห้ามซื้อถัวเฉลี่ยขาดทุนเด็ดขาด!">⛔ ห้ามถัวเฉลี่ย</span>
                                         {% endif %}
                                         {% if item.is_canslim %}
                                         <span class="badge text-dark ms-1" style="font-size:0.55rem; background: linear-gradient(135deg, #f59e0b, #d97706); border:none;" title="{{ item.canslim_reasons }}">CAN SLIM 🌟</span>
@@ -2740,6 +2750,7 @@
                                     <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm action-btn-sm" style="font-size:0.65rem;" target="_blank" title="AI Fast Summary"><i class="fas fa-magic"></i></a>
                                     <a href="{% url 'stocks:crew_analyze' item.symbol_bk %}" class="btn btn-warning btn-sm action-btn-sm fw-bold text-dark" style="font-size:0.65rem;" target="_blank" title="CrewAI Agent Analysis (Deep)"><i class="fas fa-robot"></i></a>
                                     <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
+                                    <button class="btn btn-sm action-btn-sm text-white border-0" style="font-size:0.65rem;background:linear-gradient(135deg,#059669,#10b981);" onclick="openPositionSizerModal('{{ item.symbol }}', {{ item.price|default:0 }}, {{ item.stop_loss|default:0 }}, {{ item.supply_zone_start|default:item.year_high|default:0 }}, {{ item.atr14|default:0 }})" title="🧮 Position Sizer (Best Loser Wins)"><i class="fas fa-calculator"></i></button>
                                     <a href="{% url 'stocks:stock_chart' item.symbol %}?market=SET" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line"></i></a>
                                     <button class="btn btn-sm action-btn-sm watchlist-toggle-btn"
                                             data-symbol="{{ item.symbol }}"
@@ -4124,6 +4135,7 @@ function _applyFiltersSET() {
         var squeezeOnOn    = document.getElementById('squeezeOnFilterSET')    && document.getElementById('squeezeOnFilterSET').checked;
         var epOn           = document.getElementById('epFilterSET')           && document.getElementById('epFilterSET').checked;
         var safeOn         = document.getElementById('safeFilterSET')         && document.getElementById('safeFilterSET').checked;
+        var rrOn           = document.getElementById('rrFilterSET')           && document.getElementById('rrFilterSET').checked;
         var secEl  = document.getElementById('sectorFilterSET');
         var secVal = secEl ? secEl.value : '';
 
@@ -4162,6 +4174,7 @@ function _applyFiltersSET() {
             var ttmSq    = row.dataset.ttmSq || 'none';
             var ep       = row.dataset.ep === 'true';
             var extended = row.dataset.extended === 'true';
+            var rrVal    = parseFloat(row.dataset.rr || '0');
 
             var rsiOn    = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
 
@@ -4199,7 +4212,8 @@ function _applyFiltersSET() {
                        (!squeezeFiredOn || ttmSq === 'fired') &&
                        (!squeezeOnOn    || ttmSq === 'building') &&
                        (!epOn           || ep) &&
-                       (!safeOn         || !extended);
+                       (!safeOn         || !extended) &&
+                       (!rrOn           || rrVal >= 2.0);
 
             // Gather all symbols passing the checkbox filters for the Summary Cards
             if (show) {

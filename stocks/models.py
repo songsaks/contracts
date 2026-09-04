@@ -416,6 +416,16 @@ class PrecisionScanCandidate(models.Model):
     sector_confirmed        = models.BooleanField(default=False)   # หุ้นกลุ่มเดียวกัน ≥30% อยู่ใน Stage2 ด้วย (ไม่ใช่วิ่งเดี่ยว)
     sector_strength_pct     = models.FloatField(default=0.0)       # % ของหุ้นในกลุ่มเดียวกันที่อยู่ใน Stage2
 
+    # ====== Best Loser Wins Metrics (Tom Hougaard) ======
+    pyramiding_ready    = models.BooleanField(default=False)         # Pyramiding Ready: หุ้นกำลังอยู่ในขาขึ้น พร้อมซื้อเพิ่มไม้ 2 (Averaging Up)
+    anti_avg_down_alert = models.BooleanField(default=False)         # Anti-Averaging Down Alert: ห้ามซื้อถัวเฉลี่ยหุ้นขาลง (หลุด SL / EMA50)
+    bl_rr_ratio         = models.FloatField(default=0.0)             # Best Loser Risk/Reward Ratio
+    atr_stop_price      = models.FloatField(default=0.0)             # ATR-based Stop Loss Price
+    risk_per_share      = models.FloatField(default=0.0)             # Risk Amount per Share (THB / USD)
+    risk_pct            = models.FloatField(default=0.0)             # Risk Percentage % per Share
+    atr14               = models.FloatField(default=0.0)             # ATR 14-day value
+
+
     # Properties for real-time Risk/Reward
     @property
     def live_price_or_price(self):
