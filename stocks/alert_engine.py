@@ -307,6 +307,30 @@ def evaluate_user_alerts(user, config):
                     cache.set(cache_key, True, timeout=12 * 60 * 60)
 
         if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring):
+            # ── ระบุชนิด/ความแรงของสัญญาณให้ตรงกับ Precision scanner ──
+            #   PK ⭐ (pp_at_ma50) = เด้งจาก SMA50 ในฐาน + CMF ≥ 0 → มั่นใจสูง (เทียบ badge PK★)
+            #   PK ธรรมดา (pocket_pivot อย่างเดียว) = up-day + volume trigger → มั่นใจต่ำกว่า (เทียบ badge PK⚡)
+            _pk_strict = bool(getattr(latest_scan, 'pp_at_ma50', False))
+            _pk_plain  = bool(latest_scan.pocket_pivot) and not _pk_strict
+            _is_ext    = bool(getattr(latest_scan, 'is_extended', False))   # ยืด > 25% จาก MA50 (Avoidance ของ scanner)
+            if latest_scan.is_52w_breakout:
+                _sig_label, _sig_reason = 'เบรค 52w High', 'เบรค 52w High'
+            elif latest_scan.wyckoff_spring:
+                _sig_label, _sig_reason = 'Wyckoff Spring 🌀', 'Wyckoff Spring'
+            elif _pk_strict:
+                _sig_label, _sig_reason = 'Pocket Pivot ⭐ (เด้งจาก MA50 ในฐาน)', 'Pocket Pivot ⭐'
+            else:
+                _sig_label, _sig_reason = 'Pocket Pivot', 'Pocket Pivot'
+
+            # PK ธรรมดา + ราคายืด/ยังไม่ยืนยัน Stage 2 = ความมั่นใจต่ำ (เกณฑ์เดียวกับ badge PK⚡ / ตัวกรอง Safe ของ scanner)
+            pk_weak_caveat = ""
+            if _pk_plain and (_is_ext or not latest_scan.stage2):
+                pk_weak_caveat = (
+                    " ⚠️ เป็น Pocket Pivot แบบทั่วไป (ไม่ใช่ ⭐ เด้งจาก MA50 ในฐาน)"
+                    + (" และราคายืดเกิน 25% จาก MA50 แล้ว" if _is_ext else " และยังไม่ยืนยัน Stage 2")
+                    + " — เชื่อถือได้น้อยกว่า ควรเช็คฐาน/แนวรับก่อนซื้อเพิ่ม"
+                )
+
             # เตือนแฝงถ้าหุ้นตัวเดียวกันมี Reversal Score สูงพร้อมกัน — Pocket Pivot ที่เกิดขณะเทรนด์กำลังอ่อนแอ
             # เชื่อถือได้น้อยกว่า Pocket Pivot ที่เกิดในเทรนด์ Stage 2 แข็งแรง (อาจเป็นแค่เด้งสั้นๆ ไม่ใช่กลับมาสะสมจริง)
             from stocks.views.base import _compute_signals
@@ -353,15 +377,18 @@ def evaluate_user_alerts(user, config):
                 strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
-                    f"{'เบรค 52w High' if latest_scan.is_52w_breakout else 'Wyckoff Spring 🌀' if latest_scan.wyckoff_spring else 'Pocket Pivot'} "
-                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
+                    f"{_sig_label} "
+                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
                 ),
             ))
-            strong_candidates.append({
-                'symbol': p.symbol, 'market': p.market,
-                'reason': 'เบรค 52w High' if latest_scan.is_52w_breakout else 'Wyckoff Spring' if latest_scan.wyckoff_spring else 'Pocket Pivot',
-                'score': latest_scan.technical_score,
-            })
+            # นับเป็น "หุ้นเด่น" เฉพาะสัญญาณแรง — เบรค 52w High / Wyckoff Spring / PK ⭐ (pp_at_ma50)
+            # PK ธรรมดาอย่างเดียวยังยิง alert เป็นข้อมูล แต่ไม่ดันขึ้นสรุป (ตรงกับ scanner ที่ให้ PK⚡ เป็นข้อมูล, PK★ เป็นคุณภาพ)
+            if latest_scan.is_52w_breakout or latest_scan.wyckoff_spring or _pk_strict:
+                strong_candidates.append({
+                    'symbol': p.symbol, 'market': p.market,
+                    'reason': _sig_reason,
+                    'score': latest_scan.technical_score,
+                })
         # ====== Buy Zone Add — เตือนสะสม/ซื้อเพิ่ม เมื่อหุ้นในพอร์ตย่อลงมาอยู่ในโซนได้เปรียบ (IN ZONE) ======
         elif config.alert_breakout_add and latest_scan.demand_zone_start and latest_scan.demand_zone_end and (latest_scan.demand_zone_end <= price <= latest_scan.demand_zone_start):
             from stocks.views.base import _compute_signals
