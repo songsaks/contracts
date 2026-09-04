@@ -2079,10 +2079,7 @@
     data-ep="{{ item.episodic_pivot|yesno:'true,false' }}"
     data-extended="{{ item.is_extended|yesno:'true,false' }}"
     data-pyramid="{{ item.pyramiding_ready|yesno:'true,false' }}"
-    data-anti-avg="{{ item.anti_avg_down_alert|yesno:'true,false' }}"
-    data-rr="{{ item.bl_rr_ratio|default:item.risk_reward_ratio|default:0 }}"
-    data-atr-stop="{{ item.atr_stop_price|default:0 }}"
-    data-risk-share="{{ item.risk_per_share|default:0 }}"
+    data-bl-rr="{{ item.bl_rr_ratio|default:0 }}"
     id="row-{{ item.symbol }}">
 
                             <!-- SYMBOL -->
@@ -2187,10 +2184,7 @@
                                         <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
                                         {% endif %}
                                         {% if item.pyramiding_ready %}
-                                        <span class="badge px-1 py-0" style="background:#16a34a;color:white;font-size:0.55rem;" title="Best Loser Wins (Tom Hougaard): หุ้นกำไรแล้วพร้อม Pyramiding เพิ่มไม้เมื่อกำไรยืด">🔺 Pyramiding Ready</span>
-                                        {% endif %}
-                                        {% if item.anti_avg_down_alert %}
-                                        <span class="badge px-1 py-0" style="background:#dc2626;color:white;font-size:0.55rem;" title="Best Loser Wins (Tom Hougaard): หุ้นติดลบอยู่ในโซนอันตราย ห้ามซื้อถัวเฉลี่ยขาดทุนเด็ดขาด!">⛔ ห้ามถัวเฉลี่ย</span>
+                                        <span class="badge px-1 py-0" style="background:#16a34a;color:white;font-size:0.55rem;" title="Best Loser Wins (Tom Hougaard): โมเมนตัมยืนยัน (เหนือ EMA10/20 · +2–12% ใน 5 แท่ง · vol surge) — จังหวะ add-on ดีถ้าเข้าแล้วมีกำไร">🔺 Pyramiding Ready</span>
                                         {% endif %}
                                         {% if item.is_canslim %}
                                         <span class="badge text-dark ms-1" style="font-size:0.55rem; background: linear-gradient(135deg, #f59e0b, #d97706); border:none;" title="{{ item.canslim_reasons }}">CAN SLIM 🌟</span>
@@ -4174,7 +4168,7 @@ function _applyFiltersSET() {
             var ttmSq    = row.dataset.ttmSq || 'none';
             var ep       = row.dataset.ep === 'true';
             var extended = row.dataset.extended === 'true';
-            var rrVal    = parseFloat(row.dataset.rr || '0');
+            var rrVal    = parseFloat(row.dataset.blRr || row.dataset.rr || '0');  // Best Loser: RR จากราคาปัจจุบัน (fallback = RR ทฤษฎี)
 
             var rsiOn    = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
 

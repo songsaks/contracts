@@ -137,6 +137,9 @@
           {% elif item.is_laggard %}
           <span class="badge rounded-pill px-2" style="background:#f1f5f9;color:#64748b;font-size:0.62rem;font-weight:700;">▼ LAGGARD</span>
           {% endif %}
+          {% if item.anti_avg_down %}
+          <span class="badge rounded-pill px-2" style="background:#dc2626;color:white;font-size:0.62rem;font-weight:700;" title="Best Loser Wins: ขาดทุน + หลุด MA50/SL — ห้ามซื้อถัวเฉลี่ยเพิ่มเด็ดขาด">⛔ ห้ามถัวเฉลี่ย</span>
+          {% endif %}
         </div>
         <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">
           {{ item.obj.name|default:""|truncatechars:30 }}&nbsp;·&nbsp;{{ item.quantity|floatformat:0 }} หุ้น&nbsp;·&nbsp;ถือ {{ item.days_held }} วัน

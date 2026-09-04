@@ -119,6 +119,7 @@ def portfolio_exit_plan(request):
                     'exit_signal': '', 'sell_score': 0, 'reversal_score': 0,
                     'near_sl': False, 'sl_hit': False, 'tp_hit': False, 's1_hit': s1_hit, 's2_hit': s2_hit,
                     'is_leader': False, 'is_laggard': False, 'gain_loss_pct': gain_loss_pct,
+                    'anti_avg_down': False,
                 }
             sell_score     = _ea['sell_score']
             exit_signal    = _ea['exit_signal']
@@ -133,6 +134,7 @@ def portfolio_exit_plan(request):
             action         = _ea['action']
             action_style   = _ea['action_style']
             action_detail  = _ea['action_detail']
+            anti_avg_down  = _ea.get('anti_avg_down', False)
             
             # ===== Progress Bar: SL -> Entry -> Current -> TP =====
             current_pct = entry_pct = None
@@ -219,6 +221,7 @@ def portfolio_exit_plan(request):
                 'triggers':     triggers,
                 'is_leader':    is_leader,
                 'is_laggard':   is_laggard,
+                'anti_avg_down': anti_avg_down,
                 'cmf':          cmf_val,
             })
         except Exception as e:

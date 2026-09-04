@@ -856,6 +856,10 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
     # laggard = แพ้ตลาดชัด (rel_3m ติดลบเยอะ) — ADX ต่ำอย่างเดียวไม่นับ (อาจแค่ consolidate)
     is_laggard = bool((rel_3m < -5) or (rel_3m < 0 and rel_1m < -3 and 0 < adx_val < 15))
 
+    # Anti-Averaging Down (Best Loser Wins): ขาดทุน + หลุด MA50 หรือหลุด SL = ห้ามซื้อถัวเฉลี่ยเพิ่มเด็ดขาด
+    _ma50_v = float(getattr(prec, 'ma50', 0) or 0)
+    anti_avg_down = bool(gain_loss_pct < 0 and ((_ma50_v > 0 and cur < _ma50_v) or sl_hit))
+
     _cs = '$' if (market is not None and str(market).upper() != 'SET') else '฿'
     _cmf_txt = f"{cmf_val:.2f}" if cmf_val is not None else "n/a"
     _cmf_outflow = cmf_val is not None and cmf_val < -0.05
@@ -961,11 +965,16 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
         action, action_style = 'ถือต่อ', 'success'
         action_detail = "ยังไม่มีสัญญาณออก และโครงสร้างราคายังดี — ถือรันเทรนด์ต่อไป"
 
+    # ต่อท้ายคำเตือน anti-averaging-down ในทุกกรณีที่ขาดทุน + ทรงเสีย
+    if anti_avg_down and action_style in ('danger', 'warning'):
+        action_detail += " · ⛔ ห้ามซื้อถัวเฉลี่ยเพิ่มเด็ดขาด (Best Loser Wins)"
+
     return dict(
         action=action, action_style=action_style, action_detail=action_detail,
         exit_signal=exit_signal, sell_score=sell_score, reversal_score=reversal_score,
         near_sl=near_sl, sl_hit=sl_hit, tp_hit=tp_hit, s1_hit=s1_hit, s2_hit=s2_hit,
         is_leader=is_leader, is_laggard=is_laggard, gain_loss_pct=gain_loss_pct,
+        anti_avg_down=anti_avg_down,
     )
 
 
