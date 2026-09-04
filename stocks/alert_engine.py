@@ -320,6 +320,7 @@ def evaluate_user_alerts(user, config):
                 _ea = compute_exit_action(
                     latest_scan, current_price=price,
                     entry_price=entry_price, quantity=float(p.quantity or 0),
+                    market=p.market,
                 )
                 # ใกล้จุดตัดสินใจ → ดึง history สั้นๆ มาคำนวณ Turtle S1/S2 ให้ตรงกับหน้า
                 if _ea['near_sl'] or _ea['tp_hit'] or _ea['action_style'] != 'success':
@@ -332,7 +333,7 @@ def evaluate_user_alerts(user, config):
                             _ea = compute_exit_action(
                                 latest_scan, current_price=price,
                                 entry_price=entry_price, quantity=float(p.quantity or 0),
-                                turtle_s1=_t1, turtle_s2=_t2,
+                                turtle_s1=_t1, turtle_s2=_t2, market=p.market,
                             )
                     except Exception:
                         pass

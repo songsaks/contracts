@@ -110,6 +110,7 @@ def portfolio_exit_plan(request):
             _ea = compute_exit_action(
                 prec_data, current_price=current_price, entry_price=entry_price,
                 quantity=quantity, turtle_s1=turtle_s1_exit, turtle_s2=turtle_s2_exit,
+                market=item.market,
             ) if prec_data else None
             if _ea is None:
                 _ea = {

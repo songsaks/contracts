@@ -798,12 +798,13 @@ def compute_fallback_alert_signals(symbol, market='SET'):
 # บนหน้ากับใน notification ตรงกันเป๊ะ
 # ----------------------------------------------------------------------
 def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
-                        turtle_s1=0.0, turtle_s2=0.0, signals=None):
+                        turtle_s1=0.0, turtle_s2=0.0, signals=None, market=None):
     """
     prec       : PrecisionScanCandidate หรือ fallback SimpleNamespace (อ่านด้วย getattr แบบ safe)
     turtle_s1  : ราคาต่ำสุด 10 วัน (0 = ไม่มีข้อมูล ข้าม Turtle boost)
     turtle_s2  : ราคาต่ำสุด 20 วัน
     signals    : ผลจาก _compute_signals() — ถ้า None จะคำนวณให้เอง
+    market     : ตลาดของหุ้น (ใช้เลือกสัญลักษณ์เงิน ฿/$ ในข้อความ) — None/'SET' = ฿
 
     return: dict(action, action_style, action_detail, exit_signal, sell_score,
                  reversal_score, near_sl, sl_hit, tp_hit, s1_hit, s2_hit,
@@ -855,6 +856,7 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
     # laggard = แพ้ตลาดชัด (rel_3m ติดลบเยอะ) — ADX ต่ำอย่างเดียวไม่นับ (อาจแค่ consolidate)
     is_laggard = bool((rel_3m < -5) or (rel_3m < 0 and rel_1m < -3 and 0 < adx_val < 15))
 
+    _cs = '$' if (market is not None and str(market).upper() != 'SET') else '฿'
     _cmf_txt = f"{cmf_val:.2f}" if cmf_val is not None else "n/a"
     _cmf_outflow = cmf_val is not None and cmf_val < -0.05
 
@@ -879,10 +881,10 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
     elif sl_hit:
         if entry > 0 and cur < entry:
             action, action_style = 'ตัดขาดทุน (Cut Loss)', 'danger'
-            action_detail = f"ราคา ฿{cur:.2f} หลุด SL (฿{sl_price:.2f}) แล้ว — แนะนำขายทันทีเพื่อปกป้องเงินทุน"
+            action_detail = f"ราคา {_cs}{cur:.2f} หลุด SL ({_cs}{sl_price:.2f}) แล้ว — แนะนำขายทันทีเพื่อปกป้องเงินทุน"
         else:
             action, action_style = 'ล็อกกำไร (Trailing)', 'warning'
-            action_detail = f"ราคา ฿{cur:.2f} หลุดจุดเฝ้าระวัง (SL ฿{sl_price:.2f}) — กำไรยังเหลือ {gain_loss_pct:.1f}% แนะนำขายล็อกกำไรส่วนนี้"
+            action_detail = f"ราคา {_cs}{cur:.2f} หลุดจุดเฝ้าระวัง (SL {_cs}{sl_price:.2f}) — กำไรยังเหลือ {gain_loss_pct:.1f}% แนะนำขายล็อกกำไรส่วนนี้"
 
     elif near_sl and gain_loss_pct < 0:
         # ใกล้ SL + ยังขาดทุน = ต้องมีแผนเสมอ · escalate เป็น danger เมื่อมีแรงขายจริง
@@ -893,7 +895,7 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
             if sell_score >= 40:
                 _w.append(f"Sell Score {sell_score}")
             action, action_style = 'เตรียม Cut Loss', 'danger'
-            action_detail = f"ราคา ฿{cur:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {' และ'.join(_w) or 'มีแรงขาย'} — แนะนำทยอยขายลดความเสี่ยงล่วงหน้า"
+            action_detail = f"ราคา {_cs}{cur:.2f} ใกล้จุด SL ({_cs}{sl_price:.2f}) + {' และ'.join(_w) or 'มีแรงขาย'} — แนะนำทยอยขายลดความเสี่ยงล่วงหน้า"
         else:
             _w = []
             if not rvol_bullish:
@@ -905,21 +907,21 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
             _cmf_clause = f" — ยังไม่มีแรงขายสถาบันชัด (CMF {_cmf_txt})" if cmf_val is not None else ""
             _tail = " และยังเหนือ Turtle S1/S2" if (turtle_s1 or turtle_s2) else ""
             action, action_style = 'เฝ้าระวังใกล้ SL', 'warning'
-            action_detail = (f"ราคา ฿{cur:.2f} ใกล้จุด SL (฿{sl_price:.2f}) + {', '.join(_w) or 'โมเมนตัมเริ่มอ่อน'}"
+            action_detail = (f"ราคา {_cs}{cur:.2f} ใกล้จุด SL ({_cs}{sl_price:.2f}) + {', '.join(_w) or 'โมเมนตัมเริ่มอ่อน'}"
                              f"{_cmf_clause}{_tail} · เตรียมแผนออกถ้าหลุด SL หรือ Turtle S1")
 
     elif near_sl:
         # ใกล้ SL แต่ยังมีกำไร — SL ควรถูกเลื่อนขึ้นแล้ว
         action, action_style = 'เลื่อน SL / ล็อกกำไร', 'warning'
-        action_detail = f"ราคา ฿{cur:.2f} ใกล้ SL ที่ตั้งไว้ (฿{sl_price:.2f}) แต่ยังมีกำไร {gain_loss_pct:.1f}% — พิจารณาเลื่อน SL ขึ้นตามราคา หรือขายล็อกกำไรบางส่วน"
+        action_detail = f"ราคา {_cs}{cur:.2f} ใกล้ SL ที่ตั้งไว้ ({_cs}{sl_price:.2f}) แต่ยังมีกำไร {gain_loss_pct:.1f}% — พิจารณาเลื่อน SL ขึ้นตามราคา หรือขายล็อกกำไรบางส่วน"
 
     elif tp_hit and gain_loss_pct > 0:
         if reversal_score < 3:
             action, action_style = 'ถึง TP1 (Let Profit Run)', 'info'
-            action_detail = f"ราคา ฿{cur:.2f} ถึงเป้ากำไรแรก ฿{tp_price:.2f} (กำไร {gain_loss_pct:.1f}%) — ทยอยขายล็อกกำไร 25–50% ที่เหลือปล่อยวิ่งต่อด้วย Trailing Stop"
+            action_detail = f"ราคา {_cs}{cur:.2f} ถึงเป้ากำไรแรก {_cs}{tp_price:.2f} (กำไร {gain_loss_pct:.1f}%) — ทยอยขายล็อกกำไร 25–50% ที่เหลือปล่อยวิ่งต่อด้วย Trailing Stop"
         else:
             action, action_style = 'ถึง TP1 (ขายล็อกกำไร)', 'warning'
-            action_detail = f"ราคา ฿{cur:.2f} ถึงเป้ากำไร ฿{tp_price:.2f} + เริ่มมีสัญญาณกระจายขาย — ขายล็อกกำไร 50–70%"
+            action_detail = f"ราคา {_cs}{cur:.2f} ถึงเป้ากำไร {_cs}{tp_price:.2f} + เริ่มมีสัญญาณกระจายขาย — ขายล็อกกำไร 50–70%"
 
     elif exit_signal == 'EXIT':
         if gain_loss_pct < 0 or _cmf_outflow or reversal_score >= 2:
@@ -943,7 +945,7 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
 
     elif tp_price and cur >= tp_price * 0.95 and gain_loss_pct > 0:
         action, action_style = 'ใกล้ TP', 'info'
-        action_detail = f"ราคา ฿{cur:.2f} ใกล้เป้าหมาย ฿{tp_price:.2f} (กำไร {gain_loss_pct:.1f}%) — เตรียมทยอยขายล็อกกำไรบางส่วน"
+        action_detail = f"ราคา {_cs}{cur:.2f} ใกล้เป้าหมาย {_cs}{tp_price:.2f} (กำไร {gain_loss_pct:.1f}%) — เตรียมทยอยขายล็อกกำไรบางส่วน"
 
     else:
         action, action_style = 'ถือต่อ', 'success'
