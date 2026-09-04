@@ -650,6 +650,30 @@
                             </div>
                         </div>
 
+                        <div class="rounded-3 p-3 bg-white mb-3" style="border:1px solid #e2e8f0;">
+                            <div class="fw-bold small mb-2" style="color:#1e293b;"><i class="fas fa-code-compare me-1" style="color:#7c3aed;"></i> เลือกอันไหน — <span style="color:#059669;">🎯 อยู่ในโซนซื้อ</span> หรือ <span style="color:#7c3aed;">⚡ PK / Vol Surge</span> ?</div>
+                            <div class="small text-muted mb-2" style="line-height:1.6;">สองอันนี้เป็น <b>คนละจังหวะเข้า</b> — ย่อพักตัว กับ วันวอลุ่มพุ่ง — แทบไม่มีหุ้นที่เป็นทั้งคู่พร้อมกัน (ติ๊กคู่กันมักได้ 0 ตัว) ต้องเลือกตามสไตล์</div>
+                            <div class="table-responsive">
+                                <table class="table table-sm small mb-2" style="font-size:0.76rem;">
+                                    <thead><tr style="color:#64748b;"><th style="width:22%;"></th><th>🎯 อยู่ในโซนซื้อ (In Zone)</th><th>⚡ PK / Vol Surge ≥1.5x</th></tr></thead>
+                                    <tbody>
+                                        <tr><td class="fw-semibold">จังหวะ</td><td>หุ้นขาขึ้น <b>ย่อพักตัว</b> กลับเข้าโซน (เงียบ วอลุ่มต่ำ)</td><td><b>วันที่วอลุ่มพุ่ง</b> — มีแรงเข้า / จ่อเบรก</td></tr>
+                                        <tr><td class="fw-semibold">ต้นทุน</td><td class="text-success">ต่ำกว่า (ซื้อตอนพัก)</td><td class="text-danger">สูงกว่า (มักใกล้ high ของวัน)</td></tr>
+                                        <tr><td class="fw-semibold">Stop / RR</td><td class="text-success">Stop สั้น (ใต้โซน / ใต้ MA50) → RR ดีกว่า</td><td class="text-danger">Stop กว้างกว่า → RR แย่กว่าถ้าไม่ระวัง</td></tr>
+                                        <tr><td class="fw-semibold">False signal</td><td>น้อย (เทรนด์ยืนยันแล้ว + RSI ≤ 68 + ไม่ extended)</td><td>เยอะกว่า — Vol Surge วันเดียวไม่ได้แปลว่าไปต่อ</td></tr>
+                                        <tr><td class="fw-semibold">ข้อเสีย</td><td>หุ้นแข็งบางตัวไม่ย่อให้เข้าเลย · ได้หุ้นน้อยตอนตลาดวิ่งแรง</td><td>เข้าช้า 1–2 วันโดน shakeout · ต้องเฝ้าจอ</td></tr>
+                                        <tr><td class="fw-semibold">เหมาะกับ</td><td>เน้นความปลอดภัย / RR · เฝ้าจอไม่ได้ตลอด · มือใหม่</td><td>ตลาด Bull ชัด · สายซิ่ง · รับความผันผวนได้</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="small" style="line-height:1.7; color:#334155;">
+                                <div><b style="color:#059669;">ค่าเริ่มต้น → เลือก In Zone</b> — ต้นทุนได้เปรียบ RR ดี win rate สูงกว่าตามสถิติการซื้อ pullback ในเทรนด์ · จริง ๆ ควรกด <b>Preset 1 "หุ้นย่อในโซนซื้อ"</b> แทนการติ๊ก toggle เดี่ยว (= In Zone + Stage 2 + RSI≤68 + CMF≥0 + ตัด AT TP)</div>
+                                <div class="mt-1"><b style="color:#7c3aed;">เลือก PK / Vol Surge เมื่อ</b> ตลาด Bull ชัดและอยากจับ momentum — แต่อย่าดูแค่ toggle ให้เปิดตารางแล้วเลือกเฉพาะตัวที่ badge เป็น <span class="badge" style="background:linear-gradient(135deg,#8E2DE2,#4A00E0);color:#fff;">PK ★</span> (Pocket Pivot แท้ เด้งจาก MA50 ในฐาน) ไม่ใช่ <span class="badge" style="background:linear-gradient(135deg,#8E2DE2,#4A00E0);color:#fff;">PK ⚡</span> หรือ Vol Surge ล้วน</div>
+                                <div class="mt-2 pt-2 border-top"><b>อยากได้ทั้งสองแบบโดยไม่ต้องติ๊กคู่:</b> ติ๊ก In Zone จดรายชื่อ → กด Clear → ติ๊ก PK/Vol Surge จดรายชื่อ → <b>ตัวที่อยู่ทั้ง 2 รอบ = ดีที่สุด</b> (ย่อในโซน + เพิ่งมีแรงเข้ากลับมา) · หรือกด <b>Preset 5 (Base Accumulation)</b> = PK + CMF+ + ACC&gt;DIST คือ "PK ที่เกิดในฐาน" ได้ทั้งความปลอดภัยของฐานและแรงวอลุ่มในตัวเดียว</div>
+                            </div>
+                        </div>
+
+
                         <div class="rounded-3 p-3" style="background:#fef2f2; border:1px solid #fecaca;">
                             <div class="fw-bold small mb-2" style="color:#b91c1c;"><i class="fas fa-circle-xmark me-1"></i> อย่าทำ (ทำให้ได้ 0 ตัว)</div>
                             <ul class="small mb-0" style="color:#7f1d1d; line-height:1.8;">
