@@ -258,33 +258,36 @@ def evaluate_user_alerts(user, config):
             p.save(update_fields=update_fields)
             tp_pct = _tp_partial_sell_pct(strategy_label)
             sell_qty = _recommended_sell_qty(p.quantity, p.market, pct=tp_pct)
+            from stocks.utils import compute_exit_action as _cea
+            _tp_ea = _cea(latest_scan, current_price=price, entry_price=entry_price,
+                          quantity=float(p.quantity or 0), market=p.market)
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.TP_PARTIAL,
                 strategy=strategy_label, price=price, reference_level=latest_scan.supply_zone_start,
                 message=(
-                    f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) ถึงเป้าหมายกำไรแรกที่ "
-                    f"{latest_scan.supply_zone_start:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
-                    + (f", กำไร {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
-                    + f") — แนะนำล็อกกำไร {tp_pct*100:.0f}% ({sell_qty:,} หุ้น) ส่วนที่เหลือปล่อยให้วิ่งต่อ "
-                    + "(Let Profit Run) ระบบจะเริ่มเทรลราคาให้อัตโนมัติ และแจ้งอีกครั้งถ้าหลุดแนวเทรล"
-                    + _poc_note(latest_scan)
+                    f"[{_tp_ea['action']}] {_tp_ea['action_detail']} "
+                    f"— ล็อกกำไร {tp_pct*100:.0f}% ({sell_qty:,} หุ้น) · ระบบจะเทรลราคาส่วนที่เหลือให้อัตโนมัติ "
+                    f"และแจ้งอีกครั้งถ้าหลุดแนวเทรล{_poc_note(latest_scan)}"
                 ),
             ))
         # ราคาถึงโซนขายทำกำไรทางเทคนิคแล้ว แต่จริง ๆ ยังต่ำกว่าต้นทุนที่ถืออยู่ (ยังขาดทุนอยู่)
         # ไม่ส่งเป็น "ขายทำกำไร" เพราะจะทำให้เข้าใจผิดว่ามีกำไร — ข้ามไปเช็คเงื่อนไข SL ต่อแทน
         elif config.alert_stop_loss and latest_scan.stop_loss and price <= latest_scan.stop_loss:
+            # ข้อความ = ตัวเดียวกับหน้า /portfolio/exit-plan/ (compute_exit_action) เพื่อให้สอดคล้องกัน
+            from stocks.utils import compute_exit_action as _cea
+            _sl_ea = _cea(latest_scan, current_price=price, entry_price=entry_price,
+                          quantity=float(p.quantity or 0), market=p.market)
             sell_qty = _recommended_sell_qty(p.quantity, p.market, pct=1.0)
             fallback_note = " (⚠️ ประเมินจากราคาสด ไม่มีข้อมูล Precision Scan ของหุ้นนี้ — SL คำนวณแบบ ATR คร่าวๆ)" if used_fallback else ""
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
                 strategy=strategy_label, price=price, reference_level=latest_scan.stop_loss,
                 message=(
-                    f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุดจุดตัดขาดทุน (SL) ที่ "
-                    f"{latest_scan.stop_loss:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอสทั้งหมด "
-                    f"({sell_qty:,} หุ้น){fallback_note}{_poc_note(latest_scan)}"
+                    f"[{_sl_ea['action']}] {_sl_ea['action_detail']} "
+                    f"— ขายเต็มจำนวน ({sell_qty:,} หุ้น){fallback_note}{_poc_note(latest_scan)}"
                 ),
             ))
-            weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุดจุดตัดขาดทุน (SL) ที่ {latest_scan.stop_loss:.2f}'})
+            weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f"{_sl_ea['action']} ที่ {latest_scan.stop_loss:.2f}"})
         # ====== Distribution / Reversal Warning — เตือนล่วงหน้าก่อนราคาจะหลุด SL จริง ======
         # ใช้ _compute_signals() ตัวเดียวกับที่หน้า Portfolio ใช้แสดง badge "REVERSAL ⚠️"/"Stage 3/4 ❌"
         # แค่ยังไม่เคยถูกส่งเป็น alert มาก่อน — reversal_score >= 3/5 ถือว่าน่าเป็นห่วงพอจะเตือน

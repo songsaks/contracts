@@ -887,15 +887,17 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
             action_detail = f"ราคา {_cs}{cur:.2f} หลุดจุดเฝ้าระวัง (SL {_cs}{sl_price:.2f}) — กำไรยังเหลือ {gain_loss_pct:.1f}% แนะนำขายล็อกกำไรส่วนนี้"
 
     elif near_sl and gain_loss_pct < 0:
-        # ใกล้ SL + ยังขาดทุน = ต้องมีแผนเสมอ · escalate เป็น danger เมื่อมีแรงขายจริง
+        # ใกล้ SL + ยังขาดทุน · หลัก "Best Loser Wins": setup เสีย = ออกเต็มจำนวนทันที ไม่ taper / ไม่รอ,
+        # ถ้ายังไม่มีสัญญาณเสียชัด = ถือตามแผนถึง SL แล้วตัดแบบกลไก (ไม่ต่อรอง)
         if _cmf_outflow or sell_score >= 40:
             _w = []
             if _cmf_outflow:
                 _w.append(f"เงินไหลออก (CMF {_cmf_txt})")
             if sell_score >= 40:
                 _w.append(f"Sell Score {sell_score}")
-            action, action_style = 'เตรียม Cut Loss', 'danger'
-            action_detail = f"ราคา {_cs}{cur:.2f} ใกล้จุด SL ({_cs}{sl_price:.2f}) + {' และ'.join(_w) or 'มีแรงขาย'} — แนะนำทยอยขายลดความเสี่ยงล่วงหน้า"
+            action, action_style = 'ตัดขาดทุนทันที', 'danger'
+            action_detail = (f"ราคา {_cs}{cur:.2f} ใกล้ SL ({_cs}{sl_price:.2f}) + {' และ'.join(_w) or 'มีแรงขาย'} "
+                             f"— setup เสียแล้ว ขายออกเต็มจำนวนเลย ไม่ต้องรอราคาแตะ SL")
         else:
             _w = []
             if not rvol_bullish:
@@ -904,16 +906,17 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
                 _w.append(f"แพ้ตลาด 1M {rel_1m:.1f}%")
             if 0 < adx_val < 18:
                 _w.append("เทรนด์อ่อน (ADX ต่ำ)")
-            _cmf_clause = f" — ยังไม่มีแรงขายสถาบันชัด (CMF {_cmf_txt})" if cmf_val is not None else ""
-            _tail = " และยังเหนือ Turtle S1/S2" if (turtle_s1 or turtle_s2) else ""
+            _cmf_clause = f" ยังไม่มีแรงขายสถาบันชัด (CMF {_cmf_txt})" if cmf_val is not None else ""
+            _tail = " ยังเหนือ Turtle S1/S2 ·" if (turtle_s1 or turtle_s2) else ""
             action, action_style = 'เฝ้าระวังใกล้ SL', 'warning'
-            action_detail = (f"ราคา {_cs}{cur:.2f} ใกล้จุด SL ({_cs}{sl_price:.2f}) + {', '.join(_w) or 'โมเมนตัมเริ่มอ่อน'}"
-                             f"{_cmf_clause}{_tail} · เตรียมแผนออกถ้าหลุด SL หรือ Turtle S1")
+            action_detail = (f"ราคา {_cs}{cur:.2f} ใกล้ SL ({_cs}{sl_price:.2f}) + {', '.join(_w) or 'โมเมนตัมเริ่มอ่อน'} —"
+                             f"{_cmf_clause}{_tail} ถือตามแผน · พอราคาแตะ {_cs}{sl_price:.2f} ให้ขายเต็มจำนวนทันที ไม่ต่อรอง")
 
     elif near_sl:
-        # ใกล้ SL แต่ยังมีกำไร — SL ควรถูกเลื่อนขึ้นแล้ว
-        action, action_style = 'เลื่อน SL / ล็อกกำไร', 'warning'
-        action_detail = f"ราคา {_cs}{cur:.2f} ใกล้ SL ที่ตั้งไว้ ({_cs}{sl_price:.2f}) แต่ยังมีกำไร {gain_loss_pct:.1f}% — พิจารณาเลื่อน SL ขึ้นตามราคา หรือขายล็อกกำไรบางส่วน"
+        # ใกล้ SL แต่ยังมีกำไร — SL ควรถูกเลื่อนขึ้นแล้ว (เทรลได้ ห้ามถอย)
+        action, action_style = 'เลื่อน SL ขึ้น', 'warning'
+        action_detail = (f"ราคา {_cs}{cur:.2f} ใกล้ SL ที่ตั้งไว้ ({_cs}{sl_price:.2f}) แต่ยังมีกำไร {gain_loss_pct:.1f}% "
+                         f"— เลื่อน SL ขึ้นตามราคาเพื่อล็อกกำไร (ห้ามถอย SL ลง) หรือขายล็อกกำไรบางส่วน")
 
     elif tp_hit and gain_loss_pct > 0:
         if reversal_score < 3:
@@ -924,24 +927,31 @@ def compute_exit_action(prec, *, current_price, entry_price=0.0, quantity=0.0,
             action_detail = f"ราคา {_cs}{cur:.2f} ถึงเป้ากำไร {_cs}{tp_price:.2f} + เริ่มมีสัญญาณกระจายขาย — ขายล็อกกำไร 50–70%"
 
     elif exit_signal == 'EXIT':
-        if gain_loss_pct < 0 or _cmf_outflow or reversal_score >= 2:
+        if gain_loss_pct < 0:
+            # ขาดทุน + มีสัญญาณขาย = thesis เสีย · ออกเต็มจำนวน ไม่ถือครึ่งเดียวเพื่อปลอบใจ ("Best Loser Wins")
             _w = []
             if _cmf_outflow:
                 _w.append(f"เงินไหลออก (CMF {_cmf_txt})")
-            if gain_loss_pct < 0:
-                _w.append(f"ขาดทุน {gain_loss_pct:.1f}%")
-            action, action_style = 'ทยอยขาย 50%', 'warning'
-            action_detail = f"มีสัญญาณขาย (Sell Score {sell_score}){' · ' + ', '.join(_w) if _w else ''} — แนะนำทยอยขาย 50% เพื่อลดความเสี่ยง"
-        elif is_leader and gain_loss_pct >= 0:
+            _w.append(f"ขาดทุน {gain_loss_pct:.1f}%")
+            action, action_style = 'ออกเต็มจำนวน', 'danger'
+            action_detail = (f"มีสัญญาณขาย (Sell Score {sell_score}) · {', '.join(_w)} — thesis เสียแล้ว "
+                             f"ขายออกเต็มจำนวน แล้วค่อยหาจังหวะใหม่ (อย่าถือครึ่งเดียวเพื่อปลอบใจ)")
+        elif _cmf_outflow or reversal_score >= 2:
+            # ยังมีกำไร แต่เริ่มมีแรงขาย — ล็อกกำไรบางส่วนได้ (นี่คือการบริหารตัวชนะ ไม่ใช่การถือ loser)
+            action, action_style = 'ล็อกกำไร 50%', 'warning'
+            action_detail = f"มีสัญญาณกระจายขาย (Sell Score {sell_score}) แต่ยังมีกำไร {gain_loss_pct:.1f}% — ล็อกกำไร 50% ที่เหลือเทรลตาม"
+        elif is_leader:
             action, action_style = 'ถือต่อ (Leader)', 'success'
             action_detail = "มีสัญญาณชะลอตัวเล็กน้อย แต่ยังมีกำไรและทรงหลักยังดี — ถือต่อเพื่อรันเทรนด์"
         else:
-            action, action_style = 'ทยอยขาย 50%', 'warning'
-            action_detail = f"หุ้นเริ่มหมดแรงและมีสัญญาณกระจายขาย (Sell Score {sell_score}) — ขายครึ่งหนึ่งเก็บกำไรไว้ก่อน"
+            action, action_style = 'ล็อกกำไร 50%', 'warning'
+            action_detail = f"หุ้นเริ่มหมดแรง (Sell Score {sell_score}) แต่ยังมีกำไร {gain_loss_pct:.1f}% — ล็อกกำไรครึ่งหนึ่ง ที่เหลือเทรลตาม"
 
     elif is_laggard and gain_loss_pct < 0:
-        action, action_style = 'พิจารณาเปลี่ยนตัว', 'warning-soft'
-        action_detail = f"หุ้นเคลื่อนไหวช้ากว่าตลาด (REL 3M {rel_3m:.1f}%) และขาดทุน {gain_loss_pct:.1f}% — พิจารณาเปลี่ยนไปถือหุ้นผู้นำตัวอื่น"
+        # dead money + ขาดทุน · แม้ยังไม่ถึง SL — Best Loser Wins: ตัดทิ้ง เอาเงินไปลงตัวที่วิ่ง
+        action, action_style = 'ตัดทิ้ง หาตัวใหม่', 'warning'
+        action_detail = (f"หุ้นแพ้ตลาด (REL 3M {rel_3m:.1f}%) และขาดทุน {gain_loss_pct:.1f}% — เงินจม "
+                         f"แม้ยังไม่ถึง SL ก็ควรตัดออก เอาไปลงหุ้นผู้นำที่กำลังวิ่งแทน")
 
     elif tp_price and cur >= tp_price * 0.95 and gain_loss_pct > 0:
         action, action_style = 'ใกล้ TP', 'info'
