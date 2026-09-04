@@ -1991,9 +1991,12 @@ def find_supply_demand_zones_v2(df):
         refined_upper = zone_upper
         refined_lower = zone_lower
 
-    # Supply Target = 52-week high เสมอ
-    target_price = df['High'].tail(252).max()
-    zone_target_source = '52w'
+    # Supply Target = 52-week high หรือ measured move (entry + 4×ATR) แล้วแต่อันไหนสูงกว่า
+    # กันเคสหุ้นที่กำลังทำ new high แล้ว 52w high อยู่ข้างหลัง → reward เกือบ 0 → RR พังทั้งที่ setup ดี
+    _yr_high  = float(df['High'].tail(252).max())
+    _measured = refined_upper + 4.0 * atr if atr > 0 else _yr_high
+    target_price = max(_yr_high, _measured)
+    zone_target_source = '52w' if target_price <= _yr_high else 'measured'
 
     # ATR-based stop loss
     stop_loss = refined_lower - (atr * 0.5) if atr > 0 else refined_lower * 0.99
