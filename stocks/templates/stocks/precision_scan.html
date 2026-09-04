@@ -2744,7 +2744,7 @@
                                     <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm action-btn-sm" style="font-size:0.65rem;" target="_blank" title="AI Fast Summary"><i class="fas fa-magic"></i></a>
                                     <a href="{% url 'stocks:crew_analyze' item.symbol_bk %}" class="btn btn-warning btn-sm action-btn-sm fw-bold text-dark" style="font-size:0.65rem;" target="_blank" title="CrewAI Agent Analysis (Deep)"><i class="fas fa-robot"></i></a>
                                     <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
-                                    <button class="btn btn-sm action-btn-sm text-white border-0" style="font-size:0.65rem;background:linear-gradient(135deg,#059669,#10b981);" onclick="openPositionSizerModal('{{ item.symbol }}', {{ item.price|default:0 }}, {{ item.stop_loss|default:0 }}, {{ item.supply_zone_start|default:item.year_high|default:0 }}, {{ item.atr14|default:0 }})" title="🧮 Position Sizer (Best Loser Wins)"><i class="fas fa-calculator"></i></button>
+                                    <button class="btn btn-sm action-btn-sm text-white border-0" style="font-size:0.65rem;background:linear-gradient(135deg,#059669,#10b981);" onclick="openPositionSizerModal('{{ item.symbol }}', {{ item.price|default:0 }}, {{ item.stop_loss|default:0 }}, {{ item.supply_zone_start|default:item.year_high|default:0 }}, {{ item.atr14|default:0 }}, {{ item.atr_stop_price|default:0 }}, {{ item.risk_per_share|default:0 }}, {{ item.risk_pct|default:0 }})" title="🧮 Position Sizer (Best Loser Wins)"><i class="fas fa-calculator"></i></button>
                                     <a href="{% url 'stocks:stock_chart' item.symbol %}?market=SET" class="btn btn-sm action-btn-sm" style="font-size:0.65rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line"></i></a>
                                     <button class="btn btn-sm action-btn-sm watchlist-toggle-btn"
                                             data-symbol="{{ item.symbol }}"
@@ -5125,6 +5125,10 @@ function exportScanCSV(tableId, filename) {
                             <input type="number" step="0.01" class="form-control form-control-sm bg-dark text-white border-success border-opacity-50 text-success" id="sizerTarget" oninput="calculatePositionSizer()">
                         </div>
                     </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2" style="font-size:0.7rem;">
+                        <span class="text-white-50" id="sizerAtrInfo">ATR(14): –</span>
+                        <button type="button" class="btn btn-sm py-0 px-2 btn-outline-warning rounded-pill" style="font-size:0.68rem;" id="sizerAtrBtn" onclick="applyAtrStop()">ใช้ ATR×2 Stop</button>
+                    </div>
                 </div>
 
                 <!-- Live Results Display -->
@@ -5144,6 +5148,10 @@ function exportScanCSV(tableId, filename) {
                         </div>
                     </div>
                     <hr class="my-2 border-secondary border-opacity-25">
+                    <div class="d-flex justify-content-between align-items-center text-white-50 small mb-1" style="font-size:0.72rem;">
+                        <span>ความเสี่ยงต่อหุ้น (Risk/Share): <strong class="text-danger" id="outRiskPerShare">0</strong></span>
+                        <span>ระยะ Stop Loss: <strong class="text-warning" id="outRiskPct">0%</strong></span>
+                    </div>
                     <div class="d-flex justify-content-between align-items-center text-white-50 small" style="font-size:0.72rem;">
                         <span>อัตราผลตอบแทนต่อความเสี่ยง (R:R Ratio): <strong class="text-white" id="outRR">0x</strong></span>
                         <span>จุดซื้อเพิ่มไม้ 2 (Pyramiding +3%): <strong class="text-success" id="outPyramidTrigger">0</strong></span>
@@ -5158,14 +5166,40 @@ function exportScanCSV(tableId, filename) {
 </div>
 
 <script>
-function openPositionSizerModal(symbol, price, stopLoss, targetPrice, atr) {
+var _sizerAtr = 0, _sizerAtrStop = 0;
+function openPositionSizerModal(symbol, price, stopLoss, targetPrice, atr, atrStop, riskShare, riskPct) {
+    price = parseFloat(price || 0);
+    atr = parseFloat(atr || 0);
+    atrStop = parseFloat(atrStop || 0);
+    _sizerAtr = atr;
+    _sizerAtrStop = (atrStop > 0 && atrStop < price) ? atrStop : (atr > 0 ? +(price - 2 * atr).toFixed(2) : 0);
     document.getElementById('sizerSymbol').textContent = symbol;
-    document.getElementById('sizerPrice').value = parseFloat(price || 0).toFixed(2);
-    document.getElementById('sizerStop').value = (stopLoss && parseFloat(stopLoss) > 0 && parseFloat(stopLoss) < parseFloat(price)) ? parseFloat(stopLoss).toFixed(2) : (parseFloat(price) * 0.95).toFixed(2);
-    document.getElementById('sizerTarget').value = (targetPrice && parseFloat(targetPrice) > parseFloat(price)) ? parseFloat(targetPrice).toFixed(2) : (parseFloat(price) * 1.15).toFixed(2);
+    document.getElementById('sizerPrice').value = price.toFixed(2);
+    var validSL = (stopLoss && parseFloat(stopLoss) > 0 && parseFloat(stopLoss) < price);
+    document.getElementById('sizerStop').value = validSL ? parseFloat(stopLoss).toFixed(2)
+        : (_sizerAtrStop > 0 ? _sizerAtrStop.toFixed(2) : (price * 0.95).toFixed(2));
+    document.getElementById('sizerTarget').value = (targetPrice && parseFloat(targetPrice) > price) ? parseFloat(targetPrice).toFixed(2) : (price * 1.15).toFixed(2);
+    var info = document.getElementById('sizerAtrInfo');
+    var btn = document.getElementById('sizerAtrBtn');
+    if (atr > 0) {
+        var rp = (riskPct && parseFloat(riskPct) > 0) ? parseFloat(riskPct).toFixed(1) : ((price - _sizerAtrStop) / price * 100).toFixed(1);
+        var rs = (riskShare && parseFloat(riskShare) > 0) ? parseFloat(riskShare).toFixed(2) : (price - _sizerAtrStop).toFixed(2);
+        info.textContent = 'ATR(14): ' + atr.toFixed(2) + ' · ATR×2 Stop: ' + _sizerAtrStop.toFixed(2) + ' · เสี่ยง ' + rp + '% (' + rs + '/หุ้น)';
+        btn.style.display = '';
+    } else {
+        info.textContent = 'ATR(14): ไม่มีข้อมูล';
+        btn.style.display = 'none';
+    }
     calculatePositionSizer();
     var modal = new bootstrap.Modal(document.getElementById('positionSizerModal'));
     modal.show();
+}
+
+function applyAtrStop() {
+    if (_sizerAtrStop > 0) {
+        document.getElementById('sizerStop').value = _sizerAtrStop.toFixed(2);
+        calculatePositionSizer();
+    }
 }
 
 function calculatePositionSizer() {
@@ -5182,11 +5216,14 @@ function calculatePositionSizer() {
     var shares = (riskPerShare > 0) ? Math.floor(riskBudget / riskPerShare) : 0;
     var totalTradeValue = shares * price;
     var rrRatio = (riskPerShare > 0) ? (rewardPerShare / riskPerShare).toFixed(2) : '0.0';
+    var slPct = (price > 0 && riskPerShare > 0) ? (riskPerShare / price * 100).toFixed(1) : '0.0';
     var pyramidTrigger = (price * 1.03).toFixed(2);
 
     document.getElementById('outRiskBudget').textContent = riskBudget.toLocaleString('en-US', {maximumFractionDigits:2});
     document.getElementById('outShares').textContent = shares.toLocaleString('en-US');
     document.getElementById('outTradeValue').textContent = totalTradeValue.toLocaleString('en-US', {maximumFractionDigits:2});
+    document.getElementById('outRiskPerShare').textContent = riskPerShare.toFixed(2);
+    document.getElementById('outRiskPct').textContent = slPct + '%';
     document.getElementById('outRR').textContent = rrRatio + 'x';
     document.getElementById('outPyramidTrigger').textContent = pyramidTrigger;
 }
