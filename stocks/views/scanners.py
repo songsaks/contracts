@@ -2951,10 +2951,15 @@ def precision_momentum_scanner(request):
         markov_regime = calculate_markov_regime("^SET.BK", window=60)
         _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
 
+    # ====== Market Timing (Distribution Days, O'Neil/CAN SLIM) - เอามาลดคะแนน Win Probability ======
+    from stocks.market_timing import get_market_timing_status
+    market_timing = get_market_timing_status(market='SET')
+
     # ====== Win Probability Calculation (v11.1) ======
     if candidates:
         m_state = markov_regime.get('state', 'UNKNOWN')
         m_prob = markov_regime.get('prob', 0) / 100.0
+        _mt_code = market_timing.get('status_code', 'GREEN')
         for c in candidates:
             score = 35.0
             rs_val = getattr(c, 'rs_rating', 0) or 0
@@ -2979,6 +2984,9 @@ def precision_momentum_scanner(request):
                 prox = 99.0
             if prox > 15 and prox < 100: score -= 10.0
             elif prox > 10 and prox < 100: score -= 5.0
+            # Market Timing penalty - ตลาดแจกของหนัก (RED) ให้ลดความมั่นใจแรง, YELLOW ลดปานกลาง
+            if _mt_code == 'RED': score -= 20.0
+            elif _mt_code == 'YELLOW': score -= 8.0
             c.win_probability = round(max(min(score, 98.2), 30.0), 1)
 
         # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
@@ -3343,8 +3351,7 @@ def precision_momentum_scanner(request):
             float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
         ):
             pyramid_ready.add(_c.symbol)
-    from stocks.market_timing import get_market_timing_status
-    context['market_timing'] = get_market_timing_status(market='SET')
+    context['market_timing'] = market_timing
 
 
     return render(request, 'stocks/precision_scan.html', context)
@@ -6208,10 +6215,15 @@ def us_precision_scanner(request):
         markov_regime = calculate_markov_regime("SPY", window=60)
         _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
 
+    # ====== Market Timing (Distribution Days, O'Neil/CAN SLIM) - เอามาลดคะแนน Win Probability ======
+    from stocks.market_timing import get_market_timing_status
+    market_timing = get_market_timing_status(market='US')
+
     # ====== Win Probability Calculation (v11.1) ======
     if candidates:
         m_state = markov_regime.get('state', 'UNKNOWN')
         m_prob = markov_regime.get('prob', 0) / 100.0
+        _mt_code = market_timing.get('status_code', 'GREEN')
         for c in candidates:
             score = 35.0
             rs_val = getattr(c, 'rs_rating', 0) or 0
@@ -6236,6 +6248,9 @@ def us_precision_scanner(request):
                 prox = 99.0
             if prox > 15 and prox < 100: score -= 10.0
             elif prox > 10 and prox < 100: score -= 5.0
+            # Market Timing penalty - ตลาดแจกของหนัก (RED) ให้ลดความมั่นใจแรง, YELLOW ลดปานกลาง
+            if _mt_code == 'RED': score -= 20.0
+            elif _mt_code == 'YELLOW': score -= 8.0
             c.win_probability = round(max(min(score, 98.2), 30.0), 1)
 
         # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
@@ -6600,8 +6615,7 @@ def us_precision_scanner(request):
             float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
         ):
             pyramid_ready.add(_c.symbol)
-    from stocks.market_timing import get_market_timing_status
-    context['market_timing'] = get_market_timing_status(market='US')
+    context['market_timing'] = market_timing
 
 
     return render(request, 'stocks/us_precision_scan.html', context)

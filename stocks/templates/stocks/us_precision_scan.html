@@ -1885,6 +1885,10 @@
                             <input class="form-check-input" type="checkbox" id="rrFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
                             <label class="form-check-label small fw-semibold" for="rrFilterUS" style="cursor:pointer; color:#059669;" title="Best Loser Wins (Tom Hougaard): กรองเฉพาะหุ้นที่มี Risk Reward Ratio ≥ 1:2.0 เพื่อความได้เปรียบทางคณิตศาสตร์">🛡️ R:R ≥ 1:2.0</label>
                         </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="rsFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="rsFilterUS" style="cursor:pointer; color:#1d4ed8;" title="Minervini RS Rating: กรองเฉพาะหุ้นที่แข็งกว่า 70% ของหุ้นทั้งตลาด (Relative Strength ≥ 70)">💪 RS ≥ 70</label>
+                        </div>
                     </div>
 
 
@@ -3670,6 +3674,7 @@ function _applyFiltersUS() {
         var epOn           = document.getElementById('epFilterUS')           && document.getElementById('epFilterUS').checked;
         var safeOn         = document.getElementById('safeFilterUS')         && document.getElementById('safeFilterUS').checked;
         var rrOn           = document.getElementById('rrFilterUS')           && document.getElementById('rrFilterUS').checked;
+        var rsFilterOn     = document.getElementById('rsFilterUS')           && document.getElementById('rsFilterUS').checked;
         var secEl  = document.getElementById('sectorFilterUS');
         var secVal = secEl ? secEl.value : '';
 
@@ -3709,6 +3714,7 @@ function _applyFiltersUS() {
             var ep       = row.dataset.ep === 'true';
             var extended = row.dataset.extended === 'true';
             var rrVal    = parseFloat(row.dataset.blRr || row.dataset.rr || '0');  // Best Loser: RR จากราคาปัจจุบัน (fallback = RR ทฤษฎี)
+            var rsRatingVal = parseFloat(row.dataset.rs || '0');
 
             var rsiOn    = document.getElementById('rsiFilter70US') && document.getElementById('rsiFilter70US').checked;
 
@@ -3747,7 +3753,8 @@ function _applyFiltersUS() {
                        (!squeezeOnOn    || ttmSq === 'building') &&
                        (!epOn           || ep) &&
                        (!safeOn         || !extended) &&
-                       (!rrOn           || rrVal >= 2.0);
+                       (!rrOn           || rrVal >= 2.0) &&
+                       (!rsFilterOn     || rsRatingVal >= 70);
 
             // Gather all symbols passing the checkbox filters for the Summary Cards
             if (show) {
