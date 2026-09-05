@@ -745,6 +745,24 @@
 </div>
 {% endif %}
 
+<!-- LEADING SECTORS BAR (parity with SET) -->
+{% if top_sectors %}
+<div class="col-12 mb-3">
+    <div class="p-3 shadow-sm sectors-container">
+        <div class="d-flex align-items-center gap-3 overflow-auto no-scrollbar">
+            <span class="small fw-bold text-muted flex-shrink-0"><i class="fas fa-chart-pie me-1"></i> Leading Sectors:</span>
+            {% for sec in top_sectors %}
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                <span class="badge sector-badge">{{ sec.name }} ({{ sec.count }})</span>
+                {% if not forloop.last %}<i class="fas fa-chevron-right text-muted opacity-25 px-1" style="font-size:0.6rem;"></i>{% endif %}
+            </div>
+            {% endfor %}
+            <span class="ms-auto small text-muted opacity-75" style="font-size:0.65rem;">(based on symbols with BUY score ≥ 65)</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Automated AI Insights -->
 {% if scan_insights %}
 <div class="col-12 mb-4">
