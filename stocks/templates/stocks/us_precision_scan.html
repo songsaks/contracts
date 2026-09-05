@@ -561,6 +561,14 @@
         </div>
         <div class="d-flex align-items-center gap-3">
             <div class="text-end">
+                <div class="small text-muted" style="font-size:0.75rem;">Follow-Through Day</div>
+                {% if market_timing.ftd_detected %}
+                    <div class="fw-bold fs-6 text-success">✅ Confirmed ({{ market_timing.days_since_ftd }}d ago)</div>
+                {% else %}
+                    <div class="fw-bold fs-6 text-muted">⏳ Not Yet</div>
+                {% endif %}
+            </div>
+            <div class="text-end">
                 <div class="small text-muted" style="font-size:0.75rem;">Distribution Days (25 Sessions)</div>
                 <div class="fw-bold fs-5" style="color: {{ market_timing.status_color }};">{{ market_timing.distribution_count }} / 25 Days</div>
             </div>
