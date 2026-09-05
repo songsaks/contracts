@@ -1762,7 +1762,7 @@ def precision_momentum_scanner(request):
     1. ERC ต้องมี Body + Volume > 1.5x avg (ทั้งสองเงื่อนไข)
     2. ADX >= 20 (กรองเทรนด์แข็งแกร่งเท่านั้น)
     3. Liquidity filter: avg 20d volume >= 500,000 หุ้น
-    4. Supply target = 52-week high เสมอ
+    4. Supply target = max(52-week high, entry + 4×ATR)
     5. ATR-based stop loss
     6. Direction-aware RVOL scoring
     7. เก็บประวัติ scan 3 รอบล่าสุด
@@ -5030,7 +5030,7 @@ def us_precision_scanner(request):
     1. ERC ต้องมี Body + Volume > 1.5x avg (ทั้งสองเงื่อนไข)
     2. ADX >= 20 (กรองเทรนด์แข็งแกร่งเท่านั้น)
     3. Liquidity filter: avg 20d volume >= 500,000 หุ้น
-    4. Supply target = 52-week high เสมอ
+    4. Supply target = max(52-week high, entry + 4×ATR)
     5. ATR-based stop loss
     6. Direction-aware RVOL scoring
     7. เก็บประวัติ scan 3 รอบล่าสุด
