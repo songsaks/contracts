@@ -15,19 +15,22 @@ def pms_context(request):
         new_requests_count = CustomerRequest.objects.filter(status=CustomerRequest.Status.RECEIVED).count()
         # นับจำนวนการแจ้งเตือนงานที่ได้รับมอบหมายล่าสุดแต่ยังไม่ได้เปิดอ่าน
         unread_notifications_count = UserNotification.objects.filter(user=request.user, is_read=False).count()
-        # นับจำนวนรายงาน AI Daily Agent Reports ที่ยังไม่ได้อ่าน
-        try:
-            from stocks.models import DailyAgentReport
-            unread_reports_count = DailyAgentReport.objects.filter(user=request.user, is_read=False).count()
-        except Exception:
-            unread_reports_count = 0
 
-        # นับจำนวนแจ้งเตือน Action ของหุ้นในพอร์ต (SL/TP/Breakout/Watchlist) ที่ยังไม่ได้อ่าน
-        try:
-            from stocks.models import StockAlertEvent
-            unread_stock_alerts_count = StockAlertEvent.objects.filter(user=request.user, is_read=False).count()
-        except Exception:
-            unread_stock_alerts_count = 0
+        # ตัวนับฝั่งหุ้น (DailyAgentReport / StockAlertEvent) ใช้เฉพาะ navbar ของ base_stocks.html
+        # จึง query เฉพาะเมื่ออยู่ในหน้า /stocks/ เท่านั้น ไม่ต้องยิงทุก request ของแอปอื่น
+        unread_reports_count = 0
+        unread_stock_alerts_count = 0
+        if request.path.startswith('/stocks/'):
+            try:
+                from stocks.models import DailyAgentReport
+                unread_reports_count = DailyAgentReport.objects.filter(user=request.user, is_read=False).count()
+            except Exception:
+                unread_reports_count = 0
+            try:
+                from stocks.models import StockAlertEvent
+                unread_stock_alerts_count = StockAlertEvent.objects.filter(user=request.user, is_read=False).count()
+            except Exception:
+                unread_stock_alerts_count = 0
 
         context.update({
             'unconverted_leads_count': unconverted_leads_count,
