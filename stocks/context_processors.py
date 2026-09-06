@@ -15,6 +15,11 @@ def stock_alerts_processor(request):
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         return {}
 
+    # แสดงข้อความแจ้งเตือนหุ้นเฉพาะหน้าในระบบ /stocks/ เท่านั้น
+    # ไม่ให้ไปโผล่ในแอปอื่น (repairs, payroll, rentals, chat ฯลฯ) ที่ใช้ base.html ร่วมกัน
+    if not request.path.startswith('/stocks/'):
+        return {}
+
     try:
         config = StockAlertConfig.objects.get(user=request.user)
         if not config.enabled:
