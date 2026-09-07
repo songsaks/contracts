@@ -382,6 +382,52 @@
         html[data-theme="light"] .dropdown-section-label {
             color: #64748b !important;
         }
+
+        /* ════ NAV NOTIFICATION HOVER/TAP PANEL ════ */
+        .sa-notif-dd { position: relative; }
+        .sa-notif-panel {
+            position: absolute; right: 0; top: 100%; margin-top: 6px;
+            width: 340px; max-width: 80vw; z-index: 1080;
+            background: rgba(13, 19, 35, 0.98); backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+            overflow: hidden; display: none;
+        }
+        .sa-notif-dd:hover .sa-notif-panel,
+        .sa-notif-dd.open .sa-notif-panel { display: block; }
+        .sa-notif-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; font-size: 0.78rem; font-weight: 700; color: #e2e8f0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .sa-notif-clear {
+            background: none; border: none; color: #f87171;
+            font-size: 0.72rem; font-weight: 600; cursor: pointer; padding: 0;
+        }
+        .sa-notif-list { max-height: 320px; overflow-y: auto; }
+        .sa-notif-item {
+            display: block; padding: 10px 14px; text-decoration: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .sa-notif-item:hover { background: rgba(99, 102, 241, 0.12); }
+        .sa-notif-item-sym { font-size: 0.72rem; font-weight: 700; color: #fca5a5; margin-bottom: 2px; }
+        .sa-notif-item-msg { font-size: 0.74rem; color: #cbd5e1; line-height: 1.35; }
+        .sa-notif-all {
+            display: block; text-align: center; padding: 9px 14px;
+            font-size: 0.75rem; font-weight: 600; color: #93c5fd; text-decoration: none;
+        }
+        .sa-notif-all:hover { background: rgba(99, 102, 241, 0.12); color: #bfdbfe; }
+        .sa-notif-empty { padding: 16px 14px; font-size: 0.76rem; color: #94a3b8; text-align: center; }
+        html[data-theme="light"] .sa-notif-panel {
+            background: rgba(255, 255, 255, 0.98);
+            border-color: rgba(0, 0, 0, 0.08);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+        html[data-theme="light"] .sa-notif-head { color: #1e293b; border-bottom-color: rgba(0, 0, 0, 0.06); }
+        html[data-theme="light"] .sa-notif-item { border-bottom-color: rgba(0, 0, 0, 0.05); }
+        html[data-theme="light"] .sa-notif-item-sym { color: #dc2626; }
+        html[data-theme="light"] .sa-notif-item-msg { color: #475569; }
+        html[data-theme="light"] .sa-notif-all { color: #2563eb; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -698,12 +744,29 @@
                         </ul>
                     </li>
 
-                    <li class="nav-item">
+                    <li class="nav-item sa-notif-dd" id="saNotifDd">
                         <a class="nav-link {% if request.resolver_match.url_name in 'stock_alert_config,stock_alert_history' %}active{% endif %}"
-                           href="{% url 'stocks:stock_alert_history' %}">
+                           href="{% url 'stocks:stock_alert_history' %}" id="saNotifToggle">
                             <i class="fas fa-bell" style="color:#f87171;"></i> แจ้งเตือน
                             <span id="stock-alert-badge" class="badge bg-danger rounded-pill" style="font-size:0.65rem;{% if not unread_stock_alerts_count %}display:none;{% endif %}">{{ unread_stock_alerts_count|default:0 }}</span>
                         </a>
+                        <div class="sa-notif-panel" id="saNotifPanel" data-mark-read-url="{% url 'stocks:mark_stock_alerts_read' %}">
+                            <div class="sa-notif-head">
+                                <span>แจ้งเตือนล่าสุด</span>
+                                {% if recent_stock_alerts %}<button type="button" class="sa-notif-clear" id="saNotifClear">ล้างทั้งหมด</button>{% endif %}
+                            </div>
+                            <div class="sa-notif-list" id="saNotifList">
+                                {% for e in recent_stock_alerts %}
+                                <a href="{% url 'stocks:stock_alert_history' %}" class="sa-notif-item">
+                                    <div class="sa-notif-item-sym">{{ e.symbol }}</div>
+                                    <div class="sa-notif-item-msg">{{ e.message|truncatechars:130 }}</div>
+                                </a>
+                                {% empty %}
+                                <div class="sa-notif-empty">ไม่มีแจ้งเตือนใหม่</div>
+                                {% endfor %}
+                            </div>
+                            <a href="{% url 'stocks:stock_alert_history' %}" class="sa-notif-all">ดูทั้งหมด →</a>
+                        </div>
                     </li>
 
 
@@ -849,8 +912,50 @@
         });
     </script>
 
+    <script>
+        /* Nav notification panel — hover shows via CSS; add tap-to-open for touch + "ล้างทั้งหมด" */
+        document.addEventListener('DOMContentLoaded', function () {
+            var dd = document.getElementById('saNotifDd');
+            if (!dd) return;
+            var toggle = document.getElementById('saNotifToggle');
+            var panel = document.getElementById('saNotifPanel');
+            var isTouch = window.matchMedia('(hover: none)').matches;
+
+            if (isTouch && toggle) {
+                toggle.addEventListener('click', function (e) {
+                    if (!dd.classList.contains('open')) {
+                        e.preventDefault();          // แตะครั้งแรก = เปิด panel
+                        dd.classList.add('open');
+                    }                                // แตะซ้ำ = ไปหน้าประวัติตามลิงก์
+                });
+                document.addEventListener('click', function (e) {
+                    if (!dd.contains(e.target)) dd.classList.remove('open');
+                });
+            }
+
+            var clearBtn = document.getElementById('saNotifClear');
+            if (clearBtn && panel) {
+                clearBtn.addEventListener('click', function () {
+                    var tok = document.querySelector('input[name=csrfmiddlewaretoken]');
+                    fetch(panel.dataset.markReadUrl, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': tok ? tok.value : '' },
+                        credentials: 'same-origin'
+                    }).then(function () {
+                        var list = document.getElementById('saNotifList');
+                        if (list) list.innerHTML = '<div class="sa-notif-empty">ไม่มีแจ้งเตือนใหม่</div>';
+                        var badge = document.getElementById('stock-alert-badge');
+                        if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+                        clearBtn.style.display = 'none';
+                        dd.classList.remove('open');
+                    }).catch(function () {});
+                });
+            }
+        });
+    </script>
+
     {% block scripts %}{% endblock %}
-    
+
     <script>
         /* Sync toggle icon with active theme after DOM is ready */
         document.addEventListener('DOMContentLoaded', function () {

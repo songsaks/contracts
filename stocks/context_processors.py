@@ -71,7 +71,13 @@ def stock_alerts_processor(request):
 
             cache.set(msg_cache_key, True, timeout=120)
 
+    # แจ้งเตือนที่ยังไม่อ่านล่าสุด — ใช้แสดงใน dropdown ของ nav (hover บน desktop / แตะบน tablet)
+    recent_unread = list(
+        StockAlertEvent.objects.filter(user=request.user, is_read=False)
+        .order_by('-created_at')[:8]
+    )
     unread_count = StockAlertEvent.objects.filter(user=request.user, is_read=False).count()
     return {
-        'unread_stock_alerts_count': unread_count
+        'unread_stock_alerts_count': unread_count,
+        'recent_stock_alerts': recent_unread,
     }
