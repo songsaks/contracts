@@ -772,14 +772,37 @@
 
     <div class="{% block container_class %}container{% endblock %} py-4">
         {% if messages %}
+            <div id="sa-django-messages" data-mark-read-url="{% url 'stocks:mark_stock_alerts_read' %}">
             {% for message in messages %}
                 <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show card-premium border-0 mb-3 shadow-sm" role="alert">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>{{ message|safe }}</div>
-                        <button type="button" class="btn-close btn-close-white ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                        <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 </div>
             {% endfor %}
+            </div>
+            <script>
+            (function () {
+                var box = document.getElementById('sa-django-messages');
+                if (!box) return;
+                var url = box.dataset.markReadUrl;
+                var done = false;
+                function markAllRead() {
+                    if (done || !url) return;
+                    done = true;
+                    var tok = document.querySelector('input[name=csrfmiddlewaretoken]');
+                    fetch(url, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': tok ? tok.value : '' },
+                        credentials: 'same-origin'
+                    }).catch(function () { done = false; });
+                }
+                box.addEventListener('click', function (e) {
+                    if (e.target.closest('.btn-close')) markAllRead();
+                });
+            })();
+            </script>
         {% endif %}
 
         {% block content %}{% endblock %}
