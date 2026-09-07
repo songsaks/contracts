@@ -903,8 +903,8 @@ function _wlTfVerdict(d) {
     if (!((pp || cmf >= 0.1) && acc >= dist)) return { v: 'skip', t: 'ไม่มีหลักฐานสถาบัน — ต้อง PP หรือ CMF ≥ 0.1 + ACC ≥ DIST' };
     // ขั้น 4: จังหวะ
     if (rsi >= 80) return { v: 'skip', t: 'Overextended (RSI ' + Math.round(rsi) + ') — รอย่อ' };
-    if (inzone && !ext && rsi <= 68 && rvol >= 1.2 && cmf >= 0.05)
-        return { v: 'enter', t: 'IN ZONE + vol/เงินไหลเข้ายืนยัน — เข้าได้' };
+    if (inzone && !ext && rsi <= 68 && cmf >= 0.05 && (cmf >= 0.1 || pp || rvol >= 1.2))
+        return { v: 'enter', t: 'IN ZONE + ยืนยันแรงซื้อ (CMF≥0.1 / PP / RVOL≥1.2) — เข้าได้' };
     if (inzone && (ext || rsi > 68))
         return { v: 'wait', t: 'IN ZONE แต่ ' + (ext ? 'ยืดตัวเกิน' : 'RSI ' + Math.round(rsi) + ' ร้อน') + ' — รอย่อ/เย็นลง' };
     if (inzone)

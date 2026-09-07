@@ -4519,7 +4519,7 @@ function _tfDo4SET() {
             // Wyckoff Spring: หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ — จุดเข้าที่ SL แคบสุด
             // ถือเป็นสัญญาณเข้าได้เอง ไม่ต้องรอ RVOL/CMF เหมือนเงื่อนไข inzone ทั่วไป
             r.timing = 'enter'; r.action = '🌀 Wyckoff Spring — หลุดแนวรับแล้วดีดกลับ (SL แคบ) — เข้าได้';
-        } else if (r.inzone && !r.extended && r.rsi <= 68 && r.rvol >= 1.2 && r.cmf >= 0.05) {
+        } else if (r.inzone && !r.extended && r.rsi <= 68 && r.cmf >= 0.05 && (r.cmf >= 0.1 || r.pp || r.rvol >= 1.2)) {
             r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
         } else if (r.inzone && (r.extended || r.rsi > 68)) {
             r.timing = 'alert'; r.action = 'IN ZONE แต่ ' + (r.extended ? 'ยืดตัวเกินจาก MA50' : 'RSI ' + Math.round(r.rsi) + ' ยังร้อน') + ' — รอย่อ/เย็นลงก่อนเข้า';
