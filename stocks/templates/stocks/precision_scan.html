@@ -158,6 +158,30 @@
             </div>
         </div>
     </div>
+    <details class="mt-0" style="border-top:1px dashed {{ market_timing.border_color }};">
+        <summary style="cursor:pointer;list-style:none;font-size:0.78rem;font-weight:700;color:{{ market_timing.status_color }};padding:8px 16px;">
+            <i class="fas fa-circle-question me-1"></i> อธิบายเพิ่มเติม — ตัวเลขนี้แปลว่าอะไร และควรทำอะไรต่อ
+        </summary>
+        <div class="px-4 pb-3" style="font-size:0.8rem;line-height:1.6;color:#334155;">
+            <p class="mb-2"><strong>วันแจกของ (Distribution Day)</strong> = วันที่ดัชนี SET ปิดลบตั้งแต่ 0.2% ขึ้นไป โดยวอลุ่มซื้อขาย<strong>มากกว่าวันก่อนหน้า</strong> — บ่งชี้ว่านักลงทุน<strong>สถาบัน (กองทุน)</strong> กำลังทยอยเทขายออก ไม่ใช่แรงขายรายย่อย เพราะวอลุ่มหนักขนาดนั้นมาจากเงินก้อนใหญ่</p>
+            <p class="mb-1"><strong>เกณฑ์นับ 25 วันทำการล่าสุด (หลัก O'Neil / CAN SLIM):</strong></p>
+            <ul class="mb-2 ps-4">
+                <li>0–2 วัน = 🟢 <strong>GREEN</strong> ตลาดแข็งแรง ซื้อ breakout ได้เต็มที่</li>
+                <li>3–4 วัน = 🟡 <strong>YELLOW</strong> สถาบันเริ่มขาย ยังไม่พังแต่ให้ระวัง</li>
+                <li>≥ 5 วัน = 🔴 <strong>RED</strong> สถาบันเทขายหนัก เสี่ยงตลาดพักฐาน/ลงแรง</li>
+            </ul>
+            <p class="mb-2"><strong>Follow-Through Day (FTD)</strong> = หลังตลาดปรับฐาน ถ้ามีวันที่ดัชนีเด้งขึ้นแรง <strong>≥ 1.25% พร้อมวอลุ่มเพิ่ม</strong> ในวันที่ 4–11 ของการพยายามฟื้นตัว = ยืนยันว่า "ขาขึ้นรอบใหม่เริ่มจริง" ตลาดกระทิงเกือบทุกครั้งเริ่มด้วย FTD — ถ้ายัง <em>"ยังไม่ยืนยัน"</em> แปลว่ายังไม่ควรกลับเข้าซื้อเต็มตัว</p>
+            <p class="mb-0"><strong>ตอนนี้ควรทำอะไร:</strong>
+            {% if market_timing.status_code == 'RED' %}
+                ตลาดอันตราย — <strong>หยุดซื้อหุ้นใหม่ทั้งหมด</strong> เน้นถือเงินสด ในพอร์ตให้ขยับ Stop Loss ขึ้นชิดทุกตัว และตัดตัวที่อ่อนแอ (RS ต่ำ/แพ้ตลาด) ออกก่อน รอ FTD ยืนยันค่อยกลับเข้า
+            {% elif market_timing.status_code == 'YELLOW' %}
+                <strong>ลดขนาดไม้ลงครึ่งหนึ่ง</strong> · หุ้นใหม่ซื้อได้เฉพาะ RS ≥ 80 ที่อยู่ในโซนซื้อ/ใกล้ buy point และคุม risk ≤ 1% ต่อไม้ · ในพอร์ตให้ใช้ปุ่ม "จัดอันดับด้วย RS" ตัดตัวที่แพ้ตลาด+ขาดทุนออกก่อน · ห้ามไล่ราคา · <strong>รอ Follow-Through Day ยืนยัน</strong> ก่อนเพิ่มน้ำหนักเต็มที่
+            {% else %}
+                ตลาดเอื้ออำนวย — เลือกหุ้นทรง VCP / HTF / Squeeze ที่ RS สูง เข้าซื้อตามระบบได้ตามปกติ คุม risk ต่อไม้ตามแผน
+            {% endif %}
+            </p>
+        </div>
+    </details>
 </div>
 {% endif %}
 
