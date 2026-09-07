@@ -155,6 +155,26 @@
                 </div>
             </div>
 
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">🌐 ภาวะตลาดรวม (Market Timing)</div>
+                    <div class="sa-toggle-desc">เตือนเมื่อดัชนีตลาดเข้าเขตแจกของ (YELLOW/RED) หรือยืนยัน Follow-Through Day — เป็นข้อความเดียวที่กระทบทุกตัวในพอร์ตพร้อมกัน พร้อมคำแนะนำภาพรวม (ลด position / ขยับ SL / เริ่มกลับเข้าซื้อ)</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.alert_market_timing }}
+                </div>
+            </div>
+
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">🔁 การหมุนกลุ่มอุตสาหกรรม (Sector Rotation)</div>
+                    <div class="sa-toggle-desc">เตือนเมื่อกลุ่มอุตสาหกรรมที่คุณถือหุ้นอยู่ยังไม่ได้รับการยืนยันจากสถาบัน พร้อมชี้กลุ่มที่กำลังนำตลาด เพื่อพิจารณาลดน้ำหนักกลุ่มอ่อนแล้วหาตัวนำในกลุ่มที่แข็งกว่า</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.alert_sector_rotation }}
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-dark w-100 mt-4 fw-bold" style="border-radius:12px;padding:0.7rem;">
                 <i class="fas fa-save me-1"></i> บันทึกการตั้งค่า
             </button>

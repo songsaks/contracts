@@ -1473,6 +1473,11 @@ class StockAlertConfig(models.Model):
     alert_distribution_warning = models.BooleanField(default=True, verbose_name="แจ้งเตือนสัญญาณกระจายขาย/กลับตัว (ก่อนหลุด SL)")
     # แจ้งเตือนก่อน Pocket Pivot จะเกิดจริง — Volume Dry-Up ใกล้โซน (แรงขายเริ่มหมด จับตาใกล้ชิด ยังไม่ใช่สัญญาณซื้อ)
     alert_vdu_watch = models.BooleanField(default=False, verbose_name="แจ้งเตือน Volume Dry-Up (จับตาก่อนเบรก)")
+    # แจ้งเตือนภาวะตลาดรวม (O'Neil Market Timing) — Distribution Days เข้าเขต YELLOW/RED หรือยืนยัน Follow-Through Day
+    # กระทบทุกตัวในพอร์ตพร้อมกัน จึงเปิดเป็นค่าเริ่มต้น (สำคัญกว่าการเลือกหุ้นรายตัว)
+    alert_market_timing = models.BooleanField(default=True, verbose_name="แจ้งเตือนภาวะตลาดรวม (Market Timing)")
+    # แจ้งเตือนการหมุนกลุ่มอุตสาหกรรม (Sector Rotation) — กลุ่มที่ถือหุ้นอยู่อ่อนแรงลง พร้อมชี้กลุ่มที่กำลังนำตลาด
+    alert_sector_rotation = models.BooleanField(default=False, verbose_name="แจ้งเตือนการหมุนกลุ่มอุตสาหกรรม (Sector Rotation)")
     # จำนวนวันที่เก็บประวัติแจ้งเตือนไว้ — เก่ากว่านี้ถูกลบอัตโนมัติ (ดูที่ check_web_alerts management command)
     alert_retention_days = models.PositiveIntegerField(default=30, verbose_name="เก็บประวัติแจ้งเตือนกี่วัน")
     updated_at = models.DateTimeField(auto_now=True)
@@ -1500,6 +1505,8 @@ class StockAlertEvent(models.Model):
         DISTRIBUTION_WARNING = 'DISTRIBUTION_WARNING', 'สัญญาณกระจายขาย/กลับตัว'
         VDU_WATCH = 'VDU_WATCH', 'จับตาใกล้ชิด (Volume Dry-Up)'
         EXIT_ACTION = 'EXIT_ACTION', 'คำแนะนำออก/ลดพอร์ต (ตรงกับหน้า Exit Plan)'
+        MARKET_TIMING = 'MARKET_TIMING', 'ภาวะตลาดรวม (Market Timing)'
+        SECTOR_ROTATION = 'SECTOR_ROTATION', 'การหมุนกลุ่มอุตสาหกรรม (Sector Rotation)'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_alert_events')
     symbol = models.CharField(max_length=20)

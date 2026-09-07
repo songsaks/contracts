@@ -62,6 +62,10 @@ def stock_alerts_processor(request):
                     messages.success(request, mark_safe(f"🚀 <strong>{safe_type_label}</strong>: {msg_html}"))
                 elif event.alert_type == StockAlertEvent.AlertType.REALLOCATE:
                     messages.info(request, mark_safe(f"🔄 <strong>{safe_type_label}</strong>: {msg_html}"))
+                elif event.alert_type == StockAlertEvent.AlertType.MARKET_TIMING:
+                    messages.warning(request, mark_safe(f"🌐 <strong>{safe_type_label}</strong>: {msg_html}"))
+                elif event.alert_type == StockAlertEvent.AlertType.SECTOR_ROTATION:
+                    messages.info(request, mark_safe(f"🔁 <strong>{safe_type_label}</strong>: {msg_html}"))
                 else:
                     messages.info(request, mark_safe(f"🔔 <strong>{safe_type_label}</strong>: {msg_html}"))
 

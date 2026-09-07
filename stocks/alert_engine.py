@@ -2,6 +2,7 @@
 # ใช้ร่วมกันระหว่าง endpoint เช็คแจ้งเตือนในหน้าเว็บ (stocks/views/alerts.py)
 # แยกจาก management command monitor_stocks.py (ที่ยิง Telegram) เพื่อไม่ให้กระทบของเดิม
 
+import hashlib
 from datetime import time as dtime
 from datetime import timedelta
 
@@ -180,6 +181,49 @@ def evaluate_user_alerts(user, config):
     # สำหรับสัญญาณ "สับเปลี่ยนหุ้นในพอร์ต" — ใช้เงื่อนไขเดียวกับ SL/BREAKOUT alert ที่มีอยู่แล้วเป๊ะๆ ไม่คำนวณเพิ่ม
     weak_candidates = []
     strong_candidates = []
+
+    # ====== ภาวะตลาดรวม (Market Timing) — แจ้งครั้งเดียวต่อตลาด ไม่ใช่ต่อหุ้น ======
+    # กระทบทุก position ในตลาดนั้นพร้อมกัน: RED = ลดพอร์ต/ขยับ SL/งดซื้อใหม่; FTD = เริ่มกลับเข้าซื้อได้
+    if config.alert_market_timing and portfolios:
+        from stocks.market_timing import get_market_timing_status
+        for _mk in {p.market for p in portfolios}:
+            _mk_label = 'SET' if _mk == MarketType.SET else ('US' if _mk == MarketType.US else None)
+            if _mk_label is None:
+                continue
+            try:
+                _mt = get_market_timing_status(market=_mk_label)
+            except Exception:
+                continue
+            _code = _mt.get('status_code', 'GREEN')
+            _ftd_fresh = bool(_mt.get('ftd_detected') and _mt.get('days_since_ftd') is not None and _mt['days_since_ftd'] <= 3)
+            _n_held = sum(1 for p in portfolios if p.market == _mk)
+            _sub = None
+            if _code == 'RED':
+                _sub = ('RED', (
+                    f"ตลาด {_mk_label} เข้าภาวะแจกของหนัก ({_mt.get('distribution_count', 0)} วันใน 25 วัน) — "
+                    f"พอร์ตของคุณมี {_n_held} ตัวในตลาดนี้ ควรลดขนาดสถานะ ขยับ Stop Loss ขึ้นชิด "
+                    f"และงดซื้อหุ้นใหม่จนกว่าจะมี Follow-Through Day ยืนยัน"
+                ))
+            elif _code == 'YELLOW':
+                _sub = ('YELLOW', (
+                    f"ตลาด {_mk_label} เริ่มมีแรงขายสถาบัน ({_mt.get('distribution_count', 0)} วันแจกของ) — "
+                    f"พอร์ต {_n_held} ตัวในตลาดนี้ ให้ถือเฉพาะตัวที่แข็งแรงกว่าตลาด คุมความเสี่ยงสั้นลง ชะลอการซื้อเพิ่ม"
+                ))
+            elif _ftd_fresh:
+                _sub = ('FTD', (
+                    f"ตลาด {_mk_label} ยืนยัน Follow-Through Day แล้ว (เมื่อ {_mt['days_since_ftd']} วันก่อน) — "
+                    f"เป็นสัญญาณตลาดกลับตัวขึ้น เริ่มทยอยกลับเข้าซื้อหุ้นผู้นำที่ผ่านเกณฑ์ Precision ได้"
+                ))
+            if _sub:
+                _tag, _msg = _sub
+                _k = f"stockalert_markettiming_{user.id}_{_mk_label}_{_tag}"
+                if not cache.get(_k):
+                    new_events.append(StockAlertEvent(
+                        user=user, symbol=f"MKT:{_mk_label}", market=_mk,
+                        alert_type=StockAlertEvent.AlertType.MARKET_TIMING,
+                        strategy='', price=0.0, message=_msg,
+                    ))
+                    cache.set(_k, True, timeout=12 * 60 * 60)
 
     for p in portfolios:
         price = live_prices.get(p.symbol)
@@ -523,6 +567,71 @@ def evaluate_user_alerts(user, config):
                     ),
                 ))
                 cache.set(cache_key, True, timeout=24 * 60 * 60)
+
+    # ====== การหมุนกลุ่มอุตสาหกรรม (Sector Rotation) ======
+    # จัดอันดับกลุ่มด้วย sector_strength_pct (% หุ้นในกลุ่มที่อยู่ Stage 2) แบบสัมพัทธ์
+    # หุ้นในพอร์ตที่อยู่กลุ่มซึ่งอ่อนกว่าค่ากลาง และมีกลุ่มนำที่แข็งกว่า >= 15 จุด
+    # → แนะนำลดน้ำหนักกลุ่มอ่อน แล้วมองหาตัวนำในกลุ่มที่แข็งแรงกว่า
+    if config.alert_sector_rotation and portfolios:
+        _held_by_market = {}
+        for p in portfolios:
+            _held_by_market.setdefault(p.market, set()).add(p.symbol)
+        for _mk, _syms in _held_by_market.items():
+            _latest_run = (PrecisionScanCandidate.objects
+                           .filter(user=user, market=_mk).order_by('-scan_run')
+                           .values_list('scan_run', flat=True).first())
+            if not _latest_run:
+                continue
+            _rows = list(PrecisionScanCandidate.objects.filter(
+                user=user, market=_mk, scan_run=_latest_run
+            ).values('symbol', 'sector', 'sector_strength_pct'))
+            if not _rows:
+                continue
+            # strength ต่อกลุ่ม (ค่าเดียวทั้งกลุ่ม — เอา max กันเผื่อมีความต่าง)
+            _sector_strength = {}
+            for r in _rows:
+                sec = r['sector']
+                if not sec or sec == 'Unknown':
+                    continue
+                _sector_strength[sec] = max(_sector_strength.get(sec, 0.0), r['sector_strength_pct'] or 0.0)
+            if len(_sector_strength) < 3:
+                continue
+            _sorted_secs = sorted(_sector_strength.items(), key=lambda kv: kv[1], reverse=True)
+            _vals = sorted(_sector_strength.values())
+            _median = _vals[len(_vals) // 2]
+            _top_names = [s for s, _v in _sorted_secs[:3]]
+            _top_strength = _sorted_secs[0][1]
+            _sector_of = {r['symbol']: r['sector'] for r in _rows}
+
+            _weak_groups = {}
+            for s in _syms:
+                sec = _sector_of.get(s)
+                if not sec or sec == 'Unknown' or sec in _top_names:
+                    continue
+                _sec_str = _sector_strength.get(sec, 0.0)
+                if _sec_str < _median and (_top_strength - _sec_str) >= 15.0:
+                    _weak_groups.setdefault(sec, []).append(s)
+
+            for sec, held in _weak_groups.items():
+                # sector อาจเป็นภาษาไทย/มีอักขระพิเศษ — hash ให้ cache key เป็น ASCII ล้วน
+                _sec_hash = hashlib.md5(sec.encode('utf-8')).hexdigest()[:10]
+                _k = f"stockalert_sectorrot_{user.id}_{_mk}_{_sec_hash}"
+                if cache.get(_k):
+                    continue
+                _sec_str = _sector_strength.get(sec, 0.0)
+                _lead_txt = ", ".join(f"{s} ({_sector_strength[s]:.0f}%)" for s in _top_names)
+                new_events.append(StockAlertEvent(
+                    user=user, symbol=held[0], market=_mk,
+                    alert_type=StockAlertEvent.AlertType.SECTOR_ROTATION,
+                    strategy='', price=live_prices.get(held[0]) or 0.0,
+                    message=(
+                        f"กลุ่ม \"{sec}\" ที่คุณถือหุ้นอยู่ ({', '.join(sorted(held))}) กำลังอ่อนแรงกว่าตลาด "
+                        f"(หุ้น Stage 2 ในกลุ่มมีเพียง {_sec_str:.0f}% ต่ำกว่าค่ากลาง {_median:.0f}%) "
+                        f"ขณะที่กลุ่มที่กำลังนำตลาดคือ {_lead_txt} — "
+                        f"พิจารณาลดน้ำหนักกลุ่ม \"{sec}\" แล้วมองหาตัวนำในกลุ่มที่แข็งแรงกว่า"
+                    ),
+                ))
+                cache.set(_k, True, timeout=24 * 60 * 60)
 
     for w in watchlists:
         price = live_prices.get(w.symbol)
