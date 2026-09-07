@@ -462,7 +462,7 @@
                                     <h6 class="fw-bold mb-1 text-dark">หุ้นย่อในโซนซื้อ <span class="text-muted fw-normal" style="font-size:0.8rem;">(Pullback)</span></h6>
                                     <div class="small mb-2" style="line-height:1.7;">
                                         <strong>เงื่อนไข:</strong> <span class="badge" style="background:#dcfce7;color:#15803d;">In Zone</span>
-                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= Stage 2 + อยู่ใน Demand Zone หรือย่อใกล้ MA50 ≤ 5% + RSI ≤ 68 + CMF ≥ 0 + ยังไม่ extended (ตัดพวก AT TP ทิ้ง)</span>
+                                        <span class="text-muted d-block mt-1" style="font-size:0.72rem;">= Stage 2 + RS ≥ 70 + อยู่ใน Demand Zone จริง (prox ≤ 3%) หรือย่อใกล้ MA50 + RSI ≤ 68 + CMF ≥ 0.05 + <strong>ยืนยันแรงซื้ออย่างน้อย 1: CMF ≥ 0.1 หรือ Pocket Pivot หรือ RVOL ≥ 1.2</strong> + ยังไม่ extended — กัน knife-catch (หุ้นไถลเข้าโซนแล้วหลุดต่อ)</span>
                                     </div>
                                     <p class="text-muted mb-2 small" style="line-height:1.6;"><strong class="text-dark">ค้นหา:</strong> หุ้นขาขึ้นที่ "พักหายใจ" ย่อกลับเข้าโซนซื้อ ไม่ใช่หุ้นที่วิ่งขึ้นมาไกลแล้ว<br><strong class="text-dark">ทำไมได้ผล:</strong> ซื้อตอนย่อ = ต้นทุนต่ำกว่าจุดเบรก, Stop สั้น (ใต้โซน/ใต้ MA50), RR ดีที่สุดในบรรดา preset ทั้งหมด และเทรนด์ยืนยันแล้วจึงเจอ false breakout น้อย</p>
                                     <div class="small" style="font-size:0.72rem; color:#475569; border-top:1px dashed #e2e8f0; padding-top:6px;">
@@ -699,7 +699,7 @@
                                 </table>
                             </div>
                             <div class="small" style="line-height:1.7; color:#334155;">
-                                <div><b style="color:#059669;">ค่าเริ่มต้น → เลือก In Zone</b> — ต้นทุนได้เปรียบ RR ดี win rate สูงกว่าตามสถิติการซื้อ pullback ในเทรนด์ · จริง ๆ ควรกด <b>Preset 1 "หุ้นย่อในโซนซื้อ"</b> แทนการติ๊ก toggle เดี่ยว (= In Zone + Stage 2 + RSI≤68 + CMF≥0 + ตัด AT TP)</div>
+                                <div><b style="color:#059669;">ค่าเริ่มต้น → เลือก In Zone</b> — ต้นทุนได้เปรียบ RR ดี win rate สูงกว่าตามสถิติการซื้อ pullback ในเทรนด์ · จริง ๆ ควรกด <b>Preset 1 "หุ้นย่อในโซนซื้อ"</b> แทนการติ๊ก toggle เดี่ยว (= In Zone + Stage 2 + RS≥70 + RSI≤68 + CMF≥0.05 + ยืนยันแรงซื้อ 1 อย่าง + ตัด AT TP)</div>
                                 <div class="mt-1"><b style="color:#7c3aed;">เลือก PK / Vol Surge เมื่อ</b> ตลาด Bull ชัดและอยากจับ momentum — แต่อย่าดูแค่ toggle ให้เปิดตารางแล้วเลือกเฉพาะตัวที่ badge เป็น <span class="badge" style="background:linear-gradient(135deg,#8E2DE2,#4A00E0);color:#fff;">PK ★</span> (Pocket Pivot แท้ เด้งจาก MA50 ในฐาน) ไม่ใช่ <span class="badge" style="background:linear-gradient(135deg,#8E2DE2,#4A00E0);color:#fff;">PK ⚡</span> หรือ Vol Surge ล้วน</div>
                                 <div class="mt-2 pt-2 border-top"><b>อยากได้ทั้งสองแบบโดยไม่ต้องติ๊กคู่:</b> ติ๊ก In Zone จดรายชื่อ → กด Clear → ติ๊ก PK/Vol Surge จดรายชื่อ → <b>ตัวที่อยู่ทั้ง 2 รอบ = ดีที่สุด</b> (ย่อในโซน + เพิ่งมีแรงเข้ากลับมา) · หรือกด <b>Preset 5 (Base Accumulation)</b> = PK + CMF+ + ACC&gt;DIST คือ "PK ที่เกิดในฐาน" ได้ทั้งความปลอดภัยของฐานและแรงวอลุ่มในตัวเดียว</div>
                             </div>
@@ -1694,7 +1694,7 @@
                     <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">🛡️ ซื้อย่อ/ในโซน:</span>
                     <button type="button" id="preset-pullback" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:700;background:#059669;color:white;border:none;"
-                            title="In Zone + CMF>=0.1 + ACC>DIST + Stage 2 + Safe — หุ้นต้นทุนได้เปรียบ ย่อในโซนซื้อและไม่ extended"
+                            title="In Zone (v2 เข้ม) + RS>=70 + CMF>=0.05 + ยืนยันแรงซื้อ (CMF>=0.1/PP/RVOL>=1.2) + Stage 2 + Safe — ย่อในโซนซื้อแบบมีแรงซื้อยืนยัน ไม่ใช่มีดร่วง"
                             onclick="applyPreset('pullback')">1. 🎯 หุ้นย่อในโซนซื้อ</button>
 
                     <span class="text-white-50 opacity-25 mx-1">|</span>
@@ -4219,8 +4219,11 @@ function _applyFiltersSET() {
             var price    = parseFloat(row.dataset.price || '0');
             var ma50     = parseFloat(row.dataset.ma50 || '0');
             var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-            // In Zone (unified SET+US): Stage 2 + ยังไม่ extended + RSI ≤ 68 + CMF ≥ 0 + อยู่ในโซน/ย่อใกล้ MA50
-            var isBuyable = s2 && !extended && rsi <= 68 && cmf >= 0 && (inzone || prox <= 5 || nearMa50);
+            // In Zone (v2, เข้มขึ้น กัน knife-catch): Stage 2 + ยังไม่ extended + RSI ≤ 68 + RS ≥ 70
+            //   + CMF ≥ 0.05 + ยืนยันแรงซื้อ 1 อย่าง (CMF≥0.1 / PP / RVOL≥1.2) + อยู่ในโซนจริง (prox ≤ 3)
+            // A: ต้องมีสัญญาณยืนยันแรงซื้อ/เด้ง อย่างน้อย 1 (เงินไหลเข้าแรง / pocket pivot / วอลุ่ม pickup)
+            var _zoneConfirm = (cmf >= 0.1 || pp || rvol >= 1.2);
+            var isBuyable = s2 && !extended && rsi <= 68 && rsRatingVal >= 70 && cmf >= 0.05 && _zoneConfirm && (inzone || prox <= 3 || nearMa50);
 
             var show = (!rsiOn       || rsi < 70) &&
                        (!buyableOn   || isBuyable) &&
@@ -4386,7 +4389,9 @@ function _updatePresetCountsSET() {
 
         // isBuyable / isBuyNow — สูตรเดียวกับ _applyFilters (unified SET+US)
         var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-        var isBuyable = s2 && !extended && rsi <= 68 && cmf >= 0 && (inzone || prox <= 5 || nearMa50);
+        var rsv = parseFloat(d.rs || '0');
+        var _zoneConfirm = (cmf >= 0.1 || pp || rvol >= 1.2);
+        var isBuyable = s2 && !extended && rsi <= 68 && rsv >= 70 && cmf >= 0.05 && _zoneConfirm && (inzone || prox <= 3 || nearMa50);
         var isBuyNow  = rvol >= 1.5 && turtleDist <= 0.5;
 
         if (isBuyable)                      counts.pullback++;
@@ -4504,7 +4509,7 @@ function _tfDo4SET() {
             // Wyckoff Spring: หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ — จุดเข้าที่ SL แคบสุด
             // ถือเป็นสัญญาณเข้าได้เอง ไม่ต้องรอ RVOL/CMF เหมือนเงื่อนไข inzone ทั่วไป
             r.timing = 'enter'; r.action = '🌀 Wyckoff Spring — หลุดแนวรับแล้วดีดกลับ (SL แคบ) — เข้าได้';
-        } else if (r.inzone && r.rvol >= 1.2 && r.cmf >= 0) {
+        } else if (r.inzone && r.rvol >= 1.2 && r.cmf >= 0.05) {
             r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
         } else if (r.inzone) {
             r.timing = 'alert'; r.action = 'IN ZONE แต่รอ Vol/เงินไหลเข้า (RVOL ' + r.rvol.toFixed(1) + 'x, CMF ' + r.cmf.toFixed(2) + ')';
