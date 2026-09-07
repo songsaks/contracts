@@ -4192,8 +4192,9 @@ function _tfDo5US() {
               + '<span class="tf-status ' + r.timing + '" style="font-size:0.68rem;">' + r.action + '</span>'
             + '</div>'
             + (stars || presetPills ? '<div class="mb-2 d-flex flex-wrap gap-1">' + stars + presetPills + '</div>' : '')
+            + (function(){var pd=(r.ppPrice>0)?((r.price-r.ppPrice)/r.ppPrice*100):0;var col=Math.abs(pd)<=1?'#15803d':(pd>0?'#b45309':'#2563eb');var lbl=Math.abs(pd)<=1?'ที่จุดเข้า':(pd>0?'เหนือจุดเข้า':'ต่ำกว่าจุดเข้า');return '<div class="mb-1 fw-bold" style="font-size:0.82rem;color:#0f172a;">ราคาปัจจุบัน ' + cur + r.price.toFixed(2) + (r.ppPrice>0 ? ' <span style="font-size:0.62rem;font-weight:600;color:'+col+';">('+(pd>=0?'+':'')+pd.toFixed(1)+'% '+lbl+')</span>' : '') + '</div>';})()
             + '<ul class="mb-2 ps-0 recommendation-reasons">'
-              + '<li><span class="checkmark-green">✓</span> PP ' + cur + r.ppPrice.toFixed(2) + '</li>'
+              + '<li><span class="checkmark-green">✓</span> PP (จุดเข้า) ' + cur + r.ppPrice.toFixed(2) + '</li>'
               + '<li><span class="checkmark-green">✓</span> SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span></li>'
               + '<li><span class="checkmark-green">✓</span> RR 1:' + (r.rr || 0).toFixed(1) + ' &middot; RS ' + r.rs + '</li>'
             + '</ul>'
