@@ -9,6 +9,102 @@ from .base import (
     _seed_us_symbols, _seed_value_symbols, _score_value_candidate, _check_rate_limit
 )
 
+
+def _build_exit_action_plan(*, market_label, market_timing, cs, current_price, entry_price,
+                            gain_loss_pct, quantity, days_held, sl_price, tp_price,
+                            turtle_s1, rsi, adx, cmf, rel_3m, rs_rating, rs_rank, total_count,
+                            action, action_style, action_detail, sl_hit, tp_hit, near_sl,
+                            is_leader, is_laggard, anti_avg_down):
+    """
+    สร้าง "แผนปฏิบัติการ" แบบ deterministic (Python ล้วน ไม่พึ่ง LLM) ต่อหุ้น 1 ตัว
+    รูปแบบเดียวกับ checklist ตัวอย่างของ KCE: เช็คภาวะตลาด → สถานะหุ้น → คำสั่งระบบ →
+    จังหวะปฏิบัติ → วินัย stop → โครงสร้างราคา
+    คืน list ของ {'n', 'title', 'detail', 'tone'} (tone: danger/warning/info/ok)
+    """
+    steps = []
+    mt = market_timing or {}
+    code = mt.get('status_code', 'GREEN')
+    dist = mt.get('distribution_count', 0)
+    ftd_fresh = bool(mt.get('ftd_detected') and mt.get('days_since_ftd') is not None
+                     and mt['days_since_ftd'] <= 5)
+
+    # 1) ภาวะตลาด
+    if code == 'RED':
+        steps.append({'n': 1, 'title': 'เช็ค Market Timing', 'tone': 'danger',
+                      'detail': f'ตลาด {market_label} เป็น RED (แจกของ {dist} วันใน 25 วัน) — '
+                                f'ลดสถานะเชิงรุก ขยับ Stop Loss ขึ้นชิด และงดซื้อเพิ่มจนกว่าจะมี Follow-Through Day'})
+    elif code == 'YELLOW':
+        steps.append({'n': 1, 'title': 'เช็ค Market Timing', 'tone': 'warning',
+                      'detail': f'ตลาด {market_label} เป็น YELLOW (แจกของ {dist} วัน{" · เพิ่งมี FTD" if ftd_fresh else " ยังไม่มี FTD"}) — '
+                                f'ถือเฉพาะตัวที่แข็งแรงกว่าตลาด คุมความเสี่ยงสั้นลง ยังไม่เติมไม้'})
+    else:
+        _d = 'ถือ/บริหารตามสัญญาณรายตัวได้ปกติ'
+        if ftd_fresh:
+            _d = f'เพิ่งยืนยัน Follow-Through Day {mt.get("days_since_ftd")} วันก่อน — เริ่มกลับเข้าซื้อผู้นำได้'
+        steps.append({'n': 1, 'title': 'เช็ค Market Timing', 'tone': 'ok',
+                      'detail': f'ตลาด {market_label} เป็น GREEN — {_d}'})
+
+    # 2) สถานะหุ้นในพอร์ต
+    rs_txt = f'RS {rs_rating}' if rs_rating else 'RS ไม่มีข้อมูล scan'
+    rank_txt = f' · อันดับ #{rs_rank}/{total_count} ในพอร์ต' if rs_rank else ''
+    gl_txt = f'{"+" if gain_loss_pct >= 0 else ""}{gain_loss_pct:.2f}%'
+    pos_tone = 'ok'
+    pos_extra = ''
+    if is_laggard and gain_loss_pct < 0:
+        pos_tone = 'warning'
+        pos_extra = ' — เป็น dead money (แพ้ตลาด + ขาดทุน) ควรพิจารณาตัดเป็นอันดับต้นๆ'
+    elif is_leader:
+        pos_extra = ' — เป็นตัวนำ (Leader) ให้สิทธิ์ถือรันเทรนด์'
+    steps.append({'n': 2, 'title': 'สถานะหุ้นในพอร์ต', 'tone': pos_tone,
+                  'detail': f'{rs_txt}{rank_txt} · กำไร/ขาดทุน {gl_txt} · ถือ {days_held} วัน{pos_extra}'})
+
+    # 3) คำสั่งจากระบบ (compute_exit_action — แหล่งเดียวกับ alert)
+    v_tone = {'danger': 'danger', 'warning': 'warning', 'warning-soft': 'warning',
+              'info': 'info', 'success': 'ok'}.get(action_style, 'info')
+    steps.append({'n': 3, 'title': 'คำสั่งจากระบบ (Exit Plan)', 'tone': v_tone,
+                  'detail': f'{action} — {action_detail}'})
+
+    # 4) จังหวะปฏิบัติ
+    qty_txt = f'{quantity:,.0f} หุ้น' if quantity else 'ทั้งจำนวน'
+    if sl_hit or action_style == 'danger':
+        steps.append({'n': 4, 'title': 'จังหวะปฏิบัติ', 'tone': 'danger',
+                      'detail': f'ขายเต็มจำนวน ({qty_txt}) ที่ราคาตลาดทันที ไม่ต่อรอง ไม่ถือครึ่งเดียวเพื่อปลอบใจ'})
+    elif near_sl and gain_loss_pct < 0:
+        steps.append({'n': 4, 'title': 'จังหวะปฏิบัติ', 'tone': 'warning',
+                      'detail': f'ทยอยลด 50% ทันที ส่วนที่เหลือถ้าปิดหลุด {cs}{sl_price:.2f} ให้ปิดที่แตะ SL ไม่รอ'})
+    elif gain_loss_pct > 0 and action_style in ('info', 'success'):
+        _trail = max(sl_price or 0, turtle_s1 or 0)
+        _trail_txt = f'{cs}{_trail:.2f}' if _trail else 'จุด Turtle 10D low / ราคา−2.5×ATR'
+        steps.append({'n': 4, 'title': 'จังหวะปฏิบัติ', 'tone': 'info',
+                      'detail': f'ถือรันเทรนด์ · เลื่อน stop ขึ้นมาที่ {_trail_txt} (ค่าที่สูงกว่าระหว่าง SL เดิม กับ Turtle 10D low) — ห้ามถอยลง'})
+    else:
+        steps.append({'n': 4, 'title': 'จังหวะปฏิบัติ', 'tone': 'ok',
+                      'detail': f'ถือต่อ · จุด invalidate = ปิดหลุด {cs}{sl_price:.2f}' +
+                                (f' หรือ CMF ติดลบ ({cmf:.2f}) พร้อม MACD กลับทิศ' if cmf is not None else '')})
+
+    # 5) วินัย stop (Best Loser Wins)
+    d5 = f'ยืน stop ที่ {cs}{sl_price:.2f} — เลื่อนขึ้นได้อย่างเดียว ห้ามขยับลงเด็ดขาด'
+    if anti_avg_down:
+        d5 += ' · ⛔ ห้ามซื้อถัวเฉลี่ยเพิ่ม (ขาดทุน + หลุด MA50/SL)'
+    steps.append({'n': 5, 'title': 'วินัย Stop (Best Loser Wins)', 'tone': 'warning' if anti_avg_down else 'info',
+                  'detail': d5})
+
+    # 6) โครงสร้างราคา / เป้าหมาย — ข้ามถ้าคำสั่งคือตัดขาดทุน (จะขัดกับข้อ 4)
+    if sl_hit or action_style == 'danger':
+        pass
+    elif tp_price and current_price and tp_price > current_price:
+        left = (tp_price - current_price) / current_price * 100
+        steps.append({'n': 6, 'title': 'โครงสร้างราคา', 'tone': 'ok',
+                      'detail': f'เป้าถัดไป (แนวต้าน/ไฮเดิม) {cs}{tp_price:.2f} เหลืออีก {left:.1f}% — '
+                                f'ยังไม่ถึงเป้าอย่าขายเพราะกลัว ถ้าเบรก {cs}{tp_price:.2f} ด้วยวอลุ่ม = รันต่อ ไม่ใช่ขาย'})
+    elif tp_hit:
+        steps.append({'n': 6, 'title': 'โครงสร้างราคา', 'tone': 'info',
+                      'detail': f'ราคาถึง/เกินเป้า {cs}{tp_price:.2f} แล้ว — ถ้าเทรนด์ยังแข็ง (ADX {adx or 0:.0f}, CMF บวก) ใช้ trailing stop รันต่อ '
+                                f'ไม่ต้องขายทันทีเพราะ "ถึงเป้า"'})
+
+    return steps
+
+
 @login_required
 def portfolio_exit_plan(request):
     """
@@ -238,6 +334,38 @@ def portfolio_exit_plan(request):
         sorted(items, key=lambda x: (x['rs_rating'] or 999, x['rel_3m'])), start=1
     ):
         _it['rs_rank'] = _rank
+
+    # ====== แผนปฏิบัติการต่อหุ้น (deterministic loop, ไม่พึ่ง LLM) ======
+    from stocks.market_timing import get_market_timing_status
+    _mt_cache = {}
+
+    def _mt_for(mk):
+        _key = 'SET' if mk == MarketType.SET else ('US' if mk == MarketType.US else None)
+        if _key is None:
+            return None
+        if _key not in _mt_cache:
+            try:
+                _mt_cache[_key] = get_market_timing_status(market=_key)
+            except Exception:
+                _mt_cache[_key] = None
+        return _mt_cache[_key]
+
+    _n_items = len(items)
+    for _it in items:
+        _mk = _it['obj'].market
+        _cs = '$' if _mk != MarketType.SET else '฿'
+        _mk_label = 'US' if _mk == MarketType.US else ('SET' if _mk == MarketType.SET else str(_mk))
+        _it['action_plan'] = _build_exit_action_plan(
+            market_label=_mk_label, market_timing=_mt_for(_mk), cs=_cs,
+            current_price=_it['current_price'], entry_price=_it['entry_price'],
+            gain_loss_pct=_it['gain_loss_pct'], quantity=_it['quantity'], days_held=_it['days_held'],
+            sl_price=_it['sl_price'] or 0, tp_price=_it['tp_price'] or 0, turtle_s1=_it['turtle_s1'] or 0,
+            rsi=_it['rsi'], adx=_it['adx'], cmf=_it['cmf'], rel_3m=_it['rel_3m'],
+            rs_rating=_it['rs_rating'], rs_rank=_it.get('rs_rank', 0), total_count=_n_items,
+            action=_it['action'], action_style=_it['action_style'], action_detail=_it['action_detail'],
+            sl_hit=_it['sl_hit'], tp_hit=_it['tp_hit'], near_sl=_it['near_sl'],
+            is_leader=_it['is_leader'], is_laggard=_it['is_laggard'], anti_avg_down=_it['anti_avg_down'],
+        )
 
     # ====== Portfolio Health Summary ======
     urgent_count   = sum(1 for i in items if i['exit_signal'] in ('STRONG EXIT',) or i['sl_hit'])

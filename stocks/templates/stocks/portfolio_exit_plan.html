@@ -486,6 +486,27 @@
       </div>
     </div>
 
+    {% if item.action_plan %}
+    <details class="action-plan mx-4 mb-3">
+      <summary style="cursor:pointer;list-style:none;font-size:0.8rem;font-weight:700;color:#4338ca;
+                      background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:8px 12px;">
+        📋 แผนปฏิบัติการ ({{ item.action_plan|length }} ขั้นตอน) — เมื่อขึ้น alert นี้ควรทำอะไรต่อ
+      </summary>
+      <ol style="margin:10px 0 0;padding:0;list-style:none;">
+        {% for s in item.action_plan %}
+        <li style="display:flex;gap:10px;padding:8px 10px;margin-bottom:6px;border-radius:8px;
+                   background:{% if s.tone == 'danger' %}#fef2f2{% elif s.tone == 'warning' %}#fffbeb{% elif s.tone == 'info' %}#eff6ff{% else %}#f0fdf4{% endif %};
+                   border-left:3px solid {% if s.tone == 'danger' %}#dc2626{% elif s.tone == 'warning' %}#d97706{% elif s.tone == 'info' %}#2563eb{% else %}#16a34a{% endif %};">
+          <span style="flex-shrink:0;font-weight:700;color:#64748b;font-size:0.78rem;">{{ s.n }}.</span>
+          <span style="font-size:0.8rem;line-height:1.45;color:#1e293b;">
+            <strong>{{ s.title }}</strong> — {{ s.detail }}
+          </span>
+        </li>
+        {% endfor %}
+      </ol>
+    </details>
+    {% endif %}
+
   </div><!-- /card -->
   {% endfor %}
   </div><!-- /#exitCards -->
