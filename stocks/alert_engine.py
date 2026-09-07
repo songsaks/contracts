@@ -198,8 +198,9 @@ def _tp_partial_sell_pct(strategy):
 def _passes_inzone_gate(scan):
     """
     เกณฑ์เพิ่มเติมสำหรับ "ย่อในโซนซื้อ" ให้ตรงกับ In-Zone v2 ในหน้าสแกน
-    (_compute_signals buy_score ไม่บังคับ 4 ตัวนี้ — RS เป็นแค่ weight, ไม่มี extended/RSI ceiling)
-      RS ≥ 70 · ไม่ extended · RSI ≤ 68 · CMF ≥ 0.05 (มีเงินไหลเข้าสุทธิจริง)
+    (_compute_signals buy_score ไม่บังคับพวกนี้ — RS เป็นแค่ weight, ไม่มี extended/RSI ceiling)
+      RS ≥ 70 · ไม่ extended · RSI ≤ 68 · CMF ≥ 0.05
+      + ยืนยันแรงซื้ออย่างน้อย 1 (CMF ≥ 0.1 / Pocket Pivot / RVOL ≥ 1.2) — OR-confirm เดียวกับตาราง
     Wyckoff Spring / 52w breakout / Pocket Pivot ⭐ ข้ามเกณฑ์นี้ (คนละจังหวะ ไม่ใช่ pullback ทั่วไป)
     """
     if getattr(scan, 'wyckoff_spring', False) or getattr(scan, 'is_52w_breakout', False) \
@@ -209,8 +210,11 @@ def _passes_inzone_gate(scan):
     rsi = getattr(scan, 'rsi', 0) or 0
     cmf = getattr(scan, 'cmf', None)
     cmf = 0.0 if cmf is None else cmf
+    rvol = getattr(scan, 'rvol', 0) or 0
+    pp = bool(getattr(scan, 'pocket_pivot', False))
     is_ext = bool(getattr(scan, 'is_extended', False))
-    return rs >= 70 and not is_ext and rsi <= 68 and cmf >= 0.05
+    _confirm = (cmf >= 0.1 or pp or rvol >= 1.2)
+    return rs >= 70 and not is_ext and rsi <= 68 and cmf >= 0.05 and _confirm
 
 
 def evaluate_user_alerts(user, config):
