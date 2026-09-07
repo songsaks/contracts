@@ -6,6 +6,31 @@ from .base import (
     _seed_us_symbols, _seed_value_symbols, _score_value_candidate, _check_rate_limit
 )
 
+
+def _yq_modules_with_timeout(symbols, modules_str, timeout=25):
+    """
+    ดึง yahooquery get_modules() แบบมี timeout กันแสกนค้าง
+    ถ้า Yahoo throttle / connection ค้าง เกิน `timeout` วินาที → คืน {} แล้วให้แสกนไปต่อ
+    (ข้อมูล fundamental หายไปแค่ sector='Unknown' + growth=0 แต่ผลแสกนถูกบันทึกครบ)
+    """
+    import concurrent.futures as _cf
+    from yahooquery import Ticker as _YQT
+    # ไม่ใช้ `with` context — ถ้า yahooquery ค้างจริง shutdown(wait=True) จะบล็อกต่อ
+    # สร้าง executor แล้ว shutdown(wait=False) ให้ thread ที่ค้างวิ่งพื้นหลังไป ไม่รั้งแสกน
+    _ex = _cf.ThreadPoolExecutor(max_workers=1)
+    try:
+        fut = _ex.submit(lambda: _YQT(symbols, timeout=15).get_modules(modules_str))
+        res = fut.result(timeout=timeout)
+        return res if isinstance(res, dict) else {}
+    except _cf.TimeoutError:
+        print(f"[Scanner] yahooquery fundamental fetch timed out (>{timeout}s) — proceeding without fundamentals")
+        return {}
+    except Exception as _e:
+        print(f"[Scanner] yahooquery fundamental fetch failed: {_e}")
+        return {}
+    finally:
+        _ex.shutdown(wait=False)
+
 # ============================================================
 # ฟังก์ชัน: _mr_detect_pattern
 # วัตถุประสงค์: ตรวจจับรูปแบบแท่งเทียนกลับตัวขาขึ้น (Bullish Reversal Patterns)
@@ -1283,8 +1308,7 @@ def momentum_scanner(request):
                         from stocks.utils import YQTicker
                         match_bk = [f"{r['symbol']}.BK" for r in pre_results]
                         try:
-                            yq_all = YQTicker(match_bk)
-                            modules = yq_all.get_modules('financialData summaryProfile defaultKeyStatistics')
+                            modules = _yq_modules_with_timeout(match_bk, 'financialData summaryProfile defaultKeyStatistics')
                             for s_bk, val in modules.items():
                                 if not isinstance(val, dict): continue
                                 sym_clean = s_bk.replace('.BK','')
@@ -2544,8 +2568,7 @@ def precision_momentum_scanner(request):
                     symbols_bk = [f"{s}.BK" for s in matched_symbols]
                     fund_data = {}
                     try:
-                        yq_all = YQTicker(symbols_bk)
-                        modules = yq_all.get_modules('financialData summaryProfile defaultKeyStatistics')
+                        modules = _yq_modules_with_timeout(symbols_bk, 'financialData summaryProfile defaultKeyStatistics')
                         for sym_bk, data in modules.items():
                             if not isinstance(data, dict):
                                 continue
@@ -5810,8 +5833,7 @@ def us_precision_scanner(request):
                     symbols_bk = matched_symbols
                     fund_data = {}
                     try:
-                        yq_all = YQTicker(symbols_bk)
-                        modules = yq_all.get_modules('financialData summaryProfile defaultKeyStatistics')
+                        modules = _yq_modules_with_timeout(symbols_bk, 'financialData summaryProfile defaultKeyStatistics')
                         for sym_bk, data in modules.items():
                             if not isinstance(data, dict):
                                 continue
@@ -7183,8 +7205,7 @@ def us_sepa_scanner(request):
                     sector_map = {}
                     name_map   = {}
                     try:
-                        yqa = YQT([r['symbol'] for r in results])
-                        mods = yqa.get_modules('summaryProfile quoteType')
+                        mods = _yq_modules_with_timeout([r['symbol'] for r in results], 'summaryProfile quoteType')
                         for k, d in mods.items():
                             if isinstance(d, dict):
                                 sp = d.get('summaryProfile', {})
