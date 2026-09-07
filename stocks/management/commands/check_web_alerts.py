@@ -9,8 +9,10 @@
 # นอกจากนี้ยังลบประวัติแจ้งเตือนเก่ากว่า alert_retention_days ของแต่ละ user ทิ้งด้วย (เช็ควันละครั้ง)
 # เพื่อไม่ให้ตาราง StockAlertEvent โตไม่มีที่สิ้นสุด
 #
-# ตั้ง cron ให้รันคำสั่งนี้เป็นระยะ (เช่นทุก 5 นาที) — ไม่ต้องกังวลเรื่องเวลาตลาดปิด เพราะ
-# evaluate_user_alerts() เช็ค is_market_open() ต่อ position ในพอร์ตอยู่แล้วก่อนสร้าง SL/TP/Breakout alert
+# ตั้ง cron ให้รันคำสั่งนี้ "ทุก 1 นาที" — throttle ต่อ user คุมเองด้วย effective_check_interval_seconds()
+# (ตลาดเปิด SET/US → เช็คทุก ~90 วินาที เพื่อให้ message ซื้อ/ขายมาไว, ตลาดปิด → ตามค่าที่ user ตั้ง)
+# ไม่ต้องกังวลเรื่องเวลาตลาดปิด เพราะ evaluate_user_alerts() เช็ค is_market_open() ต่อ position อยู่แล้ว
+# ก่อนสร้าง SL/TP/Breakout alert และรอบเช็ค off-hours จะถูกยืดออกเองอัตโนมัติ
 
 from datetime import timedelta
 
@@ -18,7 +20,7 @@ from django.core.cache import cache
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from stocks.alert_engine import evaluate_user_alerts
+from stocks.alert_engine import evaluate_user_alerts, effective_check_interval_seconds
 from stocks.models import StockAlertConfig, StockAlertEvent
 from stocks.views.alerts import _LAST_RUN_CACHE_KEY
 
@@ -50,7 +52,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f"[{config.user.username}] error: {e}"))
                 continue
 
-            cache.set(cache_key, True, timeout=config.check_interval_minutes * 60)
+            cache.set(cache_key, True, timeout=effective_check_interval_seconds(config))
             total_events += len(events)
             if events:
                 summary = ', '.join(f"{e.symbol}({e.alert_type})" for e in events)

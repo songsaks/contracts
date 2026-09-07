@@ -71,8 +71,11 @@ class AddWatchlistForm(forms.Form):
 
 
 class StockAlertConfigForm(forms.ModelForm):
-    INTERVAL_CHOICES = [(15, '15 นาที'), (30, '30 นาที'), (60, '60 นาที')]
-    check_interval_minutes = forms.TypedChoiceField(choices=INTERVAL_CHOICES, coerce=int, initial=30)
+    INTERVAL_CHOICES = [
+        (1, '1 นาที (เร็วสุด)'), (3, '3 นาที'), (5, '5 นาที'),
+        (15, '15 นาที'), (30, '30 นาที'), (60, '60 นาที'),
+    ]
+    check_interval_minutes = forms.TypedChoiceField(choices=INTERVAL_CHOICES, coerce=int, initial=5)
 
     RETENTION_CHOICES = [(7, '7 วัน'), (30, '30 วัน'), (60, '60 วัน'), (90, '90 วัน')]
     alert_retention_days = forms.TypedChoiceField(choices=RETENTION_CHOICES, coerce=int, initial=30)

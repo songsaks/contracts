@@ -61,6 +61,25 @@ def is_market_open(market):
     return checker(dj_timezone.now())
 
 
+# ตอนตลาดเปิด บีบรอบเช็คให้สั้นสุด (วินาที) เพื่อให้ message ซื้อ/ขายมาไว — ไม่เกินค่านี้
+_MARKET_HOURS_MIN_INTERVAL_SEC = 90
+
+
+def effective_check_interval_seconds(config):
+    """
+    ช่วงเวลาเช็คแจ้งเตือน "จริง" (วินาที):
+    - ตอนตลาด SET หรือ US เปิด → บีบให้ไม่เกิน 90 วินาที แม้ user จะตั้ง interval ไว้ยาว
+      (ราคาขยับเร็ว มีผลต่อจังหวะซื้อ/ขาย ต้องเช็คถี่)
+    - ตอนตลาดปิดทั้งคู่ → ใช้ค่าที่ user ตั้ง (ไม่ต้องเช็คถี่ ราคาไม่ขยับ)
+    ใช้ร่วมกันทั้ง AJAX endpoint, context processor และ cron
+    """
+    base = max(int(getattr(config, 'check_interval_minutes', 15) or 15), 1) * 60
+    now = dj_timezone.now()
+    if _is_set_market_open(now) or _is_us_market_open(now):
+        return min(base, _MARKET_HOURS_MIN_INTERVAL_SEC)
+    return base
+
+
 def _to_yf_symbol(symbol, market=None):
     """แปลง symbol เป็นรูปแบบที่ yfinance เข้าใจ (เติม .BK เฉพาะหุ้นไทย/ตลาด SET เท่านั้น)"""
     symbol = symbol.strip().upper()
@@ -82,19 +101,41 @@ def fetch_live_prices(symbol_market_pairs):
         return {}
 
     yf_symbols = [_to_yf_symbol(sym, mkt) for sym, mkt in pairs]
+    # yf_sym -> original_sym (กรณีชนกันเอาตัวหลัง ไม่เป็นไร ราคาเดียวกัน)
+    sym_map = {ys: orig for (orig, _m), ys in zip(pairs, yf_symbols)}
     live_prices = {}
+
+    # ── หลัก: ยิง batch เดียวด้วย yf.download 1m — เร็วกว่า t.info ทีละตัวมาก ──
     try:
-        tickers = yf.Tickers(" ".join(yf_symbols))
-        for (original_sym, _mkt), yf_sym in zip(pairs, yf_symbols):
-            try:
-                t = tickers.tickers[yf_sym]
-                price = t.info.get('currentPrice') or t.fast_info.last_price
-                if price:
-                    live_prices[original_sym] = float(price)
-            except Exception:
-                continue
+        df = yf.download(yf_symbols, period="1d", interval="1m",
+                         progress=False, group_by="ticker", threads=True)
+        if df is not None and not df.empty:
+            if len(yf_symbols) == 1:
+                ys = yf_symbols[0]
+                _close = df["Close"].dropna() if "Close" in df.columns else df.get(ys, df).get("Close")
+                if _close is not None and len(_close):
+                    live_prices[sym_map[ys]] = float(_close.iloc[-1])
+            else:
+                for ys in yf_symbols:
+                    try:
+                        _close = df[ys]["Close"].dropna()
+                        if len(_close):
+                            live_prices[sym_map[ys]] = float(_close.iloc[-1])
+                    except Exception:
+                        continue
     except Exception:
         pass
+
+    # ── fallback: ตัวที่ batch ไม่ได้ราคา ให้ลอง fast_info ทีละตัว ──
+    missing = [(sym_map[ys], ys) for ys in yf_symbols if sym_map[ys] not in live_prices]
+    for original_sym, ys in missing:
+        try:
+            p = yf.Ticker(ys).fast_info.last_price
+            if p:
+                live_prices[original_sym] = float(p)
+        except Exception:
+            continue
+
     return live_prices
 
 

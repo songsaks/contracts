@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from stocks.alert_engine import evaluate_user_alerts
+from stocks.alert_engine import evaluate_user_alerts, effective_check_interval_seconds
 from stocks.forms import StockAlertConfigForm
 from stocks.models import StockAlertConfig, StockAlertEvent
 
@@ -30,7 +30,7 @@ def check_stock_alerts(request):
         return JsonResponse({'alerts': [], 'skipped': True})
 
     events = evaluate_user_alerts(request.user, config)
-    cache.set(cache_key, True, timeout=config.check_interval_minutes * 60)
+    cache.set(cache_key, True, timeout=effective_check_interval_seconds(config))
 
     return JsonResponse({
         'alerts': [

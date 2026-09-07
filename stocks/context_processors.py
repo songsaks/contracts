@@ -3,7 +3,7 @@ from django.core.cache import cache
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from stocks.models import StockAlertConfig, StockAlertEvent
-from stocks.alert_engine import evaluate_user_alerts
+from stocks.alert_engine import evaluate_user_alerts, effective_check_interval_seconds
 
 
 def stock_alerts_processor(request):
@@ -27,12 +27,13 @@ def stock_alerts_processor(request):
     except StockAlertConfig.DoesNotExist:
         return {}
 
-    # Throttled evaluation (ทุกๆ 3 นาที) เพื่อประเมิน alert ใหม่
+    # Throttled evaluation — รอบเช็คตาม effective_check_interval_seconds
+    # (ตลาดเปิด ≤ 90 วินาที, ตลาดปิด = ค่าที่ user ตั้ง)
     cache_key = f"stockalert_cp_lastrun_{request.user.id}"
     if not cache.get(cache_key):
         try:
             evaluate_user_alerts(request.user, config)
-            cache.set(cache_key, True, timeout=min(config.check_interval_minutes * 60, 180))
+            cache.set(cache_key, True, timeout=effective_check_interval_seconds(config))
         except Exception:
             pass
 
