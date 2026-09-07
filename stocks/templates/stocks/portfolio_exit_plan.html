@@ -11,6 +11,7 @@
     <div>
       <h4 class="fw-bold mb-1" style="color:#0f172a;letter-spacing:-0.02em;">Portfolio Exit Plan</h4>
       <p class="text-muted mb-0" style="font-size:0.82rem;">เรียงตามความเร่งด่วน · ตัวที่ควรออกก่อนอยู่บนสุด</p>
+      <div style="font-size:0.75rem;color:#94a3b8;margin-top:2px;"><i class="fas fa-rotate"></i> ราคาอัปเดตอัตโนมัติทุก 90 วิ <span id="priceUpdatedAt"></span></div>
     </div>
     <div class="d-flex gap-2">
       <button id="aiAnalyzeBtn" class="btn btn-sm rounded-pill px-3 fw-semibold text-white d-flex align-items-center gap-2" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); border:none; box-shadow:0 2px 6px rgba(124, 58, 237, 0.3);">
@@ -161,9 +162,9 @@
       </div>
 
       <!-- Price + PL -->
-      <div class="text-end flex-shrink-0">
-        <div class="fw-bold" style="font-size:1.05rem;color:#0f172a;">{% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2 }}</div>
-        <div class="fw-semibold" style="font-size:0.8rem;color:{% if item.gain_loss_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+      <div class="text-end flex-shrink-0" data-cs="{% if item.obj.market != 'SET' %}${% else %}฿{% endif %}" data-entry="{{ item.entry_price|floatformat:2 }}">
+        <div class="fw-bold ep-price" style="font-size:1.05rem;color:#0f172a;transition:background .4s;">{% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2 }}</div>
+        <div class="fw-semibold ep-pl" style="font-size:0.8rem;color:{% if item.gain_loss_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
           {% if item.gain_loss_pct >= 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:2 }}%
           <span class="fw-normal" style="color:#94a3b8;">vs {% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.entry_price|floatformat:2 }}</span>
         </div>
@@ -591,6 +592,49 @@ function openSellModal(url, sym, qty, price, entry, market) {
       wrap.querySelectorAll('.rs-rank-txt').forEach(function (e) { e.style.display = 'none'; });
     }
   });
+})();
+
+/* ── Auto-refresh ราคาทุก 90 วินาที (ไม่ reload หน้า) ── */
+(function () {
+  var URL = "{% url 'stocks:portfolio_exit_plan_prices' %}";
+  var stamp = document.getElementById('priceUpdatedAt');
+
+  function fmt(n) { return Number(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+  function apply(data) {
+    var prices = data.prices || {};
+    document.querySelectorAll('#exitCards .exit-card').forEach(function (card) {
+      var sym = card.dataset.symbol;
+      var row = prices[sym];
+      if (!row) return;
+      var box = card.querySelector('[data-cs]');
+      var priceEl = card.querySelector('.ep-price');
+      var plEl = card.querySelector('.ep-pl');
+      if (!box || !priceEl || !plEl) return;
+      var cs = box.dataset.cs || '฿';
+      var newTxt = cs + fmt(row.price);
+      if (priceEl.textContent.trim() !== newTxt) {
+        priceEl.textContent = newTxt;
+        priceEl.style.background = row.gl_pct >= 0 ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)';
+        setTimeout(function () { priceEl.style.background = 'transparent'; }, 900);
+      }
+      var up = row.gl_pct >= 0;
+      plEl.style.color = up ? '#16a34a' : '#dc2626';
+      plEl.innerHTML = (up ? '+' : '') + fmt(row.gl_pct) + '% ' +
+        '<span class="fw-normal" style="color:#94a3b8;">vs ' + cs + fmt(row.entry) + '</span>';
+    });
+    if (stamp && data.ts) stamp.textContent = '(ล่าสุด ' + data.ts + ')';
+  }
+
+  function poll() {
+    fetch(URL, {credentials: 'same-origin'})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d) apply(d); })
+      .catch(function () {});
+  }
+
+  poll();
+  setInterval(poll, 90000);
 })();
 
 function calcPL() {

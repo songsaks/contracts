@@ -22,6 +22,7 @@ urlpatterns = [
     path('portfolio/dividend/add/', views.dividend_create, name='dividend_create'),
     path('portfolio/dividend/<int:pk>/delete/', views.dividend_delete, name='dividend_delete'),
     path('portfolio/exit-plan/', views.portfolio_exit_plan, name='portfolio_exit_plan'),
+    path('portfolio/exit-plan/prices/', views.portfolio_exit_plan_prices, name='portfolio_exit_plan_prices'),
     path('portfolio/exit-plan/ai/', views.portfolio_exit_plan_ai_analysis, name='portfolio_exit_plan_ai_analysis'),
     path('portfolio/cash/add/', views.add_cash_transaction, name='add_cash_transaction'),
     path('portfolio/cash/<int:pk>/date/', views.update_cash_transaction_date, name='update_cash_transaction_date'),

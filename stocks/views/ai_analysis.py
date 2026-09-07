@@ -406,6 +406,37 @@ def portfolio_exit_plan(request):
     })
 
 
+@login_required
+def portfolio_exit_plan_prices(request):
+    """
+    JSON เบาๆ สำหรับ auto-refresh ราคาในหน้า Exit Plan (poll ทุก 90 วินาที)
+    คืนเฉพาะราคา + กำไร/ขาดทุน % ต่อหุ้น — ไม่ประเมิน compute_exit_action ใหม่ (ตัวนั้นหนัก)
+    ใช้ fetch_live_prices() แบบ batch เดียวกับ alert engine
+    """
+    from django.http import JsonResponse
+    from django.utils import timezone as _tz
+    from stocks.alert_engine import fetch_live_prices, _NON_PRICEABLE_CATEGORIES
+
+    pfs = [p for p in Portfolio.objects.filter(user=request.user)
+           if p.category not in _NON_PRICEABLE_CATEGORIES]
+    prices = fetch_live_prices({(p.symbol, p.market) for p in pfs})
+
+    out = {}
+    for p in pfs:
+        px = prices.get(p.symbol)
+        if not px:
+            continue
+        entry = float(p.entry_price or 0)
+        gl_pct = ((px - entry) / entry * 100.0) if entry > 0 else 0.0
+        out[p.symbol] = {
+            'price': round(px, 2),
+            'gl_pct': round(gl_pct, 2),
+            'cs': '$' if p.market != MarketType.SET else '฿',
+            'entry': round(entry, 2),
+        }
+    return JsonResponse({'prices': out, 'ts': _tz.localtime().strftime('%H:%M:%S')})
+
+
 # ====== Portfolio Exit Plan AI Analysis ======
 @login_required
 def portfolio_exit_plan_ai_analysis(request):
