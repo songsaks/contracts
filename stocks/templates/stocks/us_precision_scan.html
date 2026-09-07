@@ -3981,6 +3981,7 @@ function _tfRowsUS() {
             rvol: parseFloat(d.rvol || 0), turtleDist: parseFloat(d.turtleDist !== undefined ? d.turtleDist : 99),
             rr: parseFloat(d.rr || 0), cup: d.cup === 'true', turtleSys: d.turtleSys === 'true',
             inzone: d.inzone === 'true', prox: parseFloat(d.prox !== undefined ? d.prox : 99),
+            extended: d.extended === 'true',
             ppPrice: parseFloat(d.ppPrice || 0), zoneLow: parseFloat(d.zoneLow || 0),
             sl: parseFloat(d.slPrice || 0), tp: parseFloat(d.tpPrice || 0), price: parseFloat(d.price || 0),
             launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true',
@@ -4030,7 +4031,8 @@ function _tfDo2US() {
         if (r.cup) r.stars.push('C&H');
         if (r.turtleSys) r.stars.push('Turtle');
     });
-    const pass = all.filter(r => r.s2 && (r.pp || r.vcp || r.canslim || r.stars.length >= 2));
+    // Gate คุณภาพ: Stage 2 + RS ≥ 70 (ให้ตรงกับฟิลเตอร์ In-Zone v2 ในตาราง) + confluence 1 อย่าง
+    const pass = all.filter(r => r.s2 && r.rs >= 70 && (r.pp || r.vcp || r.canslim || r.stars.length >= 2));
     _tfStateUS.q = pass;
     _tfChipUS(2, pass.length ? 'done' : 'blocked', all.length + ' → ' + pass.length + ' ตัว');
 }
@@ -4055,8 +4057,10 @@ function _tfDo4US() {
             // Wyckoff Spring: หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ — จุดเข้าที่ SL แคบสุด
             // ถือเป็นสัญญาณเข้าได้เอง ไม่ต้องรอ RVOL/CMF เหมือนเงื่อนไข inzone ทั่วไป
             r.timing = 'enter'; r.action = '🌀 Wyckoff Spring — หลุดแนวรับแล้วดีดกลับ (SL แคบ) — เข้าได้';
-        } else if (r.inzone && r.rvol >= 1.2 && r.cmf >= 0.05) {
+        } else if (r.inzone && !r.extended && r.rsi <= 68 && r.rvol >= 1.2 && r.cmf >= 0.05) {
             r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
+        } else if (r.inzone && (r.extended || r.rsi > 68)) {
+            r.timing = 'alert'; r.action = 'IN ZONE แต่ ' + (r.extended ? 'ยืดตัวเกินจาก MA50' : 'RSI ' + Math.round(r.rsi) + ' ยังร้อน') + ' — รอย่อ/เย็นลงก่อนเข้า';
         } else if (r.inzone) {
             r.timing = 'alert'; r.action = 'IN ZONE แต่รอ Vol/เงินไหลเข้า (RVOL ' + r.rvol.toFixed(1) + 'x, CMF ' + r.cmf.toFixed(2) + ')';
         } else if (r.turtleDist <= 0.5 && r.rvol >= 1.5) {
