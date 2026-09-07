@@ -223,6 +223,7 @@ def portfolio_exit_plan(request):
                 'is_laggard':   is_laggard,
                 'anti_avg_down': anti_avg_down,
                 'cmf':          cmf_val,
+                'rs_rating':    (prec_data.rs_rating if prec_data else 0) or 0,
             })
         except Exception as e:
             print(f"[ExitPlan] Error {item.symbol}: {e}")
@@ -230,6 +231,13 @@ def portfolio_exit_plan(request):
 
     # เรียงตาม SELL Score สูงสุดก่อน
     items.sort(key=lambda x: x['sell_score'], reverse=True)
+
+    # จัดอันดับ RS ภายในพอร์ต (1 = อ่อนที่สุด) — ใช้ rel_momentum_3m เป็นตัวตัดสินรอง
+    # หุ้นที่ไม่มีข้อมูล RS (rs_rating = 0) ถือเป็น "ไม่ทราบ" ดันไปท้ายสุด
+    for _rank, _it in enumerate(
+        sorted(items, key=lambda x: (x['rs_rating'] or 999, x['rel_3m'])), start=1
+    ):
+        _it['rs_rank'] = _rank
 
     # ====== Portfolio Health Summary ======
     urgent_count   = sum(1 for i in items if i['exit_signal'] in ('STRONG EXIT',) or i['sl_hit'])

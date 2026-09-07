@@ -16,6 +16,11 @@
       <button id="aiAnalyzeBtn" class="btn btn-sm rounded-pill px-3 fw-semibold text-white d-flex align-items-center gap-2" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); border:none; box-shadow:0 2px 6px rgba(124, 58, 237, 0.3);">
         <i class="fa-solid fa-brain"></i> AI Deep Analysis
       </button>
+      <button id="rsRankBtn" class="btn btn-sm rounded-pill px-3 fw-semibold d-flex align-items-center gap-2"
+              style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;"
+              title="เรียงหุ้นในพอร์ตจาก RS อ่อนสุด → แข็งสุด (ตัวที่ควรพิจารณาตัดก่อนอยู่บนสุด)">
+        <i class="fa-solid fa-arrow-down-1-9"></i> จัดอันดับพอร์ตด้วย RS
+      </button>
       <a href="{% url 'stocks:portfolio_list' %}"
          class="btn btn-sm rounded-pill px-4 fw-semibold"
          style="background:#f1f5f9;color:#475569;border:none;">← กลับพอร์ต</a>
@@ -109,9 +114,15 @@
   {% endif %}
 
   <!-- ── STOCK CARDS ────────────────────────────────── -->
+  <div id="exitCards">
   {% for item in items %}
 
-  <div class="mb-3 rounded-4 overflow-hidden"
+  <div class="mb-3 rounded-4 overflow-hidden exit-card"
+       data-symbol="{{ item.obj.symbol }}"
+       data-rs="{{ item.rs_rating|default:0 }}"
+       data-rs-rank="{{ item.rs_rank|default:0 }}"
+       data-rel3m="{{ item.rel_3m|default:0 }}"
+       data-sell="{{ item.sell_score|default:0 }}"
        style="background:#fff;
               box-shadow:0 1px 6px rgba(0,0,0,0.07);
               border:1px solid #e8ecf0;
@@ -139,6 +150,9 @@
           {% endif %}
           {% if item.anti_avg_down %}
           <span class="badge rounded-pill px-2" style="background:#dc2626;color:white;font-size:0.62rem;font-weight:700;" title="Best Loser Wins: ขาดทุน + หลุด MA50/SL — ห้ามซื้อถัวเฉลี่ยเพิ่มเด็ดขาด">⛔ ห้ามถัวเฉลี่ย</span>
+          {% endif %}
+          {% if item.rs_rating %}
+          <span class="badge rounded-pill px-2 rs-badge" style="font-size:0.62rem;font-weight:700;{% if item.rs_rating >= 80 %}background:#dcfce7;color:#15803d;{% elif item.rs_rating >= 50 %}background:#dbeafe;color:#1d4ed8;{% else %}background:#fee2e2;color:#b91c1c;{% endif %}" title="RS Rating เทียบทั้งตลาด (0-99) · อันดับในพอร์ต {{ item.rs_rank }}/{{ total_count }} (1 = อ่อนสุด)">RS {{ item.rs_rating }} <span class="rs-rank-txt" style="display:none;">· #{{ item.rs_rank }}</span></span>
           {% endif %}
         </div>
         <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">
@@ -474,6 +488,7 @@
 
   </div><!-- /card -->
   {% endfor %}
+  </div><!-- /#exitCards -->
 
 </div>
 
@@ -522,6 +537,41 @@ function openSellModal(url, sym, qty, price, entry, market) {
   document.getElementById('sellQty').oninput = calcPL;
   document.getElementById('sellPrice').oninput = calcPL;
 }
+/* ── จัดอันดับพอร์ตด้วย RS (สลับกับการเรียงตามความเร่งด่วน) ── */
+(function () {
+  var btn = document.getElementById('rsRankBtn');
+  var wrap = document.getElementById('exitCards');
+  if (!btn || !wrap) return;
+  var subtitle = document.querySelector('.container-fluid p.text-muted');
+  var origSubtitle = subtitle ? subtitle.textContent : '';
+  var rsMode = false;
+  var origOrder = Array.prototype.slice.call(wrap.querySelectorAll('.exit-card'));
+
+  btn.addEventListener('click', function () {
+    var cards = Array.prototype.slice.call(wrap.querySelectorAll('.exit-card'));
+    rsMode = !rsMode;
+    if (rsMode) {
+      cards.sort(function (a, b) {
+        var ra = parseFloat(a.dataset.rs || '0') || 999;     // ไม่มีข้อมูล RS → ท้ายสุด
+        var rb = parseFloat(b.dataset.rs || '0') || 999;
+        if (ra !== rb) return ra - rb;                       // RS น้อย (อ่อน) ขึ้นก่อน
+        return parseFloat(a.dataset.rel3m || '0') - parseFloat(b.dataset.rel3m || '0');
+      });
+      cards.forEach(function (c) { wrap.appendChild(c); });
+      btn.style.background = '#4338ca'; btn.style.color = '#fff';
+      btn.innerHTML = '<i class="fa-solid fa-xmark"></i> เลิกจัดอันดับ RS';
+      if (subtitle) subtitle.textContent = 'เรียงตาม RS อ่อนสุด → แข็งสุด · ตัวบนสุดคือตัวที่ควรพิจารณาตัดก่อน';
+      wrap.querySelectorAll('.rs-rank-txt').forEach(function (e) { e.style.display = 'inline'; });
+    } else {
+      origOrder.forEach(function (c) { wrap.appendChild(c); });
+      btn.style.background = '#eef2ff'; btn.style.color = '#4338ca';
+      btn.innerHTML = '<i class="fa-solid fa-arrow-down-1-9"></i> จัดอันดับพอร์ตด้วย RS';
+      if (subtitle) subtitle.textContent = origSubtitle;
+      wrap.querySelectorAll('.rs-rank-txt').forEach(function (e) { e.style.display = 'none'; });
+    }
+  });
+})();
+
 function calcPL() {
   var q = parseFloat(document.getElementById('sellQty').value) || 0;
   var p = parseFloat(document.getElementById('sellPrice').value) || 0;
