@@ -1740,6 +1740,7 @@
                 <div id="activePresetBar" style="display:none;margin-top:6px;" class="d-flex flex-wrap gap-1 align-items-center">
                     <span class="small text-muted" style="font-size:0.68rem;">Filters active:</span>
                     <span id="activePresetTags" style="font-size:0.68rem;"></span>
+                    <button type="button" id="tfRunPresetSET" onclick="tfRunPresetSET()" class="btn btn-sm rounded-pill px-2 py-0 ms-1" style="display:none;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;font-size:0.64rem;font-weight:700;" title="รันเฉพาะหุ้นที่ผ่าน preset นี้ ผ่าน funnel 5 ขั้นของ Trade Flow"><i class="fas fa-bolt me-1"></i> รันผ่าน Trade Flow</button>
                 </div>
             </div>
 
@@ -4128,15 +4129,19 @@ function _showPresetBarSET(presetType) {
     const bar  = document.getElementById('activePresetBar');
     const tags = document.getElementById('activePresetTags');
     if (!bar || !tags) return;
+    const _tfBtn = document.getElementById('tfRunPresetSET');
     if (presetType === 'clear' || !PRESET_CONDITIONS_SET[presetType]) {
         bar.style.display = 'none';
         tags.innerHTML = '';
+        _tfPresetOnlySET = false;
+        if (_tfBtn) _tfBtn.style.display = 'none';
     } else {
         const col = PRESET_COLORS_SET[presetType] || '#64748b';
         tags.innerHTML = PRESET_CONDITIONS_SET[presetType].map(c =>
             `<span style="display:inline-block;background:${col}22;color:${col};border:1px solid ${col}55;border-radius:4px;padding:1px 6px;font-size:0.67rem;font-weight:600;">${c}</span>`
         ).join(' ');
         bar.style.display = 'flex';
+        if (_tfBtn) _tfBtn.style.display = 'inline-block';
     }
 }
 
@@ -4424,8 +4429,11 @@ const TF_REGIMESET = {
 let _tfStepSET = 0;
 let _tfStateSET = {};
 
+var _tfPresetOnlySET = false;
 function _tfRowsSET() {
-    return [...document.querySelectorAll('#scanTableSET tbody tr[id^="row-"]')].map(function(r) {
+    let _rows = [...document.querySelectorAll('#scanTableSET tbody tr[id^="row-"]')];
+    if (_tfPresetOnlySET) _rows = _rows.filter(r => r.style.display !== 'none' && !r.hidden);
+    return _rows.map(function(r) {
         const d = r.dataset;
         return {
             symbol: d.symbol, rs: parseInt(d.rs || 0), rsi: parseFloat(d.rsi || 0),
@@ -4728,6 +4736,7 @@ function loadTfPresetStatsSET(btn) {
 const _tfFnsSET = [_tfDo1SET, _tfDo2SET, _tfDo3SET, _tfDo4SET, _tfDo5SET];
 
 function tfNextSET() {
+    if (_tfStepSET === 0) _tfPresetOnlySET = false;
     if (_tfStepSET >= 5) { tfResetSET(); return; }
     _tfFnsSET[_tfStepSET]();
     _tfStepSET++;
@@ -4738,8 +4747,15 @@ function tfNextSET() {
         : '<i class="fas fa-forward-step me-1"></i> ทีละขั้น (' + (_tfStepSET + 1) + '/5)';
 }
 
-function tfRunAllSET() {
+function tfRunPresetSET() {
+    var _c = document.getElementById('tradeFlowCardSET');
+    if (_c) _c.scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(function() { tfRunAllSET(true); }, 350);
+}
+
+function tfRunAllSET(presetOnly) {
     tfResetSET();
+    _tfPresetOnlySET = !!presetOnly;
     let i = 0;
     const t = setInterval(function() {
         _tfFnsSET[i](); i++; _tfStepSET = i;

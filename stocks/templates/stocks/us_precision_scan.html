@@ -1842,6 +1842,7 @@
                 <div id="activePresetBarUS" style="display:none;margin-top:6px;width:100%;" class="d-flex flex-wrap gap-1 align-items-center">
                     <span class="small text-muted" style="font-size:0.68rem;">Filters active:</span>
                     <span id="activePresetTagsUS" style="font-size:0.68rem;"></span>
+                    <button type="button" id="tfRunPresetUS" onclick="tfRunPresetUS()" class="btn btn-sm rounded-pill px-2 py-0 ms-1" style="display:none;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;font-size:0.64rem;font-weight:700;" title="รันเฉพาะหุ้นที่ผ่าน preset นี้ ผ่าน funnel 5 ขั้นของ Trade Flow"><i class="fas fa-bolt me-1"></i> รันผ่าน Trade Flow</button>
                 </div>
             </div>
 
@@ -3686,15 +3687,19 @@ function _showPresetBarUS(presetType) {
     const bar  = document.getElementById('activePresetBarUS');
     const tags = document.getElementById('activePresetTagsUS');
     if (!bar || !tags) return;
+    const _tfBtn = document.getElementById('tfRunPresetUS');
     if (presetType === 'clear' || !PRESET_CONDITIONS_US[presetType]) {
         bar.style.display = 'none';
         tags.innerHTML = '';
+        _tfPresetOnlyUS = false;
+        if (_tfBtn) _tfBtn.style.display = 'none';
     } else {
         const col = PRESET_COLORS_US[presetType] || '#64748b';
         tags.innerHTML = PRESET_CONDITIONS_US[presetType].map(c =>
             `<span style="display:inline-block;background:${col}22;color:${col};border:1px solid ${col}55;border-radius:4px;padding:1px 6px;font-size:0.67rem;font-weight:600;">${c}</span>`
         ).join(' ');
         bar.style.display = 'flex';
+        if (_tfBtn) _tfBtn.style.display = 'inline-block';
     }
 }
 
@@ -3970,8 +3975,11 @@ const TF_REGIMEUS = {
 let _tfStepUS = 0;
 let _tfStateUS = {};
 
+var _tfPresetOnlyUS = false;
 function _tfRowsUS() {
-    return [...document.querySelectorAll('#scanTableUS tbody tr[id^="row-"]')].map(function(r) {
+    let _rows = [...document.querySelectorAll('#scanTableUS tbody tr[id^="row-"]')];
+    if (_tfPresetOnlyUS) _rows = _rows.filter(r => r.style.display !== 'none' && !r.hidden);
+    return _rows.map(function(r) {
         const d = r.dataset;
         return {
             symbol: d.symbol, rs: parseInt(d.rs || 0), rsi: parseFloat(d.rsi || 0),
@@ -4274,6 +4282,7 @@ function loadTfPresetStatsUS(btn) {
 const _tfFnsUS = [_tfDo1US, _tfDo2US, _tfDo3US, _tfDo4US, _tfDo5US];
 
 function tfNextUS() {
+    if (_tfStepUS === 0) _tfPresetOnlyUS = false;
     if (_tfStepUS >= 5) { tfResetUS(); return; }
     _tfFnsUS[_tfStepUS]();
     _tfStepUS++;
@@ -4284,8 +4293,15 @@ function tfNextUS() {
         : '<i class="fas fa-forward-step me-1"></i> ทีละขั้น (' + (_tfStepUS + 1) + '/5)';
 }
 
-function tfRunAllUS() {
+function tfRunPresetUS() {
+    var _c = document.getElementById('tradeFlowCardUS');
+    if (_c) _c.scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(function() { tfRunAllUS(true); }, 350);
+}
+
+function tfRunAllUS(presetOnly) {
     tfResetUS();
+    _tfPresetOnlyUS = !!presetOnly;
     let i = 0;
     const t = setInterval(function() {
         _tfFnsUS[i](); i++; _tfStepUS = i;
