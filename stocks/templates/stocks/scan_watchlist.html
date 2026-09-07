@@ -126,6 +126,11 @@
                 <button onclick="filterWatchlist('launcher')" id="filter-launcher" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-primary">
                     🚀 พร้อมระเบิด
                 </button>
+                <button onclick="wlRunTradeFlow()" id="wlTfBtn" class="btn btn-xs rounded-pill px-3 py-1 fw-bold ms-1"
+                        style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;"
+                        title="รัน watchlist ทั้งหมดผ่าน funnel Trade Flow (คุณภาพ → เงินสถาบัน → จังหวะ) แล้วขึ้นป้ายบนแต่ละการ์ด">
+                    <i class="fas fa-bolt me-1"></i> รันผ่าน Trade Flow
+                </button>
             </div>
             
             <!-- View Mode Switcher -->
@@ -144,6 +149,8 @@
 <!-- ===== MAIN CONTENT BODY ===== -->
 <div class="container-fluid px-3 px-md-5 py-4">
 
+<div id="wlTfSummary" style="display:none;" class="mb-3 p-2 rounded-3 d-flex flex-wrap align-items-center gap-2"></div>
+
 {% if items %}
 <div class="row g-4" id="watchlistGrid">
     {% for entry in items %}
@@ -156,7 +163,17 @@
          data-at-tp="{{ entry.at_tp|yesno:'1,0' }}"
          data-win-prob="{{ entry.win_probability }}"
          data-buy-score="{{ entry.buy_score }}"
-         data-launcher-score="{{ s.launcher_score|default:0 }}">
+         data-launcher-score="{{ s.launcher_score|default:0 }}"
+         data-rs="{{ s.rs_rating|default:0 }}"
+         data-rsi="{{ s.rsi|default:0 }}"
+         data-cmf="{{ s.cmf|default:0 }}"
+         data-rvol="{{ s.rvol|default:0 }}"
+         data-stage2="{{ s.stage2|yesno:'true,false' }}"
+         data-pp="{{ s.pocket_pivot|yesno:'true,false' }}"
+         data-extended="{{ s.is_extended|yesno:'true,false' }}"
+         data-acc="{{ s.acc_days|default:0 }}"
+         data-dist="{{ s.dist_days|default:0 }}"
+         data-prox="{{ s.zone_proximity|default:99 }}">
         
         <!-- CARD CONTAINER -->
         <div class="wl-card h-100 position-relative {% if entry.in_buy_zone %}status-in-buy-zone{% elif entry.near_buy_zone %}status-near-buy-zone{% elif entry.at_tp %}status-at-tp{% endif %}">
@@ -203,6 +220,7 @@
                     <div class="min-w-0">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <span class="wl-symbol">{{ w.symbol }}</span>
+                            <span class="wl-tf-verdict badge rounded-pill" style="display:none;font-size:0.6rem;font-weight:700;padding:3px 8px;"></span>
                             {% if entry.in_portfolio %}
                             <span class="badge bg-success text-white rounded-pill fw-bold shadow-xs" style="font-size:0.62rem; padding:3px 8px;" title="หุ้นตัวนี้มีอยู่ในพอร์ตการลงทุนแล้ว">
                                 <i class="fas fa-briefcase me-1"></i> ถือในพอร์ตแล้ว
@@ -865,6 +883,83 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
+// ===== Compact Trade Flow — รัน watchlist ผ่าน funnel เดียวกับหน้า Precision (คุณภาพ → เงินสถาบัน → จังหวะ) =====
+var _wlMarketTiming = {
+    code: '{% if market_timing %}{{ market_timing.status_code|default:"GREEN" }}{% else %}GREEN{% endif %}',
+    dist: {% if market_timing %}{{ market_timing.distribution_count|default:0 }}{% else %}0{% endif %},
+    ftd: {% if market_timing.ftd_detected %}true{% else %}false{% endif %}
+};
+
+function _wlTfVerdict(d) {
+    var s2 = d.stage2 === 'true', rs = parseFloat(d.rs || 0), rsi = parseFloat(d.rsi || 0);
+    var cmf = parseFloat(d.cmf || 0), rvol = parseFloat(d.rvol || 0), pp = d.pp === 'true';
+    var ext = d.extended === 'true', acc = parseInt(d.acc || 0), dist = parseInt(d.dist || 0);
+    var inzone = d.inBuyZone === '1', nearzone = d.nearBuyZone === '1', prox = parseFloat(d.prox || 99);
+
+    // ขั้น 2: คุณภาพ (Stage 2 + RS ≥ 70)
+    if (!(s2 && rs >= 70)) return { v: 'skip', t: 'ตกคุณภาพ — ต้อง Stage 2 + RS ≥ 70 (RS ' + Math.round(rs) + ')' };
+    // ขั้น 3: เงินสถาบัน ((PP หรือ CMF ≥ 0.1) และ ACC ≥ DIST)
+    if (!((pp || cmf >= 0.1) && acc >= dist)) return { v: 'skip', t: 'ไม่มีหลักฐานสถาบัน — ต้อง PP หรือ CMF ≥ 0.1 + ACC ≥ DIST' };
+    // ขั้น 4: จังหวะ
+    if (rsi >= 80) return { v: 'skip', t: 'Overextended (RSI ' + Math.round(rsi) + ') — รอย่อ' };
+    if (inzone && !ext && rsi <= 68 && rvol >= 1.2 && cmf >= 0.05)
+        return { v: 'enter', t: 'IN ZONE + vol/เงินไหลเข้ายืนยัน — เข้าได้' };
+    if (inzone && (ext || rsi > 68))
+        return { v: 'wait', t: 'IN ZONE แต่ ' + (ext ? 'ยืดตัวเกิน' : 'RSI ' + Math.round(rsi) + ' ร้อน') + ' — รอย่อ/เย็นลง' };
+    if (inzone)
+        return { v: 'wait', t: 'IN ZONE แต่รอ vol/เงินไหลเข้า (RVOL ' + rvol.toFixed(1) + 'x, CMF ' + cmf.toFixed(2) + ')' };
+    if (nearzone || prox <= 10)
+        return { v: 'wait', t: 'ใกล้โซน — ตั้ง alert รอย่อเข้าโซน' };
+    return { v: 'skip', t: 'ราคาอยู่กลางทาง — ไม่มีจุดเข้าชัด' };
+}
+
+function wlRunTradeFlow() {
+    var cards = document.querySelectorAll('.wl-card-col');
+    var n = { enter: 0, wait: 0, skip: 0 };
+    var STY = {
+        enter: ['#dcfce7', '#15803d'],
+        wait:  ['#fef3c7', '#92400e'],
+        skip:  ['#f1f5f9', '#64748b']
+    };
+    var LAB = { enter: '🟢 เข้าได้', wait: '🟡 รอ', skip: '⬜ ข้าม' };
+    cards.forEach(function (c) {
+        var r = _wlTfVerdict(c.dataset);
+        n[r.v]++;
+        var b = c.querySelector('.wl-tf-verdict');
+        if (b) {
+            b.style.background = STY[r.v][0];
+            b.style.color = STY[r.v][1];
+            b.textContent = LAB[r.v];
+            b.title = r.t;
+            b.style.setProperty('display', 'inline-block', 'important');
+        }
+        c.dataset.tfVerdict = r.v;
+    });
+
+    var sum = document.getElementById('wlTfSummary');
+    if (sum) {
+        var mt = _wlMarketTiming;
+        var mtNote = '';
+        if (mt.code === 'RED') mtNote = ' · <span style="color:#b91c1c;font-weight:700;">ตลาด RED — งดเข้าใหม่ ถือเงินสด</span>';
+        else if (mt.code === 'YELLOW') mtNote = ' · <span style="color:#92400e;font-weight:700;">ตลาด YELLOW (แจกของ ' + mt.dist + ' วัน) — เข้าครึ่งไม้ รอ FTD</span>';
+        else mtNote = ' · <span style="color:#15803d;font-weight:700;">ตลาด GREEN</span>';
+        sum.style.background = '#f8fafc';
+        sum.style.border = '1px solid #e2e8f0';
+        sum.innerHTML =
+            '<span style="font-size:0.72rem;font-weight:700;color:#4338ca;"><i class="fas fa-bolt me-1"></i>Trade Flow:</span>' +
+            '<span style="font-size:0.72rem;">🟢 เข้าได้ <b>' + n.enter + '</b> · 🟡 รอ <b>' + n.wait + '</b> · ⬜ ข้าม <b>' + n.skip + '</b></span>' +
+            '<span style="font-size:0.7rem;color:#64748b;">' + mtNote + '</span>' +
+            '<button onclick="wlClearTradeFlow()" class="btn btn-xs rounded-pill px-2 py-0 ms-auto" style="font-size:0.62rem;background:#e2e8f0;color:#475569;border:none;">ล้าง</button>';
+        sum.style.display = 'flex';
+    }
+}
+
+function wlClearTradeFlow() {
+    document.querySelectorAll('.wl-tf-verdict').forEach(function (b) { b.style.setProperty('display', 'none', 'important'); });
+    var sum = document.getElementById('wlTfSummary');
+    if (sum) { sum.style.display = 'none'; sum.innerHTML = ''; }
+}
 
 // INSTANT RESPONSIVE FILTERING (NO PAGE RELOAD)
 function filterWatchlist(criteria) {

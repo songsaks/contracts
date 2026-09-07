@@ -266,11 +266,15 @@ def scan_watchlist_view(request):
     elif sort_by == 'symbol':
         enriched.sort(key=lambda x: x['watchlist'].symbol)
 
+    from stocks.market_timing import get_market_timing_status
+    market_timing = get_market_timing_status(market=market)
+
     return render(request, 'stocks/scan_watchlist.html', {
         'items':       enriched,
         'latest_run':  latest_run,
         'market':      market,
         'current_sort': sort_by,
+        'market_timing': market_timing,
     })
 
 
