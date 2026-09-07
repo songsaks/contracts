@@ -758,7 +758,7 @@
                             <div class="sa-notif-list" id="saNotifList">
                                 {% for e in recent_stock_alerts %}
                                 <a href="{% url 'stocks:stock_alert_history' %}" class="sa-notif-item">
-                                    <div class="sa-notif-item-sym">{{ e.symbol }}</div>
+                                    <div class="sa-notif-item-sym">{% if e.alert_type == 'MARKET_TIMING' %}🌐 ภาวะตลาดรวม{% elif e.alert_type == 'SECTOR_ROTATION' %}🔁 {{ e.symbol }}{% else %}{{ e.symbol }}{% endif %}</div>
                                     <div class="sa-notif-item-msg">{{ e.message|truncatechars:130 }}</div>
                                 </a>
                                 {% empty %}
