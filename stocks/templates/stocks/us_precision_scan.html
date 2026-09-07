@@ -4047,7 +4047,8 @@ function _tfDo2US() {
 
 // STEP 3: Institutional evidence (PK or CMF >= 0.1, acc days >= dist days)
 function _tfDo3US() {
-    const pass = _tfStateUS.q.filter(r => (r.pp || r.cmf >= 0.1) && r.acc >= r.dist);
+    // ยืนยันเงินสถาบัน — ใช้ OR-confirm เดียวกับ In-Zone v2 (PK / CMF≥0.1 / RVOL≥1.2) + acc≥dist
+    const pass = _tfStateUS.q.filter(r => (r.pp || r.cmf >= 0.1 || r.rvol >= 1.2) && r.acc >= r.dist);
     _tfStateUS.inst = pass;
     _tfChipUS(3, pass.length ? 'done' : 'blocked', _tfStateUS.q.length + ' → ' + pass.length + ' ตัว');
 }

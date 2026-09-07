@@ -4501,7 +4501,8 @@ function _tfDo2SET() {
 
 // STEP 3: Institutional evidence (PK or CMF >= 0.1, acc days >= dist days)
 function _tfDo3SET() {
-    const pass = _tfStateSET.q.filter(r => (r.pp || r.cmf >= 0.1) && r.acc >= r.dist);
+    // ยืนยันเงินสถาบัน — ใช้ OR-confirm เดียวกับ In-Zone v2 (PK / CMF≥0.1 / RVOL≥1.2) + acc≥dist
+    const pass = _tfStateSET.q.filter(r => (r.pp || r.cmf >= 0.1 || r.rvol >= 1.2) && r.acc >= r.dist);
     _tfStateSET.inst = pass;
     _tfChipSET(3, pass.length ? 'done' : 'blocked', _tfStateSET.q.length + ' → ' + pass.length + ' ตัว');
 }

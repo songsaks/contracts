@@ -900,7 +900,7 @@ function _wlTfVerdict(d) {
     // ขั้น 2: คุณภาพ (Stage 2 + RS ≥ 70)
     if (!(s2 && rs >= 70)) return { v: 'skip', t: 'ตกคุณภาพ — ต้อง Stage 2 + RS ≥ 70 (RS ' + Math.round(rs) + ')' };
     // ขั้น 3: เงินสถาบัน ((PP หรือ CMF ≥ 0.1) และ ACC ≥ DIST)
-    if (!((pp || cmf >= 0.1) && acc >= dist)) return { v: 'skip', t: 'ไม่มีหลักฐานสถาบัน — ต้อง PP หรือ CMF ≥ 0.1 + ACC ≥ DIST' };
+    if (!((pp || cmf >= 0.1 || rvol >= 1.2) && acc >= dist)) return { v: 'skip', t: 'ไม่มีหลักฐานสถาบัน — ต้อง PP / CMF≥0.1 / RVOL≥1.2 + ACC≥DIST' };
     // ขั้น 4: จังหวะ
     if (rsi >= 80) return { v: 'skip', t: 'Overextended (RSI ' + Math.round(rsi) + ') — รอย่อ' };
     if (inzone && !ext && rsi <= 68 && cmf >= 0.05 && (cmf >= 0.1 || pp || rvol >= 1.2))
