@@ -322,11 +322,13 @@
                 
                 <!-- RR, Risk %, and Proximity Row -->
                 <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-light-dark" style="font-size:0.68rem;">
-                    <span class="blueprint-meta-item">
-                        <i class="fas fa-balance-scale-left text-muted me-1"></i> R:R Ratio: 
-                        <strong class="text-dark">
-                            {% if s.risk_reward_ratio %}1:{{ s.risk_reward_ratio|floatformat:1 }}{% else %}—{% endif %}
+                    <span class="blueprint-meta-item" title="R:R คำนวณจากราคาปัจจุบัน ({{ s.price|floatformat:2 }}) → เป้า / (ราคา − SL) · RR ที่จุดเข้าในอุดมคติ (โซนล่าง) = 1:{{ s.risk_reward_ratio|floatformat:1 }}">
+                        <i class="fas fa-balance-scale-left text-muted me-1"></i> R:R (ราคาปัจจุบัน):
+                        {% with crr=s.current_rr %}
+                        <strong class="{% if crr >= 3 %}text-success{% elif crr >= 2 %}text-primary{% elif crr >= 1.5 %}text-warning{% else %}text-danger{% endif %}">
+                            {% if crr > 0 %}1:{{ crr|floatformat:1 }}{% if crr < 1.5 %} ⚠{% endif %}{% elif s.risk_reward_ratio %}1:{{ s.risk_reward_ratio|floatformat:1 }}{% else %}—{% endif %}
                         </strong>
+                        {% endwith %}
                     </span>
                     {% if s.risk_pct %}
                     <span class="blueprint-meta-item">
@@ -529,8 +531,8 @@
                     <td class="text-primary fw-semibold">
                         {% if s.supply_zone_start %}{{ s.supply_zone_start|floatformat:1 }}{% else %}—{% endif %}
                     </td>
-                    <td class="fw-bold">
-                        {% if s.risk_reward_ratio %}1:{{ s.risk_reward_ratio|floatformat:1 }}{% else %}—{% endif %}
+                    <td class="fw-bold" title="R:R จากราคาปัจจุบัน · ที่จุดเข้าในอุดมคติ = 1:{{ s.risk_reward_ratio|floatformat:1 }}">
+                        {% with crr=s.current_rr %}{% if crr > 0 %}1:{{ crr|floatformat:1 }}{% elif s.risk_reward_ratio %}1:{{ s.risk_reward_ratio|floatformat:1 }}{% else %}—{% endif %}{% endwith %}
                     </td>
                     <td class="pe-4 text-end">
                         <div class="d-flex gap-1 justify-content-end">
