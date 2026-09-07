@@ -195,6 +195,24 @@ def _tp_partial_sell_pct(strategy):
     return _TP_PARTIAL_SELL_PCT_DEFAULT
 
 
+def _passes_inzone_gate(scan):
+    """
+    เกณฑ์เพิ่มเติมสำหรับ "ย่อในโซนซื้อ" ให้ตรงกับ In-Zone v2 ในหน้าสแกน
+    (_compute_signals buy_score ไม่บังคับ 4 ตัวนี้ — RS เป็นแค่ weight, ไม่มี extended/RSI ceiling)
+      RS ≥ 70 · ไม่ extended · RSI ≤ 68 · CMF ≥ 0.05 (มีเงินไหลเข้าสุทธิจริง)
+    Wyckoff Spring / 52w breakout / Pocket Pivot ⭐ ข้ามเกณฑ์นี้ (คนละจังหวะ ไม่ใช่ pullback ทั่วไป)
+    """
+    if getattr(scan, 'wyckoff_spring', False) or getattr(scan, 'is_52w_breakout', False) \
+            or getattr(scan, 'pp_at_ma50', False):
+        return True
+    rs = getattr(scan, 'rs_rating', 0) or 0
+    rsi = getattr(scan, 'rsi', 0) or 0
+    cmf = getattr(scan, 'cmf', None)
+    cmf = 0.0 if cmf is None else cmf
+    is_ext = bool(getattr(scan, 'is_extended', False))
+    return rs >= 70 and not is_ext and rsi <= 68 and cmf >= 0.05
+
+
 def evaluate_user_alerts(user, config):
     """
     เช็คเงื่อนไข Action (SL/TP/Breakout/Watchlist entry) ของ user คนเดียว
@@ -529,7 +547,7 @@ def evaluate_user_alerts(user, config):
         elif config.alert_breakout_add and latest_scan.demand_zone_start and latest_scan.demand_zone_end and (latest_scan.demand_zone_end <= price <= latest_scan.demand_zone_start):
             from stocks.views.base import _compute_signals
             _sig = _compute_signals(latest_scan, current_price=price)
-            if _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3:
+            if _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3 and _passes_inzone_gate(latest_scan):
                 cache_key = f"stockalert_buyzone_{user.id}_{p.symbol}"
                 if not cache.get(cache_key):
                     add_amount_txt = ""
@@ -686,7 +704,7 @@ def evaluate_user_alerts(user, config):
         if in_zone:
             from stocks.views.base import _compute_signals
             _sig = _compute_signals(latest_scan, current_price=price)
-            is_qualified = _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3
+            is_qualified = _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3 and _passes_inzone_gate(latest_scan)
 
             # แจ้งครั้งแรกที่เข้าโซนทันที แล้วถ้ายังแช่อยู่ในโซนต่อ ให้เตือนซ้ำได้เป็นรอบ (ทุก _WATCHLIST_REALERT_COOLDOWN)
             # ไม่ใช่แจ้งทุกครั้งที่เช็ค (สแปม) แต่ก็ไม่เงียบไปตลอดจนลืมว่ายังมีโอกาสซื้ออยู่
