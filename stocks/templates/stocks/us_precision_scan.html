@@ -1835,6 +1835,7 @@
                 <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 px-2 py-1" style="font-size:0.68rem; font-weight:600;">💥 Super & Breakout:</span>
                 <button type="button" id="preset-super" class="btn btn-sm rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 700; background:linear-gradient(135deg,#7c3aed,#4f46e5); color:white; border:none;" title="Trend Template + Sector Confirmed + CMF + ACC + Safe — หุ้นเกรด A+ คุณภาพสูงสุด" onclick="applyPreset('super')">6. 💣 รวมหุ้นเกรด A+</button>
                 <button type="button" id="preset-fast_swing" class="btn btn-sm rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600; background:#ec4899; color:white; border:none;" title="Stage 2 + Breakout วันนี้ (Buy Now)" onclick="applyPreset('fast_swing')">7. 🔥 Breakout วันนี้</button>
+                <button type="button" id="preset-abcd" class="btn btn-sm rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600; background:#0891b2; color:white; border:none;" title="ABCD swing (How to Day Trade for a Living) — หุ้นวิ่งแรง A→B แล้วย่อมาพักที่ C ยืนได้ กำลังจ่อเบรก B (D) พร้อม ADR/RVOL สูงแบบ stock in play — setup เทรดสั้น (ไม่กระทบระบบคะแนนหลัก)" onclick="applyPreset('abcd')">8. ⚗️ ABCD เทรดสั้น</button>
 
                 <button type="button" id="preset-clear" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('clear')">Clear All</button>
 
@@ -1939,6 +1940,10 @@
                         <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                             <input class="form-check-input" type="checkbox" id="rsFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
                             <label class="form-check-label small fw-semibold" for="rsFilterUS" style="cursor:pointer; color:#1d4ed8;" title="Minervini RS Rating: กรองเฉพาะหุ้นที่แข็งกว่า 70% ของหุ้นทั้งตลาด (Relative Strength ≥ 70)">💪 RS ≥ 70</label>
+                        </div>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="abcdFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-semibold" for="abcdFilterUS" style="cursor:pointer; color:#0891b2;" title="ABCD swing (How to Day Trade for a Living): หุ้นวิ่งแรง (A→B) แล้วย่อมาพักที่ C ยืนได้ กำลังจ่อเบรก B (D) — setup เทรดสั้น">⚗️ ABCD (จ่อเบรก)</label>
                         </div>
                     </div>
 
@@ -2211,8 +2216,15 @@
     data-ttm-sq="{{ item.ttm_squeeze_state|default:'none' }}"
     data-ep="{{ item.episodic_pivot|yesno:'true,false' }}"
     data-extended="{{ item.is_extended|yesno:'true,false' }}"
+    data-adr="{{ item.adr_20d_pct|default:0 }}"
     data-pyramid="{{ item.pyramiding_ready|yesno:'true,false' }}"
     data-bl-rr="{{ item.bl_rr_ratio|default:0 }}"
+    data-abcd="{{ item.abcd_setup|yesno:'true,false' }}"
+    data-abcd-stage="{{ item.abcd_stage|default:'' }}"
+    data-abcd-entry="{{ item.abcd_entry|default:0 }}"
+    data-abcd-stop="{{ item.abcd_stop|default:0 }}"
+    data-abcd-target="{{ item.abcd_target|default:0 }}"
+    data-abcd-rr="{{ item.abcd_rr|default:0 }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
@@ -2245,6 +2257,9 @@
                                         {% endif %}
                                         {% if item.is_extended %}
                                         <span class="badge px-1 py-0" style="background:#64748b;color:white;font-size:0.55rem;" title="Avoidance Alert: Extended +{{ item.ma50_dist_pct|floatformat:0 }}% from MA50">⚠️ Extended</span>
+                                        {% endif %}
+                                        {% if item.abcd_setup and item.abcd_stage %}
+                                        <span class="badge px-1 py-0" style="background:{% if item.abcd_stage == 'trigger' %}#0e7490{% elif item.abcd_stage == 'ready' %}#0891b2{% else %}rgba(8,145,178,0.15){% endif %};color:{% if item.abcd_stage == 'forming' %}#0e7490{% else %}white{% endif %};border:1px solid rgba(8,145,178,0.5);font-size:0.55rem;" title="ABCD swing (How to Day Trade for a Living) — A {{ item.abcd_a_price|floatformat:2 }} → B {{ item.abcd_b_price|floatformat:2 }} → C {{ item.abcd_c_price|floatformat:2 }} | เข้า(D) {{ item.abcd_entry|floatformat:2 }} · Stop {{ item.abcd_stop|floatformat:2 }} · Target {{ item.abcd_target|floatformat:2 }} · R:R {{ item.abcd_rr|floatformat:1 }} — setup เทรดสั้น ไม่เข้าระบบคะแนนหลัก">⚗️ ABCD{% if item.abcd_stage == 'trigger' %} เบรก{% elif item.abcd_stage == 'ready' %} จ่อ{% endif %}</span>
                                         {% endif %}
 
                                         {% if item.rvol >= 1.5 and item.turtle_dist_pct <= 0.5 %}
@@ -3621,9 +3636,10 @@ function applyPreset(presetType) {
     const squeezeOn  = document.getElementById('squeezeOnFilterUS');
     const ep         = document.getElementById('epFilterUS');
     const safe       = document.getElementById('safeFilterUS');
+    const abcd       = document.getElementById('abcdFilterUS');
 
     // Reset all
-    [rsi, stage2, pp, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, cmfPos, insideBar, accDist, buyable, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe].forEach(el => {
+    [rsi, stage2, pp, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, cmfPos, insideBar, accDist, buyable, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe, abcd].forEach(el => {
         if (el) el.checked = false;
     });
 
@@ -3645,6 +3661,8 @@ function applyPreset(presetType) {
         if (cmfPos)        cmfPos.checked        = true;
     } else if (presetType === 'fast_swing') {
         if (buynow) buynow.checked = true;
+    } else if (presetType === 'abcd') {
+        if (abcd) abcd.checked = true;
     }
 
 
@@ -3676,9 +3694,10 @@ var PRESET_CONDITIONS_US = {
     'base_accumulation':     ['⚡ Pocket Pivot', '💰 CMF+≥0.1', '📈 ACC>DIST'],
     'super':                 ['📐 Trend Template ≥7/8', '💰 CMF+≥0.1'],
     'fast_swing':            ['🔥 Breakout วันนี้ (Buy Now)'],
+    'abcd':                  ['⚗️ ABCD จ่อเบรก/เบรกแล้ว', '⚡ ADR ≥ 3% + RVOL ≥ 1.3', '📈 เทรนด์ยังอยู่ (> EMA50)'],
 };
 var PRESET_COLORS_US = {
-    'pullback':'#059669', 'htf_power':'#dc2626', 'squeeze_fired_preset':'#16a34a', 'episodic_pivot_preset':'#059669', 'base_accumulation':'#0d9488', 'super':'#7c3aed', 'fast_swing':'#ec4899'
+    'pullback':'#059669', 'htf_power':'#dc2626', 'squeeze_fired_preset':'#16a34a', 'episodic_pivot_preset':'#059669', 'base_accumulation':'#0d9488', 'super':'#7c3aed', 'fast_swing':'#ec4899', 'abcd':'#0891b2'
 };
 
 
@@ -3730,6 +3749,7 @@ function _applyFiltersUS() {
         var safeOn         = document.getElementById('safeFilterUS')         && document.getElementById('safeFilterUS').checked;
         var rrOn           = document.getElementById('rrFilterUS')           && document.getElementById('rrFilterUS').checked;
         var rsFilterOn     = document.getElementById('rsFilterUS')           && document.getElementById('rsFilterUS').checked;
+        var abcdOn         = document.getElementById('abcdFilterUS')         && document.getElementById('abcdFilterUS').checked;
         var secEl  = document.getElementById('sectorFilterUS');
         var secVal = secEl ? secEl.value : '';
 
@@ -3770,6 +3790,17 @@ function _applyFiltersUS() {
             var extended = row.dataset.extended === 'true';
             var rrVal    = parseFloat(row.dataset.blRr || row.dataset.rr || '0');  // Best Loser: RR จากราคาปัจจุบัน (fallback = RR ทฤษฎี)
             var rsRatingVal = parseFloat(row.dataset.rs || '0');
+
+            // ── ABCD เทรดสั้น: ทรง ABCD (จ่อเบรก/เบรกแล้ว) + stock in play + เทรนด์ยังอยู่ ──
+            var abcdStage = row.dataset.abcdStage || '';
+            var adrPct    = parseFloat(row.dataset.adr || '0');
+            var priceNow  = parseFloat(row.dataset.price || '0');
+            var ma50Now   = parseFloat(row.dataset.ma50 || '0');
+            var trendOk   = ma50Now > 0 ? priceNow >= ma50Now : !extended;
+            var isAbcdShort = (abcdStage === 'ready' || abcdStage === 'trigger') &&
+                              (adrPct === 0 || adrPct >= 3.0) &&
+                              (rvol >= 1.3 || vsrg) &&
+                              trendOk && !extended;
 
             var rsiOn    = document.getElementById('rsiFilter70US') && document.getElementById('rsiFilter70US').checked;
 
@@ -3812,6 +3843,7 @@ function _applyFiltersUS() {
                        (!epOn           || ep) &&
                        (!safeOn         || !extended) &&
                        (!rrOn           || rrVal >= 2.0) &&
+                       (!abcdOn         || isAbcdShort) &&
                        (!rsFilterOn     || rsRatingVal >= 70);
 
             // Gather all symbols passing the checkbox filters for the Summary Cards
@@ -3874,7 +3906,7 @@ function _applyFiltersUS() {
 var FILTER_IDS_US = ['rsiFilter70US','stage2FilterUS','ppFilterUS','cmfPositiveFilterUS',
                      'volSurgeFilterUS','ichiFilterUS','launcherFilterUS','vcpFilterUS','vpFilterUS',
                      'itlFilterUS','canslimFilterUS','buynowFilterUS','insideBarFilterUS','accDistFilterUS','buyableFilterUS',
-                     'trendTemplateFilterUS','sectorConfirmedFilterUS'];
+                     'trendTemplateFilterUS','sectorConfirmedFilterUS','abcdFilterUS'];
 
 function _saveFilterStateUS() {
     try {
@@ -3917,7 +3949,7 @@ function _restoreFilterStateUS() {
 function _updatePresetCountsUS() {
     var rows = document.querySelectorAll('#scanTableUS tbody tr');
     // นับให้ตรงกับผลจริงหลังกด Preset นั้น (predicate เดียวกับ _applyFiltersUS หลัง applyPreset)
-    var counts = { pullback: 0, htf_power: 0, squeeze_fired_preset: 0, episodic_pivot_preset: 0, base_accumulation: 0, super: 0, fast_swing: 0 };
+    var counts = { pullback: 0, htf_power: 0, squeeze_fired_preset: 0, episodic_pivot_preset: 0, base_accumulation: 0, super: 0, fast_swing: 0, abcd: 0 };
     rows.forEach(function(row) {
         var d = row.dataset;
         var s2 = d.stage2 === 'true';
@@ -3953,6 +3985,13 @@ function _updatePresetCountsUS() {
         if (pp && cmf >= 0.1 && accPos)    counts.base_accumulation++;
         if (ttScore >= 7 && cmf >= 0.1)    counts.super++;
         if (isBuyNow)                       counts.fast_swing++;
+
+        var abcdStage = d.abcdStage || '';
+        var adrPct = parseFloat(d.adr || '0');
+        var trendOk = ma50 > 0 ? price >= ma50 : !extended;
+        if ((abcdStage === 'ready' || abcdStage === 'trigger') &&
+            (adrPct === 0 || adrPct >= 3.0) && (rvol >= 1.3 || d.volsurge === 'true') &&
+            trendOk && !extended) counts.abcd++;
     });
 
 

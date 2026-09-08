@@ -2915,6 +2915,107 @@ def detect_cup_and_handle(df):
 
 
 # ----------------------------------------------------------------------
+# detect_abcd_pattern — ABCD swing setup บนกราฟรายวัน
+#   แนวคิดจาก "How to Day Trade for a Living" (Andrew Aziz) ปรับมาใช้กับ daily bars
+#   เป็น setup เทรดสั้น — ไม่ยุ่งกับระบบคะแนน (integrated_score / quality_score)
+#
+#       A = จุดต่ำก่อนขาวิ่ง (origin ของ impulse leg)
+#       B = swing high ปลายขา A (แนวต้าน / จุด breakout)
+#       C = swing low ของการย่อหลัง B (ตื้นกว่า A→B และต้องยืนเหนือ A)
+#       D = จังหวะเข้า เมื่อราคาเบรกเหนือ B
+#
+#   entry = B (buy-stop) · stop = ใต้ C · target = B + (B−A) (measured move)
+# ----------------------------------------------------------------------
+def detect_abcd_pattern(df, lookback=60):
+    """ตรวจจับ ABCD swing pattern — คืน dict เสมอ (setup=False เมื่อไม่เจอ)"""
+    _empty = {
+        'setup': False, 'stage': '', 'a': None, 'b': None, 'c': None,
+        'entry': None, 'stop': None, 'target': None, 'rr': None,
+        'ab_pct': 0.0, 'retr': 0.0, 'bars_since_c': 0,
+    }
+
+    if df is None or len(df) < 30:
+        return _empty
+    try:
+        high  = df['High'].astype(float).values
+        low   = df['Low'].astype(float).values
+        close = df['Close'].astype(float).values
+    except (KeyError, TypeError, ValueError):
+        return _empty
+
+    n = len(close)
+    seg_start = max(0, n - lookback)
+    order = 2  # fractal 5 แท่ง
+
+    hi_idx = [i for i in argrelextrema(high, np.greater_equal, order=order)[0]
+              if seg_start <= i <= n - 2 and n - 1 - i <= 30]
+    lo_idx = [i for i in argrelextrema(low, np.less_equal, order=order)[0]
+              if seg_start <= i <= n - 2]
+    if seg_start not in lo_idx:
+        lo_idx = [seg_start] + lo_idx
+    if not hi_idx or not lo_idx:
+        return _empty
+
+    cur = close[-1]
+    best = None
+
+    for b_i in reversed(hi_idx):                      # ไล่ B จากล่าสุด → เอาทรงที่ C ใหม่สุด
+        b_val = high[b_i]
+        a_pool = [j for j in lo_idx if j < b_i and b_i - j <= 25]
+        if not a_pool:
+            continue
+        a_i = min(a_pool, key=lambda j: low[j])
+        a_val = low[a_i]
+        if a_val <= 0:
+            continue
+        rng = b_val - a_val
+        if rng <= 0:
+            continue
+        ab_pct = rng / a_val * 100.0
+        if ab_pct < 8.0:                              # impulse leg ต้องแรงพอ
+            continue
+
+        c_pool = [j for j in lo_idx if j > b_i and 1 <= n - 1 - j <= 15]
+        if not c_pool:
+            continue
+        c_i = min(c_pool, key=lambda j: low[j])
+        c_val = low[c_i]
+        retr = (b_val - c_val) / rng
+        if retr < 0.15 or retr > 0.786 or c_val <= a_val:
+            continue
+        if cur <= c_val:                              # ทรงพัง — ราคาหลุด C
+            continue
+        if 'EMA50' in df.columns:
+            ema50_c = df['EMA50'].iloc[c_i]
+            if pd.notna(ema50_c) and c_val < float(ema50_c) * 0.98:
+                continue
+
+        entry  = b_val
+        stop   = c_val * 0.995
+        target = b_val + rng
+        risk   = entry - stop
+        rr     = (target - entry) / risk if risk > 0 else 0.0
+
+        if cur > b_val:
+            stage = 'trigger'
+        elif cur >= b_val * 0.97:
+            stage = 'ready'
+        else:
+            stage = 'forming'
+
+        best = {
+            'setup': True, 'stage': stage,
+            'a': round(float(a_val), 4), 'b': round(float(b_val), 4), 'c': round(float(c_val), 4),
+            'entry': round(float(entry), 4), 'stop': round(float(stop), 4), 'target': round(float(target), 4),
+            'rr': round(float(rr), 2), 'ab_pct': round(float(ab_pct), 2), 'retr': round(float(retr), 3),
+            'bars_since_c': int(n - 1 - c_i),
+        }
+        break
+
+    return best if best else _empty
+
+
+# ----------------------------------------------------------------------
 # refresh_market_caps — ดึง Market Cap ของหุ้น SET ทั้งหมดมาเก็บไว้
 # เพื่อนำมาใช้จัดอันดับ Top 300 สำหรับการสแกนแบบ High Performance
 # ----------------------------------------------------------------------
