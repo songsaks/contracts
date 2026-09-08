@@ -406,6 +406,18 @@ class PrecisionScanCandidate(models.Model):
     ma50_dist_pct      = models.FloatField(default=0.0)             # % Distance from MA50
     adr_20d_pct        = models.FloatField(default=0.0)             # Average Daily Range 20d %
 
+    # ====== ABCD swing pattern (day-trade style, ไม่เข้าระบบคะแนน) ======
+    # แนวคิดจาก "How to Day Trade for a Living" (Andrew Aziz) ปรับมาใช้กับ daily bars
+    abcd_setup   = models.BooleanField(default=False)              # เจอทรง ABCD ที่ยัง valid
+    abcd_stage   = models.CharField(max_length=10, blank=True, default='')  # forming / ready / trigger
+    abcd_a_price = models.FloatField(null=True, blank=True)        # A — origin ของ impulse leg
+    abcd_b_price = models.FloatField(null=True, blank=True)        # B — swing high / จุด breakout
+    abcd_c_price = models.FloatField(null=True, blank=True)        # C — swing low ของการย่อ
+    abcd_entry   = models.FloatField(null=True, blank=True)        # จุดเข้า (= B, buy-stop)
+    abcd_stop    = models.FloatField(null=True, blank=True)        # stop ใต้ C
+    abcd_target  = models.FloatField(null=True, blank=True)        # target = B + (B−A)
+    abcd_rr      = models.FloatField(null=True, blank=True)        # (target−entry)/(entry−stop)
+
     wyckoff_selling_climax   = models.BooleanField(default=False)  # จุดเริ่ม Phase A: volume พุ่ง+แท่งแดงยาวหลังขาลง แล้วมี Automatic Rally ยืนยัน
     wyckoff_upthrust         = models.BooleanField(default=False)  # ทะลุแนวต้านฐานแจกจ่ายหลอกๆ แล้วร่วงกลับ — สัญญาณเตือนแจกจ่าย/ขาลง (คู่ตรงข้าม Spring)
 

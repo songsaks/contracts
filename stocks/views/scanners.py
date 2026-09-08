@@ -2432,6 +2432,14 @@ def precision_momentum_scanner(request):
                             integrated_score += 5
                             
                         integrated_score = min(max(integrated_score, 0), 100)
+
+                        # ====== ABCD swing pattern (day-trade style) — ตรวจจับแยก ไม่เข้าระบบคะแนน ======
+                        try:
+                            from stocks.utils import detect_abcd_pattern
+                            abcd = detect_abcd_pattern(df)
+                        except Exception:
+                            abcd = {'setup': False}
+
                         # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
                         return {
                             'symbol': symbol,
@@ -2441,6 +2449,7 @@ def precision_momentum_scanner(request):
                             'mfi': round(mfi_val, 2),
                             'rvol': round(rvol, 2),
                             'technical_score': int(integrated_score),
+                            'abcd': abcd,
                             'avg_volume_20d': round(avg_vol_20, 0),
                             'rvol_bullish': rvol_bullish,
                             'erc_volume_confirmed': erc_vol_confirmed,
@@ -2722,6 +2731,16 @@ def precision_momentum_scanner(request):
                             risk_per_share=r.get('risk_per_share', 0.0),
                             risk_pct=r.get('risk_pct', 0.0),
                             atr14=r.get('atr14', 0.0),
+                            # ABCD swing pattern (day-trade style) — non-scoring
+                            abcd_setup=(r.get('abcd') or {}).get('setup', False),
+                            abcd_stage=(r.get('abcd') or {}).get('stage', '') or '',
+                            abcd_a_price=(r.get('abcd') or {}).get('a'),
+                            abcd_b_price=(r.get('abcd') or {}).get('b'),
+                            abcd_c_price=(r.get('abcd') or {}).get('c'),
+                            abcd_entry=(r.get('abcd') or {}).get('entry'),
+                            abcd_stop=(r.get('abcd') or {}).get('stop'),
+                            abcd_target=(r.get('abcd') or {}).get('target'),
+                            abcd_rr=(r.get('abcd') or {}).get('rr'),
                         ))
 
 
@@ -5698,6 +5717,14 @@ def us_precision_scanner(request):
                             integrated_score += 5
                             
                         integrated_score = min(max(integrated_score, 0), 100)
+
+                        # ====== ABCD swing pattern (day-trade style) — ตรวจจับแยก ไม่เข้าระบบคะแนน ======
+                        try:
+                            from stocks.utils import detect_abcd_pattern
+                            abcd = detect_abcd_pattern(df)
+                        except Exception:
+                            abcd = {'setup': False}
+
                         # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
                         return {
                             'symbol': symbol,
@@ -5707,6 +5734,7 @@ def us_precision_scanner(request):
                             'mfi': round(mfi_val, 2),
                             'rvol': round(rvol, 2),
                             'technical_score': int(integrated_score),
+                            'abcd': abcd,
                             'avg_volume_20d': round(avg_vol_20, 0),
                             'rvol_bullish': rvol_bullish,
                             'erc_volume_confirmed': erc_vol_confirmed,
@@ -5987,6 +6015,16 @@ def us_precision_scanner(request):
                             risk_per_share=r.get('risk_per_share', 0.0),
                             risk_pct=r.get('risk_pct', 0.0),
                             atr14=r.get('atr14', 0.0),
+                            # ABCD swing pattern (day-trade style) — non-scoring
+                            abcd_setup=(r.get('abcd') or {}).get('setup', False),
+                            abcd_stage=(r.get('abcd') or {}).get('stage', '') or '',
+                            abcd_a_price=(r.get('abcd') or {}).get('a'),
+                            abcd_b_price=(r.get('abcd') or {}).get('b'),
+                            abcd_c_price=(r.get('abcd') or {}).get('c'),
+                            abcd_entry=(r.get('abcd') or {}).get('entry'),
+                            abcd_stop=(r.get('abcd') or {}).get('stop'),
+                            abcd_target=(r.get('abcd') or {}).get('target'),
+                            abcd_rr=(r.get('abcd') or {}).get('rr'),
                         ))
 
                     if bulk_candidates:
