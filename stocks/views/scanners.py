@@ -605,6 +605,94 @@ def mean_reversion_scanner(request):
 #   รวบรวมหุ้นที่ผ่านเกณฑ์จากระบบสแกนต่าง ๆ พร้อมสัญญาณและคะแนน
 #   แสดงผลเป็น Dashboard สำหรับนักลงทุนใช้ตัดสินใจเบื้องต้น
 # ============================================================
+# ต้นทุนเงินทุนอ้างอิงตลาดไทย — แก้ที่เดียวเมื่อภาวะดอกเบี้ยเปลี่ยน
+TH_RISK_FREE_PCT      = 2.5   # พันธบัตรรัฐบาลไทย 10 ปี
+TH_EQUITY_PREMIUM_PCT = 7.5   # Equity Risk Premium ไทย (Damodaran)
+TH_TAX_RATE           = 0.20  # ภาษีนิติบุคคลไทย
+
+
+def _fin_num(v):
+    """คืน float เฉพาะเมื่อเป็นตัวเลขที่ใช้ได้จริง — กัน None/NaN/inf/str หลุดเข้าไปคำนวณ"""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    if v != v or v in (float('inf'), float('-inf')):
+        return None
+    return float(v)
+
+
+def _synthetic_cost_of_debt(de_ratio, risk_free):
+    """ประมาณต้นทุนหนี้จากระดับหนี้สิน (synthetic rating ตามวิธี Damodaran)
+    เพราะ yfinance info ไม่มีดอกเบี้ยจ่ายให้คำนวณตรงๆ — ยิ่งหนี้เยอะ spread ยิ่งกว้าง"""
+    if de_ratio is None:
+        spread = 2.75
+    elif de_ratio < 0.3:
+        spread = 1.0
+    elif de_ratio < 0.75:
+        spread = 1.75
+    elif de_ratio < 1.5:
+        spread = 2.75
+    elif de_ratio < 2.5:
+        spread = 4.0
+    else:
+        spread = 6.0
+    return risk_free + spread
+
+
+def _compute_roic_wacc(inf, equity=None, risk_free=TH_RISK_FREE_PCT,
+                       erp=TH_EQUITY_PREMIUM_PCT, tax_rate=TH_TAX_RATE):
+    """ROIC และ WACC ของจริง — ธุรกิจสร้างมูลค่าก็ต่อเมื่อ ROIC > WACC
+
+        ROIC = EBIT×(1−tax) ÷ (หนี้มีดอกเบี้ย + ทุน − เงินสด)
+        WACC = We×(rf + β×ERP) + Wd×rd×(1−tax)
+
+    ต่างจาก Economic Profit เดิม (ROE − 10% คงที่) สองจุด: ตัวตั้งนับหนี้เข้าเป็นเงินทุนด้วย
+    บริษัทที่กู้เยอะจึงไม่ได้คะแนนสูงหลอกตาจาก leverage และต้นทุนเงินทุนคิดแยกรายตัวตาม
+    β กับโครงสร้างหนี้ ไม่ใช่ 10% เท่ากันหมด
+
+    EBIT มาจากตัวเลขที่รายงานจริง (operatingMargins × totalRevenue) ส่วนต้นทุนหนี้เป็นค่าประมาณ
+    จากระดับหนี้ คืน None เมื่อข้อมูลไม่พอ — ไม่เดาแทน"""
+    sector = inf.get('sector') or ''
+    if 'Financial' in sector or 'Bank' in sector:
+        # ธนาคาร/ประกัน: เงินฝากและหนี้คือวัตถุดิบของธุรกิจ ไม่ใช่เงินทุนที่ลงไปสร้างผลตอบแทน
+        # ตัวเลข ROIC ที่ได้จึงไม่มีความหมาย ต้องไม่แสดงตัวเลขหลอก
+        return {'roic': None, 'wacc': None, 'spread': None, 'na_reason': 'ธุรกิจการเงิน'}
+
+    op_margin = _fin_num(inf.get('operatingMargins'))
+    revenue   = _fin_num(inf.get('totalRevenue'))
+    debt      = _fin_num(inf.get('totalDebt')) or 0.0
+    cash      = _fin_num(inf.get('totalCash')) or 0.0
+    mcap      = _fin_num(inf.get('marketCap'))
+
+    eq = _fin_num(equity)
+    if eq is None:
+        bvps = _fin_num(inf.get('bookValue'))
+        shares = _fin_num(inf.get('sharesOutstanding'))
+        eq = bvps * shares if bvps and shares else None
+
+    roic = None
+    if op_margin is not None and revenue is not None and eq is not None:
+        invested = debt + eq - cash
+        if invested > 0:
+            roic = (op_margin * revenue) * (1 - tax_rate) / invested * 100
+
+    wacc = None
+    if mcap and mcap > 0:
+        beta = _fin_num(inf.get('beta'))
+        beta = min(max(beta, 0.3), 2.5) if beta is not None else 1.0
+        cost_equity = risk_free + beta * erp
+        de_ratio = (debt / eq) if (eq and eq > 0) else None
+        cost_debt = _synthetic_cost_of_debt(de_ratio, risk_free)
+        v = mcap + debt
+        wacc = (mcap / v) * cost_equity + (debt / v) * cost_debt * (1 - tax_rate)
+
+    return {
+        'roic': round(roic, 2) if roic is not None else None,
+        'wacc': round(wacc, 2) if wacc is not None else None,
+        'spread': round(roic - wacc, 2) if (roic is not None and wacc is not None) else None,
+        'na_reason': None,
+    }
+
+
 @login_required
 def recommendations(request):
     """
@@ -654,6 +742,7 @@ def recommendations(request):
                 rvol = current_vol / avg_vol_20 if avg_vol_20 > 0 else 1.0
 
             de = 'N/A'
+            book_equity = None
             try:
                 bs = t.quarterly_balance_sheet if not t.quarterly_balance_sheet.empty else t.balance_sheet
                 if not bs.empty:
@@ -661,6 +750,7 @@ def recommendations(request):
                     tot_liab = bs.loc['Total Liabilities Net Minority Interest', col] if 'Total Liabilities Net Minority Interest' in bs.index else bs.loc['Total Liabilities', col]
                     tot_eq = bs.loc['Stockholders Equity', col] if 'Stockholders Equity' in bs.index else bs.loc['Total Equity Gross Minority Interest', col]
                     de = tot_liab / tot_eq
+                    book_equity = tot_eq
             except: pass
 
             if de == 'N/A' or pd.isna(de):
@@ -707,7 +797,10 @@ def recommendations(request):
             final_score = min(100, final_score + momentum_bonus)
 
             ev_spread = (roe - 10.0) if isinstance(roe, (int, float)) else None
-            
+            # ROIC/WACC ของจริง (Dodaro) — นับหนี้เป็นเงินทุนด้วย และคิดต้นทุนทุนรายตัว
+            # ต่างจาก ev_spread ด้านบนที่ใช้ ROE เทียบ 10% คงที่ เก็บทั้งคู่ไว้เทียบกันได้
+            cap = _compute_roic_wacc(inf, equity=book_equity)
+
             # ====== ENHANCED VALUATION FRAMEWORK (Thai Market) ======
             # วิธีที่ใช้: 3 วิธีผสมกันแบบ Weighted Average
             #   1. Graham Number       - พื้นฐานราคาตามทรัพย์สิน
@@ -776,6 +869,8 @@ def recommendations(request):
                 'pe': pe, 'pb': pb, 'roe': roe, 'dy': dy, 'npm': npm, 'de': de,
                 'rsi': rsi_val, 'peg': peg, 'price': price, 'rvol': round(rvol, 2),
                 'ev_spread': ev_spread,
+                'roic': cap['roic'], 'wacc': cap['wacc'], 'roic_spread': cap['spread'],
+                'cap_na_reason': cap['na_reason'],
                 'fair_value': round(fair_value, 2) if fair_value else None,
                 'mos_price': round(mos_price, 2) if mos_price else None,
                 'upside': round(upside, 1) if upside else None,
