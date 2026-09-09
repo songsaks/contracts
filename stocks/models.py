@@ -781,6 +781,9 @@ class ValueScanCandidate(models.Model):
     current_ratio  = models.FloatField(null=True, blank=True)
     revenue_growth = models.FloatField(null=True, blank=True)   # % YoY
     fcf_yield      = models.FloatField(null=True, blank=True)   # FCF/MktCap %
+    roic           = models.FloatField(null=True, blank=True)   # percent — NOPAT / invested capital
+    wacc           = models.FloatField(null=True, blank=True)   # percent — ต้นทุนเงินทุนถ่วงน้ำหนักรายตัว
+    roic_spread    = models.FloatField(null=True, blank=True)   # ROIC − WACC: บวก = สร้างมูลค่า, ลบ = ทำลายมูลค่า
 
     # ── Price Action ─────────────────────────────────────
     rsi            = models.FloatField(default=50)

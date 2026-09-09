@@ -6921,6 +6921,7 @@ def us_value_scanner(request):
         'pb': 'pb_ratio',        'div': '-dividend_yield',
         'roe': '-roe',           'symbol': 'symbol',
         'price': '-price',       'rsi': 'rsi',
+        'roic': '-roic',         'spread': '-roic_spread',
     }
 
     # ── Load from DB (display mode) ───────────────────────
@@ -7012,7 +7013,11 @@ def us_value_scanner(request):
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.droplevel(1)
 
-            val_score, qual_score, price_score, total = _score_value_candidate(info, df)
+            # ROIC/WACC ของจริง (Dodaro) — ถ่วงคะแนน Quality เพราะ ROE ในสูตรถูก leverage ปั่นได้
+            cap = _compute_roic_wacc(info, risk_free=US_RISK_FREE_PCT,
+                                     erp=US_EQUITY_PREMIUM_PCT, tax_rate=US_TAX_RATE)
+            val_score, qual_score, price_score, total = _score_value_candidate(
+                info, df, roic_spread=cap['spread'])
 
             # Minimum quality threshold
             if total < 20:
@@ -7057,6 +7062,9 @@ def us_value_scanner(request):
                 'current_ratio': round(float(info.get('currentRatio') or 0), 2) or None,
                 'revenue_growth': round((info.get('revenueGrowth') or 0) * 100, 1),
                 'fcf_yield':    round(fcf_yield, 1),
+                'roic':         cap['roic'],
+                'wacc':         cap['wacc'],
+                'roic_spread':  cap['spread'],
                 'rsi':          round(rsi_val, 1),
                 'year_high':    round(y_high, 2),
                 'year_low':     round(y_low, 2),
@@ -7105,6 +7113,7 @@ def us_value_scanner(request):
             roe=r['roe'], profit_margin=r['profit_margin'],
             debt_equity=r['debt_equity'], current_ratio=r['current_ratio'],
             revenue_growth=r['revenue_growth'], fcf_yield=r['fcf_yield'],
+            roic=r['roic'], wacc=r['wacc'], roic_spread=r['roic_spread'],
             rsi=r['rsi'], year_high=r['year_high'], year_low=r['year_low'],
             pct_from_high=r['pct_from_high'], above_ema200=r['above_ema200'],
             valuation_score=r['valuation_score'],

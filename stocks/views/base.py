@@ -887,9 +887,12 @@ def _seed_value_symbols():
     ]
 
 
-def _score_value_candidate(info, df):
+def _score_value_candidate(info, df, roic_spread=None):
     """
     Score a stock on value criteria. Returns (val_score, qual_score, price_score, total).
+
+    roic_spread (ROIC − WACC, %) ถ่วงคะแนน Quality เมื่อผู้เรียกส่งมาให้ — ผู้เรียกเป็นคนคำนวณ
+    เพราะฟังก์ชันคำนวณอยู่ในชั้น scanners ส่งเป็น None ได้เมื่อไม่มีข้อมูล (เช่น ธนาคาร)
     """
     import pandas_ta as ta
 
@@ -936,7 +939,7 @@ def _score_value_candidate(info, df):
         if peg < 1:    val_score += 5
         elif peg < 1.5: val_score += 3
 
-    # ── Quality Score (max 35) ────────────────────────────
+    # ── Quality Score (max 45: ROE 15 + margin 10 + D/E 10 + ROIC−WACC 10) ──
     if roe > 0:
         if roe > 25:   qual_score += 15
         elif roe > 20: qual_score += 12
@@ -954,6 +957,17 @@ def _score_value_candidate(info, df):
         elif de < 0.5: qual_score += 7
         elif de < 1.0: qual_score += 4
         elif de < 1.5: qual_score += 2
+
+    # ROIC − WACC ถ่วงกลับคะแนน ROE ด้านบน เพราะ ROE ถูก leverage ปั่นให้สูงได้
+    # ส่วนนี้นับหนี้เป็นเงินทุนด้วย จึงหักคะแนนบริษัทที่กำไรมาจากการกู้ ไม่ใช่ประสิทธิภาพธุรกิจ
+    # ให้ทั้งบวกและลบ — ROIC < WACC คือยิ่งขยายยิ่งทำลายมูลค่า ไม่ใช่แค่ 'ไม่เด่น'
+    # None (ธนาคาร/ข้อมูลไม่พอ) = เป็นกลาง ไม่ลงโทษเพราะไม่มีข้อมูล
+    if roic_spread is not None:
+        if roic_spread >= 10:  qual_score += 10
+        elif roic_spread >= 5: qual_score += 7
+        elif roic_spread > 0:  qual_score += 4
+        elif roic_spread > -5: qual_score -= 4
+        else:                  qual_score -= 8
 
     # ── Price Action Score (max 25) ───────────────────────
     if df is not None and len(df) >= 50:
@@ -989,7 +1003,8 @@ def _score_value_candidate(info, df):
     if fcf_yield > 5:   price_score += 3
     elif fcf_yield > 3: price_score += 1
 
-    total = min(val_score + qual_score + price_score, 100)
+    # ROIC−WACC หักคะแนนได้ จึงต้องกันไม่ให้ total ติดลบ
+    total = max(0, min(val_score + qual_score + price_score, 100))
     return val_score, qual_score, price_score, total
 
 

@@ -15,7 +15,7 @@
         </h1>
         <p class="text-muted mb-0">
             All Sectors — Fundamental Quality + Cheap Valuation | P/E ≤ 25 | Market Cap ≥ $2B<br>
-            Score: Valuation (40 pts) + Quality (35 pts) + Price Action (25 pts) = 100 pts max
+            Score: Valuation (40 pts) + Quality (45 pts) + Price Action (25 pts) — รวมแล้ว cap ที่ 100
         </p>
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
@@ -60,11 +60,12 @@
                         </ul>
                     </div>
                     <div class="col-md-4">
-                        <h6 class="fw-bold mb-3" style="color:#1d4ed8;"><i class="fas fa-medal me-2"></i> Quality (35 pts)</h6>
+                        <h6 class="fw-bold mb-3" style="color:#1d4ed8;"><i class="fas fa-medal me-2"></i> Quality (45 pts)</h6>
                         <ul class="list-unstyled small text-secondary mb-0">
                             <li class="mb-1"><strong>ROE:</strong> &gt;25% (15) | &gt;20% (12) | &gt;15% (8) | &gt;10% (5)</li>
                             <li class="mb-1"><strong>Profit Margin:</strong> &gt;25% (10) | &gt;15% (7) | &gt;10% (5) | &gt;5% (3)</li>
-                            <li class="mb-0"><strong>Debt/Equity:</strong> &lt;0.3 (10) | &lt;0.5 (7) | &lt;1.0 (4) | &lt;1.5 (2)</li>
+                            <li class="mb-1"><strong>Debt/Equity:</strong> &lt;0.3 (10) | &lt;0.5 (7) | &lt;1.0 (4) | &lt;1.5 (2)</li>
+                            <li class="mb-0"><strong>ROIC−WACC:</strong> ≥10% (+10) | ≥5% (+7) | &gt;0% (+4) | <span class="text-danger">−5%–0% (−4) | &lt;−5% (−8)</span></li>
                         </ul>
                     </div>
                     <div class="col-md-4">
@@ -158,6 +159,14 @@
                         <th><a href="?sort=pb&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'pb' %}fw-bold text-primary{% else %}text-muted{% endif %}">P/B</a></th>
                         <th><a href="?sort=div&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'div' %}fw-bold text-success{% else %}text-muted{% endif %}">DIV%</a></th>
                         <th><a href="?sort=roe&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'roe' %}fw-bold text-primary{% else %}text-muted{% endif %}">ROE%</a></th>
+                        <th>
+                            <a href="?sort=spread&run_idx={{ selected_run_idx }}"
+                               class="text-decoration-none {% if current_sort == 'spread' %}fw-bold text-primary{% else %}text-muted{% endif %}"
+                               title="ROIC − WACC — ผลตอบแทนจากเงินทุนทั้งหมด (หนี้+ทุน) เทียบต้นทุนเงินทุนของบริษัทนี้">ROIC−WACC</a>
+                            <span onclick="document.getElementById('roicWaccModal').style.display='flex'"
+                                  style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#f0fdfa;color:#0f766e;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
+                                  title="คู่มือ ROIC / WACC">?</span>
+                        </th>
                         <th class="col-hide-md">DEBT/E</th>
                         <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
                         <th class="col-hide-md">TREND</th>
@@ -266,6 +275,21 @@
                             {% else %}<span class="text-muted">-</span>{% endif %}
                         </td>
 
+                        <!-- ROIC − WACC -->
+                        <td>
+                            {% if item.roic_spread is not None %}
+                            <span class="badge {% if item.roic_spread > 0 %}bg-success{% else %}bg-danger{% endif %}" style="font-size:0.68rem;"
+                                  title="ROIC {{ item.roic|floatformat:1 }}% − WACC {{ item.wacc|floatformat:1 }}% — {% if item.roic_spread > 0 %}ทำเงินได้มากกว่าต้นทุนเงินทุน สร้างมูลค่า{% else %}ทำเงินได้น้อยกว่าต้นทุนเงินทุน ยิ่งขยายยิ่งทำลายมูลค่า{% endif %}">
+                                {% if item.roic_spread > 0 %}+{% endif %}{{ item.roic_spread|floatformat:1 }}%
+                            </span>
+                            <div style="font-size:0.62rem;color:#6b7280;">
+                                {{ item.roic|floatformat:1 }} / {{ item.wacc|floatformat:1 }}
+                            </div>
+                            {% else %}
+                            <span class="text-muted" title="ธุรกิจการเงิน หรือข้อมูลงบไม่พอคำนวณ — ไม่นับคะแนนทั้งบวกและลบ">-</span>
+                            {% endif %}
+                        </td>
+
                         <!-- DEBT/EQUITY -->
                         <td class="col-hide-md">
                             {% if item.debt_equity is not None %}
@@ -327,7 +351,7 @@
 
                     <!-- ── EXPANDABLE DETAIL ROW ── -->
                     <tr id="detail-{{ item.symbol }}" style="display:none;background:#f8fafc;">
-                        <td colspan="13" class="py-3 px-4">
+                        <td colspan="14" class="py-3 px-4">
                             <div class="row g-3">
                                 <!-- Valuation Block -->
                                 <div class="col-md-4">
@@ -380,7 +404,7 @@
                     </tr>
 
                     {% empty %}
-                    <tr><td colspan="13" class="text-center py-5 text-muted">No value candidates found.</td></tr>
+                    <tr><td colspan="14" class="text-center py-5 text-muted">No value candidates found.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -390,6 +414,74 @@
 </div>
 
 </div><!-- end container -->
+
+<!-- ROIC / WACC Modal -->
+<div id="roicWaccModal"
+     onclick="if(event.target===this)this.style.display='none'"
+     style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:white;border-radius:1rem;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,#0f766e,#14b8a6);padding:1.2rem 1.5rem;border-radius:1rem 1rem 0 0;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="color:white;font-size:1.05rem;font-weight:700;">⚖️ ROIC − WACC</div>
+        <div style="color:#ccfbf1;font-size:0.72rem;margin-top:2px;">ผลตอบแทนจากเงินทุน เทียบต้นทุนเงินทุนจริง</div>
+      </div>
+      <span onclick="document.getElementById('roicWaccModal').style.display='none'"
+            style="cursor:pointer;color:#134e4a;font-size:1.4rem;line-height:1;">&times;</span>
+    </div>
+
+    <div style="padding:1.5rem;font-size:0.85rem;color:#374151;line-height:1.6;">
+      <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:0.6rem;padding:1rem;margin-bottom:1.5rem;">
+        <div style="font-weight:700;color:#0f766e;margin-bottom:0.4rem;">หลักการเดียวที่ต้องจำ</div>
+        <div style="color:#115e59;font-size:0.8rem;line-height:1.7;">
+          ธุรกิจสร้างมูลค่าก็ต่อเมื่อ <strong>ROIC &gt; WACC</strong><br/>
+          ถ้า <strong>ROIC &lt; WACC</strong> ยิ่งขยายกิจการยิ่งทำลายมูลค่าผู้ถือหุ้น แม้กำไรจะโตก็ตาม
+        </div>
+      </div>
+
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">ทำไมต้องมี ทั้งที่มี ROE% อยู่แล้ว</h6>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:0.6rem;padding:0.9rem 1rem;margin-bottom:1.5rem;">
+        <div style="color:#9a3412;font-size:0.78rem;line-height:1.7;">
+          <strong>ROE ถูกหนี้ปั่นให้สูงได้</strong> เพราะหารด้วยส่วนของผู้ถือหุ้นอย่างเดียว
+          บริษัทที่กู้มาลงทุนจะมี ROE สวยทั้งที่ประสิทธิภาพจริงต่ำ<br/>
+          <strong>ROIC นับหนี้เป็นเงินทุนด้วย</strong> จึงเห็นภาพจริง — คอลัมน์นี้อยู่ติดกับ ROE%
+          เพื่อให้เทียบได้ทันทีว่าตัวไหน ROE สูงเพราะเก่งจริง ตัวไหนสูงเพราะกู้เยอะ
+        </div>
+      </div>
+
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">สูตร</h6>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.6rem;padding:0.8rem 1rem;margin-bottom:1.5rem;font-family:monospace;font-size:0.75rem;color:#334155;">
+        ROIC = EBIT × (1 − ภาษี) ÷ (หนี้มีดอกเบี้ย + ทุน − เงินสด)<br/>
+        WACC = We × (rf + β × ERP) + Wd × rd × (1 − ภาษี)
+      </div>
+
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">มีผลต่อคอลัมน์ SCORE</h6>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.6rem;padding:0.9rem 1rem;margin-bottom:1.5rem;">
+        <div style="font-size:0.78rem;color:#475569;margin-bottom:0.6rem;">
+          ถ่วงอยู่ในคะแนน <strong>Q (Quality)</strong> — ตัวเดียวกับที่ ROE อยู่ ให้ทั้งบวกและลบ
+        </div>
+        <table style="width:100%;font-size:0.75rem;color:#475569;">
+          <tr><td style="width:120px;padding:2px 0;">≥ +10%</td><td><span class="badge bg-success">+10</span></td></tr>
+          <tr><td style="padding:2px 0;">+5% ถึง +10%</td><td><span class="badge bg-success">+7</span></td></tr>
+          <tr><td style="padding:2px 0;">0% ถึง +5%</td><td><span class="badge bg-success">+4</span></td></tr>
+          <tr><td style="padding:2px 0;">ไม่มีข้อมูล</td><td><span class="badge bg-secondary">0</span> เป็นกลาง</td></tr>
+          <tr><td style="padding:2px 0;">0% ถึง −5%</td><td><span class="badge bg-danger">−4</span></td></tr>
+          <tr><td style="padding:2px 0;">ต่ำกว่า −5%</td><td><span class="badge bg-danger">−8</span></td></tr>
+        </table>
+      </div>
+
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">ข้อควรรู้</h6>
+      <ul style="font-size:0.78rem;color:#475569;padding-left:1.2rem;margin-bottom:0;">
+        <li><strong>ธนาคาร/ประกันขึ้น "-"</strong> — เงินฝากคือวัตถุดิบของธุรกิจ ไม่ใช่เงินทุนที่ลงไปหาผลตอบแทน ตัวเลข ROIC จึงไม่มีความหมาย และไม่ถูกหักคะแนน</li>
+        <li><strong>EBIT</strong> มาจากตัวเลขที่รายงานจริง (operatingMargins × totalRevenue)</li>
+        <li><strong>ต้นทุนหนี้ (rd)</strong> เป็นค่าประมาณจากระดับหนี้ตามวิธี synthetic rating เพราะแหล่งข้อมูลไม่มีดอกเบี้ยจ่ายรายตัว</li>
+        <li>ใช้ <code>rf = 4.2%</code> (US Treasury 10 ปี), <code>ERP = 5.0%</code>, ภาษี 21%</li>
+      </ul>
+
+      <button onclick="document.getElementById('roicWaccModal').style.display='none'"
+              class="btn btn-dark w-100 py-2 fw-bold mt-4" style="border-radius:0.75rem;">เข้าใจแล้ว</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 <style>
