@@ -217,6 +217,133 @@ def _passes_inzone_gate(scan):
     return rs >= 70 and not is_ext and rsi <= 68 and cmf >= 0.05 and _confirm
 
 
+def _get_sepa_context(symbol, user, market=None):
+    """
+    เช็คว่าหุ้นตัวนี้ยังอยู่ใน SEPA results ล่าสุดหรือไม่
+    ถ้าอยู่ คืนค่าข้อความแจ้ง เช่น " (SEPA: Stage 2 + VCP, RS 82)"
+    ถ้าไม่อยู่ คืนค่าว่าง
+    """
+    try:
+        from .models import USSepaCandidate
+        # หาสแกนล่าสุด
+        latest_sepa = USSepaCandidate.objects.filter(
+            user=user, symbol=symbol
+        ).order_by('-scan_run').first()
+        if not latest_sepa:
+            return ""
+        # เช็คว่า scan run นี้ยังสด (ไม่เกิน 7 วัน)
+        from django.utils import timezone as tz
+        age = tz.now() - latest_sepa.scan_run
+        if age.days > 7:
+            return ""
+        # สร้างข้อความ
+        sig_parts = []
+        if latest_sepa.stage2:
+            sig_parts.append("Stage 2")
+        if latest_sepa.vcp_setup:
+            sig_parts.append("VCP")
+        sig_str = " + ".join(sig_parts) if sig_parts else "SEPA"
+        return f" (SEPA: {sig_str}, RS {latest_sepa.rs_rating})"
+    except Exception:
+        return ""
+
+
+def _get_cup_handle_context(symbol, user):
+    """
+    เช็คว่าหุ้นตัวนี้ยังอยู่ใน Cup & Handle results ล่าสุดหรือไม่
+    ถ้าอยู่ คืนค่าข้อความแจ้ง เช่น " (Cup & Handle: forming, target 45.50)"
+    ถ้าไม่อยู่ คืนค่าว่าง
+    """
+    try:
+        from .models import CupHandleCandidate
+        # หาสแกนล่าสุด
+        latest_ch = CupHandleCandidate.objects.filter(
+            user=user, symbol=symbol
+        ).order_by('-scan_run').first()
+        if not latest_ch:
+            return ""
+        # เช็คว่า scan run นี้ยังสด (ไม่เกิน 7 วัน)
+        from django.utils import timezone as tz
+        age = tz.now() - latest_ch.scan_run
+        if age.days > 7:
+            return ""
+        # สร้างข้อความ
+        stage_label = getattr(latest_ch, 'stage', 'forming') or 'forming'
+        return f" (Cup & Handle: {stage_label}, target {latest_ch.target_price:.2f})"
+    except Exception:
+        return ""
+
+
+def _get_exit_advice(symbol, user, market=None):
+    """
+    สร้างข้อความแนะนำเมื่อต้องออก/ขาย โดยเช็คว่าหุ้นยังอยู่ใน SEPA หรือ Cup & Handle หรือไม่
+    และให้ข้อแนะนำเพิ่มเติมตามสถานะ
+
+    ตัวอย่าง output:
+    - " ⚠️ ยังใน SEPA (Stage 2 + VCP) — ล็อกกำไรแต่ปล่อยวิ่งเพื่อรอตำแหน่งต่อไป"
+    - " ⚠️ Cup & Handle ยังอยู่ห่าง target — ตรวจสอบการแตกตัวของ pattern เมื่อกลับลง"
+    """
+    sepa_txt = _get_sepa_context(symbol, user, market)
+    ch_txt = _get_cup_handle_context(symbol, user)
+
+    advice = ""
+    if sepa_txt:
+        advice += f"{sepa_txt} — ยังอยู่ใน SEPA setup ล็อกกำไรแต่ปล่อยวิ่งตามเทรนด์ "
+    if ch_txt:
+        advice += f"{ch_txt} — ตรวจสอบการแตกตัวของ pattern ก่อนตัดสินใจขายขาด"
+
+    if not advice:
+        # ถ้าไม่อยู่ใน SEPA หรือ Cup & Handle แล้ว ให้ข้อแนะนำให้ออกแบบชัดเจน
+        advice = " (ไม่มี setup ทั้ง SEPA และ Cup & Handle — ออกอย่างแน่นอน)"
+
+    return advice
+
+
+def _is_safe_pocket_pivot_add(latest_scan, current_price):
+    """
+    ตรวจสอบว่า Pocket Pivot signal นี้ปลอดภัยจากการ "catch the falling knife" หรือไม่
+    Return True ถ้าปลอดภัย, False ถ้าเป็นอันตราย
+
+    Safety Gates:
+    1. Stage 2 ต้องยังแข็งแรง (price > SMA150, SMA150 trending up)
+    2. CMF ≥ 0.05 (Accumulation, ไม่ distribution)
+    3. Retracement ≤ 30% (Healthy pullback, ไม่ deep correction)
+    4. RSI ไม่ oversold (ไม่ < 25)
+    5. ราคาไม่ตัดขาดจาก MA50 มากเกินไป (ไม่ > 8% ต่ำกว่า)
+    """
+    # Gate 1: Stage 2 ต้องยังมีอยู่
+    stage2 = bool(getattr(latest_scan, 'stage2', False))
+    if not stage2:
+        return False  # ❌ Stage 2 broken = NOT safe
+
+    # Gate 2: CMF ≥ 0.05 (Accumulation)
+    cmf = getattr(latest_scan, 'cmf', None)
+    cmf = 0.0 if cmf is None else float(cmf)
+    if cmf < 0.05:
+        return False  # ❌ Distribution or neutral = NOT safe
+
+    # Gate 3: Retracement ≤ 30% (shallow pullback OK, deep correction NOT OK)
+    supply_zone = getattr(latest_scan, 'supply_zone_start', None)
+    if supply_zone and current_price and supply_zone > 0:
+        retr_pct = ((float(supply_zone) - float(current_price)) / float(supply_zone)) * 100
+        if retr_pct > 30:
+            return False  # ❌ Deep retracement (>30%) = NOT safe
+
+    # Gate 4: RSI ไม่ oversold (< 25 = too weak to bounce)
+    rsi = getattr(latest_scan, 'rsi', 50) or 50
+    if float(rsi) < 25:
+        return False  # ❌ Oversold = NOT safe (need strength to bounce)
+
+    # Gate 5: ราคาไม่ตัดขาด MA50 มากเกินไป
+    ma50 = getattr(latest_scan, 'ma50', None)
+    if ma50 and current_price:
+        below_ma50_pct = ((float(ma50) - float(current_price)) / float(ma50)) * 100
+        if below_ma50_pct > 8:
+            return False  # ❌ Too far below MA50 = NOT safe
+
+    return True  # ✅ All gates passed = SAFE to add
+
+
 def evaluate_user_alerts(user, config):
     """
     เช็คเงื่อนไข Action (SL/TP/Breakout/Watchlist entry) ของ user คนเดียว
@@ -306,7 +433,7 @@ def evaluate_user_alerts(user, config):
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label}) หลุดแนวรับ Trailing Stop "
                             f"ที่ {stop_level:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอสทั้งหมด "
-                            f"({sell_qty:,} หุ้น)"
+                            f"({sell_qty:,} หุ้น)" + _get_exit_advice(p.symbol, user, p.market)
                         ),
                     ))
                     weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุด Trailing Stop ที่ {stop_level:.2f}'})
@@ -349,6 +476,7 @@ def evaluate_user_alerts(user, config):
                         f"{trail_stop:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
                         + (f", กำไรสะสม {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
                         + f") ควรพิจารณาขายส่วนที่เหลือทั้งหมด ({sell_qty:,} หุ้น){_poc_note(latest_scan)}"
+                        + _get_exit_advice(p.symbol, user, p.market)
                     ),
                 ))
                 p.tp1_hit = False
@@ -392,6 +520,7 @@ def evaluate_user_alerts(user, config):
                 message=(
                     f"[{_sl_ea['action']}] {_sl_ea['action_detail']} "
                     f"— ขายเต็มจำนวน ({sell_qty:,} หุ้น){fallback_note}{_poc_note(latest_scan)}"
+                    + _get_exit_advice(p.symbol, user, p.market)
                 ),
             ))
             weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f"{_sl_ea['action']} ที่ {latest_scan.stop_loss:.2f}"})
@@ -456,7 +585,7 @@ def evaluate_user_alerts(user, config):
                             alert_type=StockAlertEvent.AlertType.EXIT_ACTION,
                             strategy=strategy_label, price=price,
                             reference_level=latest_scan.stop_loss,
-                            message=f"[{_ea['action']}] {_ea['action_detail']}{_poc_note(latest_scan)}",
+                            message=f"[{_ea['action']}] {_ea['action_detail']}{_poc_note(latest_scan)}" + _get_exit_advice(p.symbol, user, p.market),
                         ))
                         cache.set(_k, True, timeout=12 * 60 * 60)
                         if _ea['action_style'] == 'danger':
@@ -530,13 +659,30 @@ def evaluate_user_alerts(user, config):
             reasons_txt = ", ".join(_signals.get('buy_reasons', []))
             reasons_msg = f" (ปัจจัยหนุน: {reasons_txt})" if reasons_txt else ""
 
+            # ── Safety Gate Check: Is this a SAFE add or FALLING KNIFE? ──
+            # Before recommending "buy more" on Pocket Pivot, verify it's not catching a knife
+            is_safe_add = _is_safe_pocket_pivot_add(latest_scan, price)
+            knife_warning = ""
+            if latest_scan.pocket_pivot and not is_safe_add:
+                knife_warning = (
+                    " ⚠️ KNIFE CHECK FAILED — หุ้นนี้มีสัญญาณเด้งแต่ยังต่ำอยู่ในหลายประเด็น: "
+                )
+                if not bool(getattr(latest_scan, 'stage2', False)):
+                    knife_warning += "Stage 2 ทำลาย "
+                if float(getattr(latest_scan, 'cmf', 0) or 0) < 0.05:
+                    knife_warning += "CMF เชิงลบ "
+                if float(getattr(latest_scan, 'rsi', 50) or 50) < 25:
+                    knife_warning += "RSI oversold "
+                knife_warning += "— ไม่แนะนำซื้อเพิ่มตอนนี้ รอให้มั่นใจก่อน"
+
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.BREAKOUT,
                 strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
                     f"{_sig_label} "
-                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
+                    f"ที่ราคา {price:.2f} — "
+                    + ("✅ ควรพิจารณาซื้อเพิ่ม" if is_safe_add else "⚠️ HOLD ก่อน") + f"{add_amount_txt}{knife_warning}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
                 ),
             ))
             # นับเป็น "หุ้นเด่น" เฉพาะสัญญาณแรง — เบรค 52w High / Wyckoff Spring / PK ⭐ (pp_at_ma50)

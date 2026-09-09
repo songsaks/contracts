@@ -2029,6 +2029,22 @@
                             <th class="col-hide-lg">VOL</th>
                             <th class="col-hide-md"><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
                             <th class="col-hide-lg">ENTRY</th>
+                            <th class="col-hide-md" style="background:#ffc107; font-weight:600;">
+                                <a href="?sort=abcd_entry&run_idx={{ selected_run_idx }}"
+                                   class="text-decoration-none text-dark"
+                                   title="ABCD Entry Point (B) - จุดเด้งสำหรับเข้า หรือหลีกเลี่ยงราคา">B (ABCD)</a>
+                                <span onclick="document.getElementById('abcdBModal').style.display='flex'"
+                                      style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#fff9e6;color:#d97706;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
+                                      title="คู่มือ ABCD B Point">?</span>
+                            </th>
+                            <th class="col-hide-md">
+                                <a href="?sort=abcd_quality&run_idx={{ selected_run_idx }}"
+                                   class="text-decoration-none text-muted"
+                                   title="ABCD Pattern Quality - ความน่าเชื่อถือของ Pattern">ABCD Q</a>
+                                <span onclick="document.getElementById('abcdQModal').style.display='flex'"
+                                      style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#fef3c7;color:#ca8a04;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
+                                      title="คู่มือ ABCD Quality">?</span>
+                            </th>
                             <th class="col-hide-sm">
                                 <a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a>
                                 <a href="{% url 'stocks:ehlers_manual' %}" target="_blank"
@@ -2581,6 +2597,39 @@
                                     <div class="val-hint">โซนซื้อ / BO / TP</div>
                                 </div>
                                 {% else %}-{% endif %}
+                            </td>
+
+                            <!-- ABCD B POINT (Entry) -->
+                            <td class="col-hide-md">
+                                {% if item.abcd_setup and item.abcd_entry %}
+                                <div style="line-height:1.3;">
+                                    <span class="fw-bold"
+                                          style="background:#fff3cd; padding:4px 8px; border-radius:4px; font-size:14px; display:inline-block;"
+                                          title="ABCD Entry Point (B) — A:{{ item.abcd_a_price|floatformat:2 }} → B:{{ item.abcd_b_price|floatformat:2 }} → C:{{ item.abcd_c_price|floatformat:2 }} | Stop:{{ item.abcd_stop|floatformat:2 }} | Target:{{ item.abcd_target|floatformat:2 }} | R:R {{ item.abcd_rr|floatformat:1 }}">
+                                        {{ item.abcd_entry|floatformat:2 }}
+                                    </span>
+                                    {% if item.abcd_is_thin %}
+                                    <div style="font-size:0.7rem; color:#999; margin-top:2px;">Thin</div>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- ABCD QUALITY -->
+                            <td class="col-hide-md text-center">
+                                {% if item.abcd_setup %}
+                                    {% if item.abcd_quality == 'high' %}
+                                    <span class="badge" style="background:#28a745; color:white; font-size:0.65rem;">HIGH</span>
+                                    {% elif item.abcd_quality == 'medium' %}
+                                    <span class="badge" style="background:#ffc107; color:#333; font-size:0.65rem;">MED</span>
+                                    {% else %}
+                                    <span class="badge" style="background:#6c757d; color:white; font-size:0.65rem;">LOW</span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
                             </td>
 
                             <!-- RSI -->
@@ -3924,6 +3973,136 @@
     </div>
   </div>
 </div>
+
+<!-- ABCD B Point Modal -->
+<div id="abcdBModal"
+     onclick="if(event.target===this)this.style.display='none'"
+     style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:white;border-radius:1rem;max-width:550px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,#d97706,#fbbf24);padding:1.2rem 1.5rem;border-radius:1rem 1rem 0 0;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="color:white;font-size:1.05rem;font-weight:700;">📍 B (ABCD Entry Point)</div>
+        <div style="color:#92400e;font-size:0.72rem;margin-top:2px;">จุดเด้งที่ใช้สำหรับซื้อ หรือเป็นตำแหน่งหลีกเลี่ยง</div>
+      </div>
+      <span onclick="document.getElementById('abcdBModal').style.display='none'"
+            style="cursor:pointer;color:#78350f;font-size:1.4rem;line-height:1;">&times;</span>
+    </div>
+
+    <div style="padding:1.5rem;font-size:0.85rem;color:#374151;line-height:1.6;">
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">ABCD Pattern คืออะไร?</h6>
+      <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:0.6rem;padding:1rem;margin-bottom:1.5rem;">
+        <div style="font-weight:700;color:#78350f;margin-bottom:0.5rem;">🎯 โครงสร้าง Pattern</div>
+        <div style="color:#b45309;font-size:0.8rem;line-height:1.8;">
+          <strong>A → B:</strong> ขาขึ้นแรก (Impulse)<br/>
+          <strong>B → C:</strong> การย่อตัว (Retracement) 15%-78.6%<br/>
+          <strong>C → D:</strong> ขาขึ้นที่สอง (Target)<br/>
+          <strong>B Point:</strong> ราคาจากสูงสุดก่อนตัวที่ใช้เป็นจุดเด้ง
+        </div>
+      </div>
+
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">ข้อมูลที่แสดง</h6>
+      <div style="display:flex;flex-direction:column;gap:1rem;">
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:rgba(217,119,6,0.1);color:#d97706;min-width:80px;">ราคา</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">B Entry Price</div>
+                <div style="color:#6b7280;font-size:0.75rem;">ราคาที่ตั้งจะเด้งขึ้น (จุดสูงสุดของขา B)</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:rgba(217,119,6,0.1);color:#d97706;min-width:80px;">Tooltip</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">Hover เพื่อดูรายละเอียด</div>
+                <div style="color:#6b7280;font-size:0.75rem;">A, B, C, Stop Loss, Target, R:R Ratio</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:rgba(217,119,6,0.1);color:#d97706;min-width:80px;">Thin</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">ป้าย 'Thin'</div>
+                <div style="color:#6b7280;font-size:0.75rem;">ปรากฏเมื่อการย่อตัว 15-30% (pullback ตื้น ซื้อหลังเด้ง)</div>
+            </div>
+        </div>
+      </div>
+
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:0.6rem;padding:0.8rem 1rem;margin-top:1.5rem;">
+        <div style="font-weight:700;color:#1e40af;font-size:0.8rem;margin-bottom:0.4rem;"><i class="fas fa-lightbulb me-1"></i> วิธีใช้</div>
+        <div style="color:#1e40af;font-size:0.75rem;line-height:1.6;">
+          ใช้ B point เป็นจุดเด้งในขา C หรือเป็นตำแหน่งหลีกเลี่ยงหากราคาตัดขาดไปต่ำกว่า ร่วมกับค่าราคา Q (Quality) เพื่อวัดความน่าเชื่อถือ
+        </div>
+      </div>
+
+      <button onclick="document.getElementById('abcdBModal').style.display='none'"
+              class="btn btn-dark w-100 py-2 fw-bold mt-4" style="border-radius:0.75rem;">เข้าใจแล้ว</button>
+    </div>
+  </div>
+</div>
+
+<!-- ABCD Quality Modal -->
+<div id="abcdQModal"
+     onclick="if(event.target===this)this.style.display='none'"
+     style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:white;border-radius:1rem;max-width:550px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,#ca8a04,#eab308);padding:1.2rem 1.5rem;border-radius:1rem 1rem 0 0;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="color:white;font-size:1.05rem;font-weight:700;">⭐ ABCD Quality (Q)</div>
+        <div style="color:#451a03;font-size:0.72rem;margin-top:2px;">ระดับความน่าเชื่อถือของ Pattern ที่ตรวจพบ</div>
+      </div>
+      <span onclick="document.getElementById('abcdQModal').style.display='none'"
+            style="cursor:pointer;color:#451a03;font-size:1.4rem;line-height:1;">&times;</span>
+    </div>
+
+    <div style="padding:1.5rem;font-size:0.85rem;color:#374151;line-height:1.6;">
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">3 ระดับคุณภาพ</h6>
+      <div style="display:flex;flex-direction:column;gap:1rem;margin-bottom:1.5rem;">
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:#28a745;color:white;min-width:60px;font-weight:bold;">HIGH</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">สูง - ความมั่นใจ 80%+</div>
+                <div style="color:#6b7280;font-size:0.75rem;">✓ Volume สำหรับ pullback<br/>✓ Price Action ที่ชัดเจน<br/>✓ CMF Accumulation<br/>👉 ซื้อมั่นใจได้มากที่สุด</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:#ffc107;color:#333;min-width:60px;font-weight:bold;">MED</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">ปานกลาง - ความมั่นใจ 50-80%</div>
+                <div style="color:#6b7280;font-size:0.75rem;">~ Pattern ถูกต้อง แต่ยังมีปัจจัยเพิ่มเติมที่ยังไม่ชัดเจน<br/>~ รอดูหลักฐานเพิ่มเติม<br/>👉 ซื้อแต่ชั่งใจ ลดจำนวนลง</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:#6c757d;color:white;min-width:60px;font-weight:bold;">LOW</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">ต่ำ - ความมั่นใจ < 50%</div>
+                <div style="color:#6b7280;font-size:0.75rem;">✗ Volume อ่อนแอ<br/>✗ CMF เชิงลบ<br/>✗ RSI oversold<br/>👉 ไม่แนะนำ รอสัญญาณต่อไป</div>
+            </div>
+        </div>
+      </div>
+
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">ปัจจัยที่ใช้คำนวณ</h6>
+      <div style="background:#fff3cd;border:1px solid #ffe69c;border-radius:0.6rem;padding:0.8rem 1rem;">
+        <ul style="margin:0;padding-left:1.2rem;font-size:0.75rem;color:#664d03;">
+          <li>Volume Confirmation ที่ pullback point</li>
+          <li>Price Action (next bar check)</li>
+          <li>EMA50 Trend Filter (ยิ่ง strict ยิ่ง HIGH)</li>
+          <li>CMF (Chaikin Money Flow) Accumulation</li>
+          <li>Thin vs Normal Retracement Validation</li>
+        </ul>
+      </div>
+
+      <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:0.6rem;padding:0.8rem 1rem;margin-top:1.5rem;">
+        <div style="font-weight:700;color:#1b5e20;font-size:0.8rem;margin-bottom:0.4rem;"><i class="fas fa-chart-line me-1"></i> วิธีใช้</div>
+        <div style="color:#2e7d32;font-size:0.75rem;line-height:1.6;">
+          ใช้ Q เพื่อกรอง pattern: <strong>HIGH</strong> = ซื้อเต็มจำนวน | <strong>MED</strong> = ซื้อลดลง | <strong>LOW</strong> = ไม่ซื้อ<br/>
+          ยิ่ง Q สูง ยิ่ง R:R ดีและ Winning Rate สูง
+        </div>
+      </div>
+
+      <button onclick="document.getElementById('abcdQModal').style.display='none'"
+              class="btn btn-dark w-100 py-2 fw-bold mt-4" style="border-radius:0.75rem;">เข้าใจแล้ว</button>
+    </div>
+  </div>
+</div>
+
 <style>
 /* Removed distracting popover styles */
 .table-responsive { overflow: visible !important; }
