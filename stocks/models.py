@@ -589,6 +589,35 @@ class PrecisionScanCandidate(models.Model):
         return False
 
     @property
+    def rvol_context(self):
+        """ตีความ RVOL ตามจังหวะ — volume ต่ำเป็นบวกหรือลบขึ้นกับว่าเบรกแล้วหรือยัง
+
+        ก่อนเบรก volume แห้ง = VDU คนขายหมดแรง (บวก — VCP/Minervini ตามหาภาพนี้)
+        ตอนเบรก volume ต้องมา ≥1.5x ไม่งั้นเสี่ยง false breakout (ลบ)
+        threshold ใช้ชุดเดียวกับ rec_entered และ VDU ใน detect_vcp"""
+        try:
+            rv = float(self.rvol or 0)
+        except (TypeError, ValueError):
+            return None
+        _td = self.turtle_dist_pct if self.turtle_dist_pct is not None else 99.0
+
+        if _td <= 0.5:  # ทะลุแล้วหรือจ่อทะลุ — ต้องมี volume ยืนยัน
+            if rv >= 1.5:
+                return {'code': 'confirmed', 'label': 'เบรกมี Vol',
+                        'tip': f'เบรกพร้อม volume {rv:.1f}x ของเฉลี่ย — ยืนยันว่ามีแรงซื้อจริง'}
+            return {'code': 'weak', 'label': 'เบรกไร้ Vol',
+                    'tip': f'ราคาจ่อ/ทะลุจุดเบรกแต่ volume แค่ {rv:.1f}x (ควร ≥1.5x) — เสี่ยง false breakout'}
+
+        # ยังไม่ถึงจุดเบรก — volume แห้งคือสัญญาณบวก
+        if self.vcp_vdu or self.vdu_near_zone:
+            return {'code': 'vdu', 'label': 'VDU',
+                    'tip': f'Volume Dry-Up ยืนยันแล้ว ({rv:.1f}x) — คนขายหมดแรง รอแรงซื้อดันขึ้น'}
+        if rv <= 0.7:
+            return {'code': 'quiet', 'label': 'เงียบ',
+                    'tip': f'Volume เบาบาง ({rv:.1f}x) ระหว่างสะสม — ยังไม่ถึงจุดเบรก จึงไม่ใช่สัญญาณลบ'}
+        return None
+
+    @property
     def show_kacher_stop(self):
         """โชว์กฎ trailing stop ของ Kacher-Morales เฉพาะเมื่อ
         (1) มี Pocket Pivot จริง  (2) อยู่ในจังหวะเข้า/ถือ  (3) มี MA50"""
