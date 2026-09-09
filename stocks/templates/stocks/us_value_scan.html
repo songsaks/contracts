@@ -1,7 +1,7 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
 
-{% block title %}US Value Scanner — 9Com{% endblock %}
+{% block title %}{% if market == "SET" %}Thai{% else %}US{% endif %} Value Scanner — 9Com{% endblock %}
 {% block container_class %}container-fluid px-2 px-md-3{% endblock %}
 
 {% block content %}
@@ -11,26 +11,26 @@
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
         <h1 class="fw-bold mb-1" style="color:#15803d;">
-            <i class="fas fa-gem me-2"></i> US Value Stock Scanner
+            <i class="fas fa-gem me-2"></i> {% if market == "SET" %}Thai{% else %}US{% endif %} Value Stock Scanner
         </h1>
         <p class="text-muted mb-0">
-            All Sectors — Fundamental Quality + Cheap Valuation | P/E ≤ 25 | Market Cap ≥ $2B<br>
+            All Sectors — Fundamental Quality + Cheap Valuation | P/E ≤ 25 | {% if market == "SET" %}SET100 + MAI | Market Cap ≥ ฿10B{% else %}Market Cap ≥ $2B{% endif %}<br>
             Score: Valuation (40 pts) + Quality (45 pts) + Price Action (25 pts) — รวมแล้ว cap ที่ 100
         </p>
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
-        <a href="{% url 'stocks:us_precision_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
-            <i class="fas fa-crosshairs"></i> US Momentum
+        <a href="{% if market == 'SET' %}{% url 'stocks:precision_momentum_scanner' %}{% else %}{% url 'stocks:us_precision_scanner' %}{% endif %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
+            <i class="fas fa-crosshairs"></i> {% if market == "SET" %}SET{% else %}US{% endif %} Momentum
         </a>
         <a href="?scan=true" onclick="showLoading()" class="btn d-inline-flex align-items-center gap-2"
            style="background:linear-gradient(135deg,#15803d,#166534);color:white;border:none;">
             <i class="fas fa-search-dollar"></i> Scan Value Stocks
         </a>
         {% if has_scanned %}
-        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน US Value ทั้งหมด?')">
+        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน{% if market == "SET" %}ไทย{% else %} US{% endif %} Value ทั้งหมด?')">
             {% csrf_token %}
-            <input type="hidden" name="scanner" value="us_value">
-            <input type="hidden" name="next" value="{% url 'stocks:us_value_scanner' %}">
+            <input type="hidden" name="scanner" value="{% if market == 'SET' %}value{% else %}us_value{% endif %}">
+            <input type="hidden" name="next" value="{% if market == 'SET' %}{% url 'stocks:value_scanner' %}{% else %}{% url 'stocks:us_value_scanner' %}{% endif %}">
             <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
                 <i class="fas fa-trash-alt"></i> ล้างข้อมูล
             </button>
@@ -45,7 +45,7 @@
         <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
                 data-bs-toggle="collapse" data-bs-target="#valueGuide" aria-expanded="false"
                 style="border:1px solid #15803d;color:#15803d;">
-            <i class="fas fa-info-circle me-2"></i> Scoring Guide — US Value V1
+            <i class="fas fa-info-circle me-2"></i> Scoring Guide — {% if market == "SET" %}Thai{% else %}US{% endif %} Value V1
         </button>
         <div class="collapse mt-3" id="valueGuide">
             <div class="card card-body border-0 shadow-sm rounded-4 bg-light p-4">
@@ -227,7 +227,7 @@
 
                         <!-- PRICE -->
                         <td>
-                            <span class="fw-bold">${{ item.price|floatformat:2 }}</span>
+                            <span class="fw-bold">{% if market == "SET" %}฿{% else %}${% endif %}{{ item.price|floatformat:2 }}</span>
                             {% if item.live_price %}
                             <div style="font-size:0.65rem;color:#6b7280;">Live: ${{ item.live_price|floatformat:2 }}</div>
                             {% endif %}
@@ -386,15 +386,15 @@
                                     <div class="rounded-3 p-3" style="background:#faf5ff;border:1px solid #d8b4fe;">
                                         <div class="fw-bold small mb-2" style="color:#7c3aed;"><i class="fas fa-chart-line me-1"></i> Price Action <span class="ms-1 badge" style="background:#7c3aed;font-size:0.6rem;">{{ item.price_action_score }} pts</span></div>
                                         <div class="row g-1" style="font-size:0.75rem;">
-                                            <div class="col-6"><span class="text-muted">Price:</span> <strong>${{ item.price|floatformat:2 }}</strong></div>
+                                            <div class="col-6"><span class="text-muted">Price:</span> <strong>{% if market == "SET" %}฿{% else %}${% endif %}{{ item.price|floatformat:2 }}</strong></div>
                                             <div class="col-6"><span class="text-muted">RSI (14):</span> <strong>{{ item.rsi|floatformat:1 }}</strong></div>
-                                            <div class="col-6"><span class="text-muted">52w High:</span> <strong>${{ item.year_high|floatformat:2 }}</strong></div>
-                                            <div class="col-6"><span class="text-muted">52w Low:</span> <strong>${{ item.year_low|floatformat:2 }}</strong></div>
+                                            <div class="col-6"><span class="text-muted">52w High:</span> <strong>{% if market == "SET" %}฿{% else %}${% endif %}{{ item.year_high|floatformat:2 }}</strong></div>
+                                            <div class="col-6"><span class="text-muted">52w Low:</span> <strong>{% if market == "SET" %}฿{% else %}${% endif %}{{ item.year_low|floatformat:2 }}</strong></div>
                                             <div class="col-6"><span class="text-muted">From High:</span> <strong class="{% if item.pct_from_high > 20 %}text-success{% else %}text-muted{% endif %}">-{{ item.pct_from_high|floatformat:1 }}%</strong></div>
                                             <div class="col-6"><span class="text-muted">EMA200:</span>
                                                 {% if item.above_ema200 %}<strong class="text-success">Above ↑</strong>{% else %}<strong class="text-danger">Below ↓</strong>{% endif %}
                                             </div>
-                                            <div class="col-6"><span class="text-muted">Mkt Cap:</span> <strong>${{ item.market_cap|floatformat:1 }}B</strong></div>
+                                            <div class="col-6"><span class="text-muted">Mkt Cap:</span> <strong>{% if market == "SET" %}฿{% else %}${% endif %}{{ item.market_cap|floatformat:1 }}B</strong></div>
                                             <div class="col-6"><span class="text-muted">Sector:</span> <strong>{{ item.sector|truncatechars:12 }}</strong></div>
                                         </div>
                                     </div>
@@ -474,7 +474,7 @@
         <li><strong>ธนาคาร/ประกันขึ้น "-"</strong> — เงินฝากคือวัตถุดิบของธุรกิจ ไม่ใช่เงินทุนที่ลงไปหาผลตอบแทน ตัวเลข ROIC จึงไม่มีความหมาย และไม่ถูกหักคะแนน</li>
         <li><strong>EBIT</strong> มาจากตัวเลขที่รายงานจริง (operatingMargins × totalRevenue)</li>
         <li><strong>ต้นทุนหนี้ (rd)</strong> เป็นค่าประมาณจากระดับหนี้ตามวิธี synthetic rating เพราะแหล่งข้อมูลไม่มีดอกเบี้ยจ่ายรายตัว</li>
-        <li>ใช้ <code>rf = 4.2%</code> (US Treasury 10 ปี), <code>ERP = 5.0%</code>, ภาษี 21%</li>
+        <li>หน้านี้ใช้ {% if market == "SET" %}<code>rf = 2.5%</code> (พันธบัตรไทย 10 ปี), <code>ERP = 7.5%</code>, ภาษี 20%{% else %}<code>rf = 4.2%</code> (US Treasury 10 ปี), <code>ERP = 5.0%</code>, ภาษี 21%{% endif %}</li>
       </ul>
 
       <button onclick="document.getElementById('roicWaccModal').style.display='none'"

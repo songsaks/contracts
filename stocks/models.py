@@ -760,6 +760,7 @@ class ScanWatchlistItem(models.Model):
 class ValueScanCandidate(models.Model):
     user        = models.ForeignKey(User, on_delete=models.CASCADE)
     scan_run    = models.DateTimeField(db_index=True)
+    market      = models.CharField(max_length=4, default='US', db_index=True)  # US / SET — แถวเดิมทั้งหมดเป็น US
     symbol      = models.CharField(max_length=20)
     name        = models.CharField(max_length=100, default='')
     sector      = models.CharField(max_length=100, default='Unknown')

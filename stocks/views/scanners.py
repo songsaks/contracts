@@ -3937,7 +3937,9 @@ def clear_scan_data(request):
         'cup_handle':    (CupHandleCandidate,        {'user': request.user, 'market': 'SET'}),
         'us_cup_handle': (CupHandleCandidate,        {'user': request.user, 'market': 'US'}),
         'us_sepa':       (USSepaCandidate,           {'user': request.user}),
-        'us_value':      (ValueScanCandidate,        {'user': request.user}),
+        # ต้องกรอง market ไม่งั้นล้างฝั่งหนึ่งจะลบผลของอีกฝั่งไปด้วย
+        'value':         (ValueScanCandidate,        {'user': request.user, 'market': 'SET'}),
+        'us_value':      (ValueScanCandidate,        {'user': request.user, 'market': 'US'}),
     }
 
     if scanner in _map:
@@ -6900,8 +6902,115 @@ def us_precision_scanner(request):
 #   เกณฑ์: P/E ต่ำ, P/B ต่ำ, Dividend Yield สูง, FCF Positive
 #   เปรียบเทียบกับ Sector Median เพื่อคัดกรอง Undervalued Stocks
 # ============================================================
-@login_required
-def us_value_scanner(request):
+def _scan_value_symbol(sym, market='US'):
+    """สแกนหุ้นหนึ่งตัวสำหรับ value scanner — ใช้ร่วมกันทั้ง SET และ US
+
+    market กำหนดต้นทุนเงินทุน (rf/ERP/ภาษี) และ market cap ขั้นต่ำ
+    ไทยใช้ ฿10B ส่วน US ใช้ $2B — คนละสกุลจึงใช้ตัวเลขเดียวกันไม่ได้
+    คืน None เมื่อไม่ผ่านเกณฑ์หรือข้อมูลไม่พอ"""
+    is_th = market == 'SET'
+    rf      = TH_RISK_FREE_PCT      if is_th else US_RISK_FREE_PCT
+    erp     = TH_EQUITY_PREMIUM_PCT if is_th else US_EQUITY_PREMIUM_PCT
+    tax     = TH_TAX_RATE           if is_th else US_TAX_RATE
+    min_cap = 10.0 if is_th else 2.0
+    try:
+        ticker = yf.Ticker(sym)
+        info   = ticker.info or {}
+
+        price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
+        if not price:
+            fi = getattr(ticker, 'fast_info', None)
+            price = getattr(fi, 'last_price', 0) or 0
+        if not price or price <= 0:
+            return None
+
+        # P/E filter - skip pure growth stocks (P/E > 30)
+        pe = info.get('trailingPE') or info.get('forwardPE')
+        if pe and pe > 30:
+            return None
+
+        # Market cap ขั้นต่ำ — ฿10B (ไทย) / $2B (US) ตัดหุ้นเล็กสภาพคล่องต่ำ
+        mkt_cap = (info.get('marketCap') or 0) / 1e9
+        if mkt_cap < min_cap:
+            return None
+
+        # Download 1-year price history for technical indicators
+        df = yf.download(sym, period='1y', progress=False, auto_adjust=True)
+        if df is None or len(df) < 50:
+            return None
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.droplevel(1)
+
+        # ROIC/WACC ของจริง (Dodaro) — ถ่วงคะแนน Quality เพราะ ROE ในสูตรถูก leverage ปั่นได้
+        cap = _compute_roic_wacc(info, risk_free=rf, erp=erp, tax_rate=tax)
+        val_score, qual_score, price_score, total = _score_value_candidate(
+            info, df, roic_spread=cap['spread'])
+
+        # Minimum quality threshold
+        if total < 20:
+            return None
+
+        # Compute additional price stats
+        close = df['Close']
+        rsi14  = ta.rsi(close, length=14)
+        rsi_val = float(rsi14.dropna().iloc[-1]) if rsi14 is not None and not rsi14.dropna().empty else 50
+        y_high = float(df['High'].max())
+        y_low  = float(df['Low'].min())
+        pct_from_high = ((y_high - float(close.iloc[-1])) / y_high * 100) if y_high > 0 else 0
+
+        ema200 = ta.ema(close, length=200)
+        above_ema200 = False
+        if ema200 is not None and not ema200.dropna().empty:
+            above_ema200 = float(close.iloc[-1]) > float(ema200.dropna().iloc[-1])
+
+        div = (info.get('dividendYield') or 0) * 100
+        roe = (info.get('returnOnEquity') or 0) * 100
+        margin = (info.get('profitMargins') or 0) * 100
+        de_raw = info.get('debtToEquity')
+        de  = (de_raw / 100) if de_raw is not None else None
+        fcf_raw = info.get('freeCashflow') or 0
+        fcf_yield = (fcf_raw / (info.get('marketCap') or 1)) * 100 if fcf_raw and mkt_cap > 0 else 0
+
+        return {
+            'symbol':       sym,
+            'name':         info.get('longName') or info.get('shortName') or sym,
+            'sector':       info.get('sector') or 'Unknown',
+            'price':        round(float(price), 2),
+            'market_cap':   round(mkt_cap, 2),
+            'pe_ratio':     round(float(pe), 2) if pe and pe > 0 else None,
+            'forward_pe':   round(float(info.get('forwardPE') or 0), 2) or None,
+            'pb_ratio':     round(float(info.get('priceToBook') or 0), 2) or None,
+            'peg_ratio':    round(float(info.get('pegRatio') or 0), 2) or None,
+            'ps_ratio':     round(float(info.get('priceToSalesTrailing12Months') or 0), 2) or None,
+            'dividend_yield': round(div, 2),
+            'roe':          round(roe, 1) if roe else None,
+            'profit_margin': round(margin, 1) if margin else None,
+            'debt_equity':  round(de, 2) if de is not None else None,
+            'current_ratio': round(float(info.get('currentRatio') or 0), 2) or None,
+            'revenue_growth': round((info.get('revenueGrowth') or 0) * 100, 1),
+            'fcf_yield':    round(fcf_yield, 1),
+            'roic':         cap['roic'],
+            'wacc':         cap['wacc'],
+            'roic_spread':  cap['spread'],
+            'rsi':          round(rsi_val, 1),
+            'year_high':    round(y_high, 2),
+            'year_low':     round(y_low, 2),
+            'pct_from_high': round(pct_from_high, 1),
+            'above_ema200': above_ema200,
+            'valuation_score':    val_score,
+            'quality_score':      qual_score,
+            'price_action_score': price_score,
+            'total_score':        total,
+        }
+    except Exception:
+        return None
+
+
+def _value_scanner_impl(request, market):
+    """Value scanner ใช้ร่วมกันทั้ง SET และ US — market แยกข้อมูล การเรียง และ universe
+
+    ก่อนหน้านี้มีแต่ฝั่ง US และ ValueScanCandidate ไม่มีคอลัมน์ market
+    ทุก query จึงต้องกรองด้วย market ไม่งั้นสองตลาดจะปนกันในรอบสแกนเดียว"""
     """
     US Value Stock Scanner - fundamental quality + cheap valuation.
     P/E < 25 across all sectors (Financials, Energy, Healthcare, Tech, etc.)
@@ -6928,7 +7037,7 @@ def us_value_scanner(request):
     if not run_scan:
         all_runs = list(
             ValueScanCandidate.objects
-            .filter(user=request.user)
+            .filter(user=request.user, market=market)
             .values_list('scan_run', flat=True)
             .order_by('-scan_run').distinct()
         )
@@ -6946,7 +7055,7 @@ def us_value_scanner(request):
             selected_run = all_runs[run_idx]
             scanned_at   = selected_run
             qs = (ValueScanCandidate.objects
-                  .filter(user=request.user, scan_run=selected_run)
+                  .filter(user=request.user, market=market, scan_run=selected_run)
                   .order_by(sort_map.get(current_sort, '-total_score')))
             candidates = list(qs)
 
@@ -6977,106 +7086,16 @@ def us_value_scanner(request):
             'all_runs':         all_runs,
             'selected_run_idx': run_idx,
             'current_sort':     current_sort,
+            'market':           market,
         })
 
     # ── RUN SCAN ──────────────────────────────────────────
-    symbols = _seed_value_symbols()
+    symbols = _seed_thai_value_symbols() if market == 'SET' else _seed_value_symbols()
     scan_time = _dt.now(_tz.utc)
     results = []
 
     def _process_value_symbol(sym):
-        try:
-            ticker = yf.Ticker(sym)
-            info   = ticker.info or {}
-
-            price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
-            if not price:
-                fi = getattr(ticker, 'fast_info', None)
-                price = getattr(fi, 'last_price', 0) or 0
-            if not price or price <= 0:
-                return None
-
-            # P/E filter - skip pure growth stocks (P/E > 30)
-            pe = info.get('trailingPE') or info.get('forwardPE')
-            if pe and pe > 30:
-                return None
-
-            # Market cap filter - at least $2B (mid/large cap)
-            mkt_cap = (info.get('marketCap') or 0) / 1e9
-            if mkt_cap < 2:
-                return None
-
-            # Download 1-year price history for technical indicators
-            df = yf.download(sym, period='1y', progress=False, auto_adjust=True)
-            if df is None or len(df) < 50:
-                return None
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.droplevel(1)
-
-            # ROIC/WACC ของจริง (Dodaro) — ถ่วงคะแนน Quality เพราะ ROE ในสูตรถูก leverage ปั่นได้
-            cap = _compute_roic_wacc(info, risk_free=US_RISK_FREE_PCT,
-                                     erp=US_EQUITY_PREMIUM_PCT, tax_rate=US_TAX_RATE)
-            val_score, qual_score, price_score, total = _score_value_candidate(
-                info, df, roic_spread=cap['spread'])
-
-            # Minimum quality threshold
-            if total < 20:
-                return None
-
-            # Compute additional price stats
-            close = df['Close']
-            rsi14  = ta.rsi(close, length=14)
-            rsi_val = float(rsi14.dropna().iloc[-1]) if rsi14 is not None and not rsi14.dropna().empty else 50
-            y_high = float(df['High'].max())
-            y_low  = float(df['Low'].min())
-            pct_from_high = ((y_high - float(close.iloc[-1])) / y_high * 100) if y_high > 0 else 0
-
-            ema200 = ta.ema(close, length=200)
-            above_ema200 = False
-            if ema200 is not None and not ema200.dropna().empty:
-                above_ema200 = float(close.iloc[-1]) > float(ema200.dropna().iloc[-1])
-
-            div = (info.get('dividendYield') or 0) * 100
-            roe = (info.get('returnOnEquity') or 0) * 100
-            margin = (info.get('profitMargins') or 0) * 100
-            de_raw = info.get('debtToEquity')
-            de  = (de_raw / 100) if de_raw is not None else None
-            fcf_raw = info.get('freeCashflow') or 0
-            fcf_yield = (fcf_raw / (info.get('marketCap') or 1)) * 100 if fcf_raw and mkt_cap > 0 else 0
-
-            return {
-                'symbol':       sym,
-                'name':         info.get('longName') or info.get('shortName') or sym,
-                'sector':       info.get('sector') or 'Unknown',
-                'price':        round(float(price), 2),
-                'market_cap':   round(mkt_cap, 2),
-                'pe_ratio':     round(float(pe), 2) if pe and pe > 0 else None,
-                'forward_pe':   round(float(info.get('forwardPE') or 0), 2) or None,
-                'pb_ratio':     round(float(info.get('priceToBook') or 0), 2) or None,
-                'peg_ratio':    round(float(info.get('pegRatio') or 0), 2) or None,
-                'ps_ratio':     round(float(info.get('priceToSalesTrailing12Months') or 0), 2) or None,
-                'dividend_yield': round(div, 2),
-                'roe':          round(roe, 1) if roe else None,
-                'profit_margin': round(margin, 1) if margin else None,
-                'debt_equity':  round(de, 2) if de is not None else None,
-                'current_ratio': round(float(info.get('currentRatio') or 0), 2) or None,
-                'revenue_growth': round((info.get('revenueGrowth') or 0) * 100, 1),
-                'fcf_yield':    round(fcf_yield, 1),
-                'roic':         cap['roic'],
-                'wacc':         cap['wacc'],
-                'roic_spread':  cap['spread'],
-                'rsi':          round(rsi_val, 1),
-                'year_high':    round(y_high, 2),
-                'year_low':     round(y_low, 2),
-                'pct_from_high': round(pct_from_high, 1),
-                'above_ema200': above_ema200,
-                'valuation_score':    val_score,
-                'quality_score':      qual_score,
-                'price_action_score': price_score,
-                'total_score':        total,
-            }
-        except Exception:
-            return None
+        return _scan_value_symbol(sym, market)
 
     with ThreadPoolExecutor(max_workers=6) as pool:
         futures = {pool.submit(_process_value_symbol, sym): sym for sym in symbols}
@@ -7089,14 +7108,14 @@ def us_value_scanner(request):
 
     # Fetch previous symbols for new-entry flag
     prev_run_q = (ValueScanCandidate.objects
-                  .filter(user=request.user)
+                  .filter(user=request.user, market=market)
                   .order_by('-scan_run')
                   .values_list('scan_run', flat=True)
                   .distinct()[:1])
     prev_symbols = set()
     if prev_run_q:
         prev_symbols = set(
-            ValueScanCandidate.objects.filter(user=request.user, scan_run=prev_run_q[0])
+            ValueScanCandidate.objects.filter(user=request.user, market=market, scan_run=prev_run_q[0])
             .values_list('symbol', flat=True)
         )
 
@@ -7104,7 +7123,7 @@ def us_value_scanner(request):
     to_create = []
     for r in results:
         to_create.append(ValueScanCandidate(
-            user=request.user, scan_run=scan_time,
+            user=request.user, market=market, scan_run=scan_time,
             symbol=r['symbol'], name=r['name'], sector=r['sector'],
             price=r['price'], market_cap=r['market_cap'],
             pe_ratio=r['pe_ratio'], forward_pe=r['forward_pe'],
@@ -7127,16 +7146,29 @@ def us_value_scanner(request):
     # THEN delete old runs (keep last 3)
     distinct_runs = list(
         ValueScanCandidate.objects
-        .filter(user=request.user)
+        .filter(user=request.user, market=market)
         .values_list('scan_run', flat=True)
         .order_by('-scan_run').distinct()
     )
     if len(distinct_runs) > 3:
         ValueScanCandidate.objects.filter(
-            user=request.user, scan_run__in=distinct_runs[3:]
+            user=request.user, market=market, scan_run__in=distinct_runs[3:]
         ).delete()
 
-    return redirect(f'/stocks/value/us-value/?sort={current_sort}&run_idx=0')
+    _path = 'value/' if market == 'SET' else 'value/us-value/'
+    return redirect(f'/stocks/{_path}?sort={current_sort}&run_idx=0')
+
+@login_required
+def us_value_scanner(request):
+    """US Value Scanner — /stocks/value/us-value/"""
+    return _value_scanner_impl(request, 'US')
+
+
+@login_required
+def value_scanner(request):
+    """Thai Value Scanner — /stocks/value/ (SET100 + MAI)"""
+    return _value_scanner_impl(request, 'SET')
+
 
 
 # ======================================================================

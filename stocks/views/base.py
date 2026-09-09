@@ -852,6 +852,26 @@ def _seed_us_symbols():
     return US_SYMBOLS
 
 
+def _seed_thai_value_symbols():
+    """SET100 + MAI (129 ตัว) — ชุดเดียวกับที่หน้า recommendations ไทยใช้
+    เพื่อให้ทั้งสองหน้าสแกนจาก universe เดียวกัน ไม่ให้ผลขัดกันเอง"""
+    return [
+        'ADVANC.BK','AOT.BK','AWC.BK','BANPU.BK','BBL.BK','BDMS.BK','BEM.BK','BGRIM.BK','BH.BK','BJC.BK',
+        'BTS.BK','CBG.BK','CENTEL.BK','COM7.BK','CPALL.BK','CPAXT.BK','CPF.BK','CPN.BK','CRC.BK','DELTA.BK',
+        'EA.BK','EGCO.BK','GLOBAL.BK','GPSC.BK','GULF.BK','HMPRO.BK','INTUCH.BK','IRPC.BK','IVL.BK','JMART.BK',
+        'JMT.BK','KBANK.BK','KCE.BK','KKP.BK','KTB.BK','KTC.BK','LH.BK','MINT.BK','MTC.BK','OR.BK',
+        'OSP.BK','PTT.BK','PTTEP.BK','PTTGC.BK','RATCH.BK','SCB.BK','SCC.BK','SCGP.BK','TISCO.BK','TOP.BK',
+        'TRUE.BK','TTB.BK','TU.BK','WHA.BK','AMATA.BK','AP.BK','BAM.BK','BCH.BK','BCP.BK','BCPG.BK',
+        'BLA.BK','BPP.BK','CHG.BK','CK.BK','CKP.BK','DOHOME.BK','ERW.BK','FORTH.BK','GUNKUL.BK','HANA.BK',
+        'ICHI.BK','ITC.BK','M.BK','MBK.BK','MEGA.BK','ORI.BK','PLANB.BK','PRM.BK','PSL.BK','PTG.BK',
+        'QH.BK','RCL.BK','ROJNA.BK','RS.BK','SABINA.BK','SAWAD.BK','SINGER.BK','SIRI.BK','SPALI.BK','SPRC.BK',
+        'STA.BK','STEC.BK','STGT.BK','SUPER.BK','TASCO.BK','TCAP.BK','THANI.BK','THCOM.BK','THG.BK','TIDLOR.BK',
+        'TKN.BK','TLI.BK','TOA.BK','TPIPL.BK','TPIPP.BK','TQM.BK','TTA.BK','VGI.BK','WHAUP.BK','SPA.BK',
+        'AU.BK','D.BK','CHAYO.BK','YGG.BK','BE8.BK','BBIK.BK','SNNP.BK','TNP.BK','TACC.BK','SICT.BK',
+        'ADD.BK','ABM.BK','CHO.BK','PSTC.BK','TVDH.BK','NDR.BK','BOL.BK','IP.BK','PLANET.BK',
+    ]
+
+
 def _seed_value_symbols():
     """~200 US value-oriented stocks across all sectors."""
     return [
