@@ -599,7 +599,7 @@
     $(document).ready(function() {
         // Initialize DataTable for Premium Sorting/Searching
         $('#valuationTable').DataTable({
-            "order": [[ 3, "desc" ]], // Sort by Score (index 3) by default
+            "order": [[ 2, "desc" ]], // Sort by Score (index 2: Symbol, Price, Score) — index 3 คือ P/E
             "pageLength": 50,
             "language": {
                 "search": "ค้นหาหุ้น:",
