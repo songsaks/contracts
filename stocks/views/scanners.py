@@ -610,6 +610,11 @@ TH_RISK_FREE_PCT      = 2.5   # พันธบัตรรัฐบาลไท
 TH_EQUITY_PREMIUM_PCT = 7.5   # Equity Risk Premium ไทย (Damodaran)
 TH_TAX_RATE           = 0.20  # ภาษีนิติบุคคลไทย
 
+# ต้นทุนเงินทุนอ้างอิงตลาดสหรัฐ
+US_RISK_FREE_PCT      = 4.2   # US Treasury 10 ปี
+US_EQUITY_PREMIUM_PCT = 5.0   # Equity Risk Premium สหรัฐ (Damodaran)
+US_TAX_RATE           = 0.21  # ภาษีนิติบุคคลสหรัฐ (federal)
+
 
 def _fin_num(v):
     """คืน float เฉพาะเมื่อเป็นตัวเลขที่ใช้ได้จริง — กัน None/NaN/inf/str หลุดเข้าไปคำนวณ"""
@@ -1050,6 +1055,11 @@ def us_recommendations(request):
                 if isinstance(roe, (int, float)):
                     ev_spread = roe - 10.0
 
+                # ROIC/WACC ของจริง (Dodaro) — นับหนี้เป็นเงินทุนด้วย และคิดต้นทุนทุนรายตัว
+                # หน้านี้ไม่ได้ดึง balance sheet จึงให้ฟังก์ชัน fallback ไปใช้ bookValue × sharesOutstanding
+                cap = _compute_roic_wacc(inf, risk_free=US_RISK_FREE_PCT,
+                                         erp=US_EQUITY_PREMIUM_PCT, tax_rate=US_TAX_RATE)
+
                 # ====== ENHANCED VALUATION FRAMEWORK (US Market) ======
                 # ใช้ 3 วิธีเหมือน Thai Framework แต่ Bond Yield อิง US 10-yr Treasury
                 fair_value = None; upside = None; mos_price = None
@@ -1109,6 +1119,8 @@ def us_recommendations(request):
                     'pe': pe, 'pb': pb, 'roe': roe, 'dy': dy, 'npm': npm, 'de': de,
                     'rsi': rsi_val, 'peg': peg, 'price': price, 'rvol': round(rvol, 2),
                     'ev_spread': ev_spread,
+                    'roic': cap['roic'], 'wacc': cap['wacc'], 'roic_spread': cap['spread'],
+                    'cap_na_reason': cap['na_reason'],
                     'fair_value': round(fair_value, 2) if fair_value else None,
                     'mos_price': round(mos_price, 2) if mos_price else None,
                     'upside': round(upside, 1) if upside else None,
