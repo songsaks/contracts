@@ -421,6 +421,10 @@ class PrecisionScanCandidate(models.Model):
     abcd_quality = models.CharField(max_length=10, blank=True, default='medium')  # high/medium/low (thin retracement quality)
     abcd_is_thin = models.BooleanField(default=False)              # True เมื่อเป็น thin retracement (15-30%)
 
+    # Convergence Check: BO + B (ABCD) alignment
+    convergence_gap_pct = models.FloatField(default=0.0)           # % difference between BO and B (ABCD) entry prices
+    convergence_status  = models.CharField(max_length=10, blank=True, default='none')  # strong/fair/risky/diverge/none
+
     wyckoff_selling_climax   = models.BooleanField(default=False)  # จุดเริ่ม Phase A: volume พุ่ง+แท่งแดงยาวหลังขาลง แล้วมี Automatic Rally ยืนยัน
     wyckoff_upthrust         = models.BooleanField(default=False)  # ทะลุแนวต้านฐานแจกจ่ายหลอกๆ แล้วร่วงกลับ — สัญญาณเตือนแจกจ่าย/ขาลง (คู่ตรงข้าม Spring)
 

@@ -31,6 +31,39 @@ def _yq_modules_with_timeout(symbols, modules_str, timeout=25):
     finally:
         _ex.shutdown(wait=False)
 
+
+def _calculate_convergence_gap(bo_price, b_price):
+    """
+    คำนวณ % difference ระหว่าง BO (Breakout) และ B (ABCD) entry prices
+    Gap = |BO - B| / B * 100
+    ถ้าไม่มีค่าใดค่าหนึ่ง → return 0.0
+    """
+    if not bo_price or not b_price or b_price == 0:
+        return 0.0
+    gap = abs(bo_price - b_price) / b_price * 100
+    return round(gap, 2)
+
+
+def _get_convergence_status(gap_pct):
+    """
+    กำหนด Convergence Status ตามช่วง Gap %:
+    - 0-5%   → 'strong'
+    - 5-8%   → 'fair'
+    - 8-15%  → 'risky'
+    - >15%   → 'diverge'
+    - 0 (no data) → 'none'
+    """
+    if gap_pct == 0:
+        return 'none'
+    elif gap_pct <= 5:
+        return 'strong'
+    elif gap_pct <= 8:
+        return 'fair'
+    elif gap_pct <= 15:
+        return 'risky'
+    else:
+        return 'diverge'
+
 # ============================================================
 # ฟังก์ชัน: _mr_detect_pattern
 # วัตถุประสงค์: ตรวจจับรูปแบบแท่งเทียนกลับตัวขาขึ้น (Bullish Reversal Patterns)
@@ -2743,6 +2776,17 @@ def precision_momentum_scanner(request):
                             abcd_rr=(r.get('abcd') or {}).get('rr'),
                             abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
                             abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
+                            # Convergence Check: BO vs B (ABCD)
+                            convergence_gap_pct=_calculate_convergence_gap(
+                                r.get('breakout_price'),
+                                (r.get('abcd') or {}).get('entry')
+                            ),
+                            convergence_status=_get_convergence_status(
+                                _calculate_convergence_gap(
+                                    r.get('breakout_price'),
+                                    (r.get('abcd') or {}).get('entry')
+                                )
+                            ),
                         ))
 
 
@@ -6029,6 +6073,17 @@ def us_precision_scanner(request):
                             abcd_rr=(r.get('abcd') or {}).get('rr'),
                             abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
                             abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
+                            # Convergence Check: BO vs B (ABCD)
+                            convergence_gap_pct=_calculate_convergence_gap(
+                                r.get('breakout_price'),
+                                (r.get('abcd') or {}).get('entry')
+                            ),
+                            convergence_status=_get_convergence_status(
+                                _calculate_convergence_gap(
+                                    r.get('breakout_price'),
+                                    (r.get('abcd') or {}).get('entry')
+                                )
+                            ),
                         ))
 
                     if bulk_candidates:
