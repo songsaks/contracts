@@ -6926,11 +6926,16 @@ def _scan_value_symbol(sym, market='US'):
         if not price or price <= 0:
             return None
 
-        # P/E filter — ตัดหุ้น growth ล้วน (P/E > 30) และหุ้นขาดทุน (P/E ≤ 0)
-        # เดิมเช็คแค่ > 30 ทำให้ P/E ติดลบหลุดผ่าน เพราะค่าติดลบเป็น truthy แต่ไม่ > 30
-        # บริษัทขาดทุนไม่ใช่หุ้น value และสูตรคะแนนก็ให้แต้ม P/E เฉพาะตอน > 0 อยู่แล้ว
+        # ตัดหุ้นขาดทุนด้วย EPS ตรงๆ ไม่ใช่ผ่าน P/E — Yahoo ตัดฟิลด์ trailingPE ทิ้ง
+        # เมื่อกำไรติดลบ (ไม่ได้ส่งค่าติดลบมา) ทำให้ `trailingPE or forwardPE`
+        # ไปหยิบ forward P/E ที่เป็นบวกของหุ้นขาดทุนมาแทน แล้วหลุดด่านไปได้
+        eps = info.get('trailingEps')
+        if eps is None or eps <= 0:
+            return None
+
+        # P/E filter — ตัดหุ้น growth ล้วน (ถึงตรงนี้ EPS เป็นบวกแล้ว P/E จึงเชื่อได้)
         pe = info.get('trailingPE') or info.get('forwardPE')
-        if pe is not None and (pe > 30 or pe <= 0):
+        if pe and pe > 30:
             return None
 
         # Market cap ขั้นต่ำ — ฿3B (ไทย) / $2B (US) ตัดหุ้นเล็กสภาพคล่องต่ำ
@@ -7017,7 +7022,7 @@ def _value_scanner_impl(request, market):
     ทุก query จึงต้องกรองด้วย market ไม่งั้นสองตลาดจะปนกันในรอบสแกนเดียว"""
     """
     US Value Stock Scanner - fundamental quality + cheap valuation.
-    P/E < 25 across all sectors (Financials, Energy, Healthcare, Tech, etc.)
+    EPS > 0 และ P/E ≤ 30 ครอบคลุมทุก sector (Financials, Energy, Healthcare, Tech, ฯลฯ)
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from datetime import datetime as _dt
