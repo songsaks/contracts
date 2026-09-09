@@ -53,10 +53,11 @@ def _calculate_convergence_gap(bo_price, b_price):
     """
     คำนวณ % difference ระหว่าง BO (Breakout) และ B (ABCD) entry prices
     Gap = |BO - B| / B * 100
-    ถ้าไม่มีค่าใดค่าหนึ่ง → return 0.0
+    คืน None เมื่อขาดข้อมูลฝั่งใดฝั่งหนึ่ง — ห้ามคืน 0.0 เพราะ 0.0 คือ
+    "BO กับ B ตรงกันพอดี" ซึ่งเป็นสัญญาณที่แข็งแรงที่สุด ไม่ใช่ "ไม่มีข้อมูล"
     """
-    if not bo_price or not b_price or b_price == 0:
-        return 0.0
+    if not bo_price or not b_price:
+        return None
     gap = abs(bo_price - b_price) / b_price * 100
     return round(gap, 2)
 
@@ -64,13 +65,13 @@ def _calculate_convergence_gap(bo_price, b_price):
 def _get_convergence_status(gap_pct):
     """
     กำหนด Convergence Status ตามช่วง Gap %:
+    - None   → 'none' (ไม่มี BO หรือ ABCD pattern)
     - 0-5%   → 'strong'
     - 5-8%   → 'fair'
     - 8-15%  → 'risky'
     - >15%   → 'diverge'
-    - 0 (no data) → 'none'
     """
-    if gap_pct == 0:
+    if gap_pct is None:
         return 'none'
     elif gap_pct <= 5:
         return 'strong'
@@ -2798,7 +2799,7 @@ def precision_momentum_scanner(request):
                             abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
                             abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
                             # Convergence Check: BO vs B (ABCD)
-                            convergence_gap_pct=_conv_gap,
+                            convergence_gap_pct=_conv_gap if _conv_gap is not None else 0.0,
                             convergence_status=_get_convergence_status(_conv_gap),
                         ))
 
@@ -6094,7 +6095,7 @@ def us_precision_scanner(request):
                             abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
                             abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
                             # Convergence Check: BO vs B (ABCD)
-                            convergence_gap_pct=_conv_gap,
+                            convergence_gap_pct=_conv_gap if _conv_gap is not None else 0.0,
                             convergence_status=_get_convergence_status(_conv_gap),
                         ))
 
