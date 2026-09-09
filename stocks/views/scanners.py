@@ -698,6 +698,27 @@ def _compute_roic_wacc(inf, equity=None, risk_free=TH_RISK_FREE_PCT,
     }
 
 
+def _roic_score_adjust(spread):
+    """ปรับคะแนนรวมตามส่วนต่าง ROIC − WACC
+
+    ให้ทั้งบวกและลบ ไม่ใช่โบนัสอย่างเดียว เพราะ ROIC < WACC ไม่ใช่แค่ 'ไม่เด่น'
+    แต่คือธุรกิจที่ยิ่งขยายยิ่งทำลายมูลค่า — ต้องถูกดันลงจากหุ้นที่คุ้มทุน
+
+    คืน 0 เมื่อคำนวณไม่ได้ (ธนาคาร/ข้อมูลงบไม่พอ) เพื่อให้เป็นกลาง
+    ไม่ลงโทษหุ้นเพราะเราไม่มีข้อมูล"""
+    if spread is None:
+        return 0
+    if spread >= 10:
+        return 12
+    if spread >= 5:
+        return 8
+    if spread > 0:
+        return 4
+    if spread > -5:
+        return -4
+    return -8
+
+
 @login_required
 def recommendations(request):
     """
@@ -795,16 +816,17 @@ def recommendations(request):
             if isinstance(roe, (int, float)) and roe > 15: p_greenblatt += 10
             if isinstance(pe, (int, float)) and pe < 10: p_templeton += 10
 
-            final_score = (p_graham * 0.75) + (p_buffett * 0.75) + (p_lynch * 2.0) + (p_greenblatt * 1.0) + (p_templeton * 0.5)
-            momentum_bonus = 0
-            if isinstance(rsi_val, (int, float)) and 30 <= rsi_val <= 50: momentum_bonus += 5
-            if rvol > 1.2: momentum_bonus += 5
-            final_score = min(100, final_score + momentum_bonus)
-
             ev_spread = (roe - 10.0) if isinstance(roe, (int, float)) else None
             # ROIC/WACC ของจริง (Dodaro) — นับหนี้เป็นเงินทุนด้วย และคิดต้นทุนทุนรายตัว
             # ต่างจาก ev_spread ด้านบนที่ใช้ ROE เทียบ 10% คงที่ เก็บทั้งคู่ไว้เทียบกันได้
             cap = _compute_roic_wacc(inf, equity=book_equity)
+
+            final_score = (p_graham * 0.75) + (p_buffett * 0.75) + (p_lynch * 2.0) + (p_greenblatt * 1.0) + (p_templeton * 0.5)
+            momentum_bonus = 0
+            if isinstance(rsi_val, (int, float)) and 30 <= rsi_val <= 50: momentum_bonus += 5
+            if rvol > 1.2: momentum_bonus += 5
+            # ปรับด้วย ROIC−WACC ได้ทั้งบวกและลบ จึงต้องกันคะแนนติดลบด้วย max(0, ...)
+            final_score = min(100, max(0, final_score + momentum_bonus + _roic_score_adjust(cap['spread'])))
 
             # ====== ENHANCED VALUATION FRAMEWORK (Thai Market) ======
             # วิธีที่ใช้: 3 วิธีผสมกันแบบ Weighted Average
@@ -1047,9 +1069,6 @@ def us_recommendations(request):
                 if isinstance(pe, (int, float)) and pe < 12: p_templeton += 10
                 if isinstance(pb, (int, float)) and pb < 1.2: p_templeton += 10
 
-                final_score = (p_graham * 0.75) + (p_buffett * 0.75) + (p_lynch * 2.0) + (p_greenblatt * 1.0) + (p_templeton * 0.5)
-                final_score = min(100, final_score + 5 if rvol > 1.2 else final_score)
-
                 # Economic Profit (ROE - CoE 10%)
                 ev_spread = None
                 if isinstance(roe, (int, float)):
@@ -1059,6 +1078,11 @@ def us_recommendations(request):
                 # หน้านี้ไม่ได้ดึง balance sheet จึงให้ฟังก์ชัน fallback ไปใช้ bookValue × sharesOutstanding
                 cap = _compute_roic_wacc(inf, risk_free=US_RISK_FREE_PCT,
                                          erp=US_EQUITY_PREMIUM_PCT, tax_rate=US_TAX_RATE)
+
+                final_score = (p_graham * 0.75) + (p_buffett * 0.75) + (p_lynch * 2.0) + (p_greenblatt * 1.0) + (p_templeton * 0.5)
+                if rvol > 1.2: final_score += 5
+                # ปรับด้วย ROIC−WACC ได้ทั้งบวกและลบ จึงต้องกันคะแนนติดลบด้วย max(0, ...)
+                final_score = min(100, max(0, final_score + _roic_score_adjust(cap['spread'])))
 
                 # ====== ENHANCED VALUATION FRAMEWORK (US Market) ======
                 # ใช้ 3 วิธีเหมือน Thai Framework แต่ Bond Yield อิง US 10-yr Treasury
