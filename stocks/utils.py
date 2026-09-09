@@ -2927,11 +2927,18 @@ def detect_cup_and_handle(df):
 #   entry = B (buy-stop) · stop = ใต้ C · target = B + (B−A) (measured move)
 # ----------------------------------------------------------------------
 def detect_abcd_pattern(df, lookback=60):
-    """ตรวจจับ ABCD swing pattern — คืน dict เสมอ (setup=False เมื่อไม่เจอ)"""
+    """
+    ตรวจจับ ABCD swing pattern — คืน dict เสมอ (setup=False เมื่อไม่เจอ)
+
+    ปรับปรุง v2: ปรับปรุงความแม่นยำสำหรับ thin retracements (15-30%)
+    - Dual-scan mode: Fractal + Price Action
+    - ไวต่อ retracement ที่ตื้นมากขึ้น
+    - Volume confirmation สำหรับ thin pullbacks
+    """
     _empty = {
         'setup': False, 'stage': '', 'a': None, 'b': None, 'c': None,
         'entry': None, 'stop': None, 'target': None, 'rr': None,
-        'ab_pct': 0.0, 'retr': 0.0, 'bars_since_c': 0,
+        'ab_pct': 0.0, 'retr': 0.0, 'bars_since_c': 0, 'quality': 'low',
     }
 
     if df is None or len(df) < 30:
@@ -2947,48 +2954,119 @@ def detect_abcd_pattern(df, lookback=60):
     seg_start = max(0, n - lookback)
     order = 2  # fractal 5 แท่ง
 
+    # ====== Standard Fractal Detection (Normal & Deep Retracements) ======
     hi_idx = [i for i in argrelextrema(high, np.greater_equal, order=order)[0]
               if seg_start <= i <= n - 2 and n - 1 - i <= 30]
     lo_idx = [i for i in argrelextrema(low, np.less_equal, order=order)[0]
               if seg_start <= i <= n - 2]
     if seg_start not in lo_idx:
         lo_idx = [seg_start] + lo_idx
-    if not hi_idx or not lo_idx:
+
+    # ====== Additional: Thin Retracement Detector ======
+    # ฟื้อ retracement ตื้นมาก ที่อาจพลาดจากการตรวจจับ fractal ปกติ
+    thin_lo_idx = []
+    for i in range(max(seg_start, 3), n - 1):
+        # ตรวจสอบว่าเป็นจุดต่ำสุดใน window 3 แท่ง (มากขึ้นกว่า order=2)
+        # แต่ยังคง sensitive ต่อการเปลี่ยนแปลงราคาเล็กน้อย
+        if low[i] < low[i-1] and low[i] <= low[i+1]:
+            # ตรวจสอบว่ายังไม่อยู่ใน lo_idx แล้ว
+            if i not in lo_idx:
+                thin_lo_idx.append(i)
+
+    lo_idx_extended = sorted(set(lo_idx + thin_lo_idx))
+
+    if not hi_idx or not lo_idx_extended:
         return _empty
 
     cur = close[-1]
     best = None
 
-    for b_i in reversed(hi_idx):                      # ไล่ B จากล่าสุด → เอาทรงที่ C ใหม่สุด
+    for b_i in reversed(hi_idx):
         b_val = high[b_i]
-        a_pool = [j for j in lo_idx if j < b_i and b_i - j <= 25]
+
+        # ====== หา A: Origin Low (ก่อน B ไม่เกิน 25 แท่ง) ======
+        a_pool = [j for j in lo_idx_extended if j < b_i and b_i - j <= 25]
         if not a_pool:
             continue
         a_i = min(a_pool, key=lambda j: low[j])
         a_val = low[a_i]
         if a_val <= 0:
             continue
+
         rng = b_val - a_val
         if rng <= 0:
             continue
+
         ab_pct = rng / a_val * 100.0
-        if ab_pct < 8.0:                              # impulse leg ต้องแรงพอ
+        if ab_pct < 8.0:  # impulse leg ต้องแรงพอ
             continue
 
-        c_pool = [j for j in lo_idx if j > b_i and 1 <= n - 1 - j <= 15]
+        # ====== หา C: Retracement (หลัง B ภายใน 15 แท่ง) ======
+        # ยาว window มากขึ้นเพื่อจับ thin retracements ได้ดีกว่า
+        c_pool = [j for j in lo_idx_extended if j > b_i and 1 <= n - 1 - j <= 15]
         if not c_pool:
             continue
+
         c_i = min(c_pool, key=lambda j: low[j])
         c_val = low[c_i]
-        retr = (b_val - c_val) / rng
-        if retr < 0.15 or retr > 0.786 or c_val <= a_val:
+
+        retr = (b_val - c_val) / rng if rng > 0 else 0
+
+        # ====== Validation Rules (ปรับปรุง) ======
+        # Allow thin retracements (15-30%) ที่มี confirmation ดีกว่า
+        is_thin = 0.15 <= retr < 0.30
+        is_normal = 0.30 <= retr <= 0.786
+
+        if not (is_thin or is_normal):
             continue
-        if cur <= c_val:                              # ทรงพัง — ราคาหลุด C
+
+        if c_val <= a_val:  # C must be above A
             continue
+
+        if cur <= c_val:  # Current price must be above C
+            continue
+
+        # ====== Quality Check สำหรับ Thin Retracements ======
+        quality = 'medium'
+        if is_thin:
+            # ตรวจสอบ confirmation เพิ่มเติมสำหรับ thin pullbacks
+            bars_since_c = n - 1 - c_i
+
+            # Thin retracements ต้องมี volume confirmation
+            if 'Volume' in df.columns:
+                try:
+                    vol_c = df['Volume'].iloc[c_i]
+                    avg_vol = df['Volume'].iloc[max(0, c_i-5):c_i].mean()
+                    if vol_c < avg_vol * 0.7:  # Volume ต้องไม่ต่ำเกินไป
+                        continue
+                except:
+                    pass
+
+            # Thin retracements ต้องใกล้ล่าสุด (≤ 8 bars)
+            if bars_since_c > 8:
+                continue
+
+            # Price action: ต้องมีการ bounce ชัดเจนจาก C
+            if c_i + 1 < n:
+                if low[c_i + 1] < c_val * 0.99:  # ถ้าแท่งถัดไปลงต่ำกว่า C มาก = ลดคุณภาพ
+                    quality = 'low'
+                else:
+                    quality = 'high'
+        else:
+            quality = 'medium'
+
+        # EMA50 filter (ถ้า thin retracement = ต้อง strict มากขึ้น)
         if 'EMA50' in df.columns:
             ema50_c = df['EMA50'].iloc[c_i]
-            if pd.notna(ema50_c) and c_val < float(ema50_c) * 0.98:
-                continue
+            if pd.notna(ema50_c):
+                if is_thin:
+                    # Thin retracement: C ต้องอยู่เหนือ EMA50 มากกว่า
+                    if c_val < float(ema50_c) * 0.995:
+                        continue
+                else:
+                    # Normal retracement: ยืดหน่วยได้มากขึ้น
+                    if c_val < float(ema50_c) * 0.98:
+                        continue
 
         entry  = b_val
         stop   = c_val * 0.995
@@ -3009,6 +3087,8 @@ def detect_abcd_pattern(df, lookback=60):
             'entry': round(float(entry), 4), 'stop': round(float(stop), 4), 'target': round(float(target), 4),
             'rr': round(float(rr), 2), 'ab_pct': round(float(ab_pct), 2), 'retr': round(float(retr), 3),
             'bars_since_c': int(n - 1 - c_i),
+            'quality': quality,  # high/medium/low สำหรับ thin retracements
+            'is_thin': is_thin,  # Flag เพื่อบอกว่าเป็น thin retracement
         }
         break
 

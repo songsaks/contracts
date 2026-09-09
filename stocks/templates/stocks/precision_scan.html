@@ -2029,6 +2029,12 @@
                             <th class="col-hide-lg">VOL</th>
                             <th class="col-hide-md"><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
                             <th class="col-hide-lg">ENTRY</th>
+                            <th class="col-hide-md" style="background:#ffc107; font-weight:600;">
+                                <a href="?sort=abcd_entry&run_idx={{ selected_run_idx }}"
+                                   class="text-decoration-none text-dark"
+                                   title="ABCD Entry Point (B) - Click to sort">B (ABCD)</a>
+                            </th>
+                            <th class="col-hide-md">ABCD Q</th>
                             <th class="col-hide-sm">
                                 <a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a>
                                 <a href="{% url 'stocks:ehlers_manual' %}" target="_blank"
@@ -2581,6 +2587,39 @@
                                     <div class="val-hint">โซนซื้อ / BO / TP</div>
                                 </div>
                                 {% else %}-{% endif %}
+                            </td>
+
+                            <!-- ABCD B POINT (Entry) -->
+                            <td class="col-hide-md">
+                                {% if item.abcd_setup and item.abcd_entry %}
+                                <div style="line-height:1.3;">
+                                    <span class="fw-bold"
+                                          style="background:#fff3cd; padding:4px 8px; border-radius:4px; font-size:14px; display:inline-block;"
+                                          title="ABCD Entry Point (B) — A:{{ item.abcd_a_price|floatformat:2 }} → B:{{ item.abcd_b_price|floatformat:2 }} → C:{{ item.abcd_c_price|floatformat:2 }} | Stop:{{ item.abcd_stop|floatformat:2 }} | Target:{{ item.abcd_target|floatformat:2 }} | R:R {{ item.abcd_rr|floatformat:1 }}">
+                                        {{ item.abcd_entry|floatformat:2 }}
+                                    </span>
+                                    {% if item.abcd_is_thin %}
+                                    <div style="font-size:0.7rem; color:#999; margin-top:2px;">Thin</div>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- ABCD QUALITY -->
+                            <td class="col-hide-md text-center">
+                                {% if item.abcd_setup %}
+                                    {% if item.abcd_quality == 'high' %}
+                                    <span class="badge" style="background:#28a745; color:white; font-size:0.65rem;">HIGH</span>
+                                    {% elif item.abcd_quality == 'medium' %}
+                                    <span class="badge" style="background:#ffc107; color:#333; font-size:0.65rem;">MED</span>
+                                    {% else %}
+                                    <span class="badge" style="background:#6c757d; color:white; font-size:0.65rem;">LOW</span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
                             </td>
 
                             <!-- RSI -->

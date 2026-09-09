@@ -2741,6 +2741,8 @@ def precision_momentum_scanner(request):
                             abcd_stop=(r.get('abcd') or {}).get('stop'),
                             abcd_target=(r.get('abcd') or {}).get('target'),
                             abcd_rr=(r.get('abcd') or {}).get('rr'),
+                            abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
+                            abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
                         ))
 
 
@@ -6025,6 +6027,8 @@ def us_precision_scanner(request):
                             abcd_stop=(r.get('abcd') or {}).get('stop'),
                             abcd_target=(r.get('abcd') or {}).get('target'),
                             abcd_rr=(r.get('abcd') or {}).get('rr'),
+                            abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
+                            abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
                         ))
 
                     if bulk_candidates:

@@ -408,6 +408,7 @@ class PrecisionScanCandidate(models.Model):
 
     # ====== ABCD swing pattern (day-trade style, ไม่เข้าระบบคะแนน) ======
     # แนวคิดจาก "How to Day Trade for a Living" (Andrew Aziz) ปรับมาใช้กับ daily bars
+    # ปรับปรุง v2: improved thin retracement detection
     abcd_setup   = models.BooleanField(default=False)              # เจอทรง ABCD ที่ยัง valid
     abcd_stage   = models.CharField(max_length=10, blank=True, default='')  # forming / ready / trigger
     abcd_a_price = models.FloatField(null=True, blank=True)        # A — origin ของ impulse leg
@@ -417,6 +418,8 @@ class PrecisionScanCandidate(models.Model):
     abcd_stop    = models.FloatField(null=True, blank=True)        # stop ใต้ C
     abcd_target  = models.FloatField(null=True, blank=True)        # target = B + (B−A)
     abcd_rr      = models.FloatField(null=True, blank=True)        # (target−entry)/(entry−stop)
+    abcd_quality = models.CharField(max_length=10, blank=True, default='medium')  # high/medium/low (thin retracement quality)
+    abcd_is_thin = models.BooleanField(default=False)              # True เมื่อเป็น thin retracement (15-30%)
 
     wyckoff_selling_climax   = models.BooleanField(default=False)  # จุดเริ่ม Phase A: volume พุ่ง+แท่งแดงยาวหลังขาลง แล้วมี Automatic Rally ยืนยัน
     wyckoff_upthrust         = models.BooleanField(default=False)  # ทะลุแนวต้านฐานแจกจ่ายหลอกๆ แล้วร่วงกลับ — สัญญาณเตือนแจกจ่าย/ขาลง (คู่ตรงข้าม Spring)
