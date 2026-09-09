@@ -2162,6 +2162,10 @@
     data-abcd-stop="{{ item.abcd_stop|default:0 }}"
     data-abcd-target="{{ item.abcd_target|default:0 }}"
     data-abcd-rr="{{ item.abcd_rr|default:0 }}"
+    data-abcd-quality="{{ item.abcd_quality|default:'' }}"
+    data-conv-status="{{ item.convergence_status|default:'none' }}"
+    data-conv-gap="{{ item.convergence_gap_pct|default:0 }}"
+    data-rvol-ctx="{% if item.rvol_context %}{{ item.rvol_context.code }}{% endif %}"
     id="row-{{ item.symbol }}">
 
                             <!-- SYMBOL -->
@@ -4886,7 +4890,12 @@ function _tfRowsSET() {
             sl: parseFloat(d.slPrice || 0), tp: parseFloat(d.tpPrice || 0), price: parseFloat(d.price || 0),
             launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true',
             spring: d.wyckoffSpring === 'true', erWarning: d.wyckoffErWarning === 'true',
-            sectorConfirmed: d.sectorConfirmed === 'true', ttScore: parseInt(d.ttScore || 0)
+            sectorConfirmed: d.sectorConfirmed === 'true', ttScore: parseInt(d.ttScore || 0),
+            abcd: d.abcd === 'true', abcdStage: d.abcdStage || '', abcdQuality: d.abcdQuality || '',
+            abcdEntry: parseFloat(d.abcdEntry || 0), abcdStop: parseFloat(d.abcdStop || 0),
+            abcdRr: parseFloat(d.abcdRr || 0),
+            convStatus: d.convStatus || 'none', convGap: parseFloat(d.convGap || 0),
+            rvolCtx: d.rvolCtx || ''
         };
     });
 }
@@ -4962,12 +4971,24 @@ function _tfDo4SET() {
             r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
         } else if (r.inzone && (r.extended || r.rsi > 68)) {
             r.timing = 'alert'; r.action = 'IN ZONE แต่ ' + (r.extended ? 'ยืดตัวเกินจาก MA50' : 'RSI ' + Math.round(r.rsi) + ' ยังร้อน') + ' — รอย่อ/เย็นลงก่อนเข้า';
+        } else if (r.inzone && r.rvolCtx === 'vdu') {
+            // Volume แห้งก่อนถึงจุดเบรก = VDU (setup กำลังทำงาน) ไม่ใช่ความบกพร่อง
+            // ยังเป็น alert เพราะ in-zone ต้องมีหลักฐานเงินไหลเข้าก่อนเข้าจริง แต่ข้อความต้องไม่สื่อว่า vol ต่ำ = แย่
+            r.timing = 'alert'; r.action = 'IN ZONE + VDU (Vol แห้ง ' + r.rvol.toFixed(1) + 'x — คนขายหมดแรง) — รอแรงซื้อยืนยัน';
         } else if (r.inzone) {
             r.timing = 'alert'; r.action = 'IN ZONE แต่รอ Vol/เงินไหลเข้า (RVOL ' + r.rvol.toFixed(1) + 'x, CMF ' + r.cmf.toFixed(2) + ')';
         } else if (r.turtleDist <= 0.5 && r.rvol >= 1.5) {
-            r.timing = 'enter'; r.action = 'BREAKOUT + Vol ' + r.rvol.toFixed(1) + 'x — เข้าได้';
+            r.timing = 'enter';
+            r.action = 'BREAKOUT + Vol ' + r.rvol.toFixed(1) + 'x — เข้าได้'
+                     + (r.convStatus === 'strong' ? ' · BO=B ตรงกัน (Conv STRONG)' : '');
+        } else if (r.abcd && r.abcdStage === 'trigger' && r.abcdQuality !== 'low' && r.rvol >= 1.5) {
+            r.timing = 'enter'; r.action = '⚗️ ABCD ทะลุจุด B ' + cur + r.abcdEntry.toFixed(2) + ' + Vol ' + r.rvol.toFixed(1) + 'x — เข้าได้';
         } else if (r.turtleDist <= 3) {
             r.timing = 'alert'; r.action = 'จ่อเบรก — ตั้ง alert BO ' + cur + bo.toFixed(2) + (r.rvol < 1.5 ? ' (รอ Vol)' : '');
+        } else if (r.abcd && (r.abcdStage === 'trigger' || r.abcdStage === 'ready') && r.abcdQuality !== 'low') {
+            r.timing = 'alert';
+            r.action = '⚗️ ABCD ' + (r.abcdStage === 'trigger' ? 'ทะลุ B แล้ว' : 'จ่อทะลุ B') + ' ' + cur + r.abcdEntry.toFixed(2)
+                     + (r.rvol < 1.5 ? ' — รอ Vol ยืนยัน' : '');
         } else if (r.prox <= 10 && r.ppPrice > 0) {
             r.timing = 'alert'; r.action = 'รอย่อเข้าโซน ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2);
         } else {
@@ -5027,9 +5048,14 @@ function _tfDo5SET() {
     list.forEach(function(r) {
         // Trend Template (0-8, +3/ข้อ = สูงสุด +24) และ Sector Confirmed (+10) ถ่วงน้ำหนักคะแนนแทนการ hard-filter
         // เพื่อให้หุ้นที่ตรงเป้าตาม Minervini/Livermore ขึ้นอันดับต้นเองโดยไม่ตัดหุ้นดีตัวอื่นทิ้ง
+        // BO-B Convergence: จุดเบรก Turtle กับจุด B ของ ABCD เป็นราคาเดียวกัน = แนวต้านเดียวกัน
+        // ถูกยืนยันด้วย 2 วิธีที่คำนวณคนละแบบ — ให้เป็นโบนัสคะแนน ไม่ใช่ด่านกรอง
+        const convBonus = r.convStatus === 'strong' ? 15 : (r.convStatus === 'fair' ? 7 : 0);
+        const abcdBonus = r.abcd && r.abcdQuality === 'high' ? 8 : (r.abcd && r.abcdQuality === 'medium' ? 4 : 0);
         r.score = r.stars.length * 25 + (r.timing === 'enter' ? 30 : 15) + (r.pp ? 20 : 0)
                 + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0)
-                + (r.ttScore || 0) * 3 + (r.sectorConfirmed ? 10 : 0);
+                + (r.ttScore || 0) * 3 + (r.sectorConfirmed ? 10 : 0)
+                + convBonus + abcdBonus;
     });
     // จัดกลุ่มก่อนเรียง: ตัวที่ "เข้าได้ตอนนี้" ขึ้นก่อนเสมอ แล้วค่อยเรียงคะแนนภายในกลุ่ม
     const enters = list.filter(r => r.timing === 'enter').sort((a, b) => b.score - a.score);
@@ -5049,7 +5075,7 @@ function _tfDo5SET() {
         : (_tfStateSET.sizeF === 0.5 ? '<div class="small fw-bold mb-2 p-2 rounded-2" style="background:#fffbeb;border:1px solid #fde68a;color:#b45309;"><i class="fas fa-circle-info me-1"></i> ตลาด Sideways — ใช้ขนาดไม้ครึ่งเดียวของปกติ</div>' : '');
     let html = blockedNote + '<div class="rounded-3 p-2 px-3" style="background:white;border:1px solid #e2e8f0;">';
     html += '<div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">'
-          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS + Trend Template + Sector)</span>'
+          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS + Trend Template + Sector + BO-B Conv + ABCD)</span>'
           + '<button class="btn btn-sm py-1 px-3 rounded-pill fw-bold" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;font-size:0.7rem;" onclick="addTfTopToWatchlistSET(this)">'
           + '<i class="fas fa-plus-circle me-1"></i> บันทึก ' + top.length + ' ตัวนี้ลง Watchlist'
           + '</button></div>';
@@ -5066,6 +5092,15 @@ function _tfDo5SET() {
         const rrWarning = (r.rr && r.rr < 1.5) ? '<span class="badge bg-warning text-dark" style="font-size:0.6rem;padding:2px 5px;" title="Risk/Reward ต่ำกว่า 1:1.5 ควรระวัง">⚠️ RR ต่ำ</span>' : '';
         const erWarning = r.erWarning ? '<span class="badge" style="background:rgba(220,38,38,0.1);color:#dc2626;font-size:0.6rem;padding:2px 5px;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ ระวังไว้แม้ผ่านเกณฑ์อื่นครบ">⚠️ E-R</span>' : '';
         const sectorWarning = r.sectorWeak ? '<span class="badge" style="background:rgba(217,119,6,0.1);color:#b45309;font-size:0.6rem;padding:2px 5px;" title="Sector Confirmation: หุ้นกลุ่มเดียวกันน้อยกว่า 30% อยู่ใน Stage2 — วิ่งเดี่ยวโดยไม่มีกลุ่มยืนยัน เสี่ยง False Breakout สูงกว่าปกติ (Livermore Leading Sisters)">⚠️ วิ่งเดี่ยว</span>' : '';
+        const convBadge = (r.convStatus === 'strong' || r.convStatus === 'fair')
+            ? '<span class="badge rounded-pill" title="BO-B Convergence: จุดเบรก Turtle กับจุด B ของ ABCD ห่างกัน ' + r.convGap.toFixed(1) + '% — แนวต้านเดียวกันถูกยืนยันด้วย 2 วิธี" '
+              + 'style="background:' + (r.convStatus === 'strong' ? 'rgba(16,185,129,0.12);color:#059669;border:1px solid #a7f3d0' : 'rgba(245,158,11,0.12);color:#b45309;border:1px solid #fde68a') + ';font-size:0.58rem;padding:2px 6px;">'
+              + '🔄 BO=B ' + r.convGap.toFixed(1) + '%</span>'
+            : '';
+        const vduBadge = r.rvolCtx === 'vdu'
+            ? '<span class="badge rounded-pill" title="Volume Dry-Up: volume แห้งก่อนถึงจุดเบรก — คนขายหมดแรง เป็นสัญญาณบวกของ VCP ไม่ใช่ความอ่อนแอ" '
+              + 'style="background:rgba(16,185,129,0.12);color:#059669;border:1px solid #a7f3d0;font-size:0.58rem;padding:2px 6px;">💧 VDU</span>'
+            : '';
         const matchedPresets = _tfMatchedPresetsSET(r);
         const presetPills = matchedPresets.map(p =>
             '<span class="badge rounded-pill" role="button" onclick="scrollToPresetStatSET(&quot;' + p + '&quot;)" '
@@ -5084,7 +5119,7 @@ function _tfDo5SET() {
             + '<div class="mb-2 d-flex align-items-center gap-1 flex-wrap">'
               + '<span class="tf-status ' + r.timing + '" style="font-size:0.68rem;">' + r.action + '</span>'
             + '</div>'
-            + (stars || presetPills ? '<div class="mb-2 d-flex flex-wrap gap-1">' + stars + presetPills + '</div>' : '')
+            + (stars || convBadge || vduBadge || presetPills ? '<div class="mb-2 d-flex flex-wrap gap-1">' + stars + convBadge + vduBadge + presetPills + '</div>' : '')
             + (function(){var pd=(r.ppPrice>0)?((r.price-r.ppPrice)/r.ppPrice*100):0;var col=Math.abs(pd)<=1?'#15803d':(pd>0?'#b45309':'#2563eb');var lbl=Math.abs(pd)<=1?'ที่จุดเข้า':(pd>0?'เหนือจุดเข้า':'ต่ำกว่าจุดเข้า');return '<div class="mb-1 fw-bold" style="font-size:0.82rem;color:#0f172a;">ราคาปัจจุบัน ' + cur + r.price.toFixed(2) + (r.ppPrice>0 ? ' <span style="font-size:0.62rem;font-weight:600;color:'+col+';">('+(pd>=0?'+':'')+pd.toFixed(1)+'% '+lbl+')</span>' : '') + '</div>';})()
             + '<ul class="mb-2 ps-0 recommendation-reasons">'
               + '<li><span class="checkmark-green">✓</span> PP (จุดเข้า) ' + cur + r.ppPrice.toFixed(2) + '</li>'
