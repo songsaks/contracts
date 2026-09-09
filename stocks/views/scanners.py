@@ -6926,9 +6926,11 @@ def _scan_value_symbol(sym, market='US'):
         if not price or price <= 0:
             return None
 
-        # P/E filter - skip pure growth stocks (P/E > 30)
+        # P/E filter — ตัดหุ้น growth ล้วน (P/E > 30) และหุ้นขาดทุน (P/E ≤ 0)
+        # เดิมเช็คแค่ > 30 ทำให้ P/E ติดลบหลุดผ่าน เพราะค่าติดลบเป็น truthy แต่ไม่ > 30
+        # บริษัทขาดทุนไม่ใช่หุ้น value และสูตรคะแนนก็ให้แต้ม P/E เฉพาะตอน > 0 อยู่แล้ว
         pe = info.get('trailingPE') or info.get('forwardPE')
-        if pe and pe > 30:
+        if pe is not None and (pe > 30 or pe <= 0):
             return None
 
         # Market cap ขั้นต่ำ — ฿3B (ไทย) / $2B (US) ตัดหุ้นเล็กสภาพคล่องต่ำ
