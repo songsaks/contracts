@@ -32,6 +32,23 @@ def _yq_modules_with_timeout(symbols, modules_str, timeout=25):
         _ex.shutdown(wait=False)
 
 
+def _get_bo_price_from_row(r):
+    """
+    คำนวณ BO (Standard Breakout / Turtle DC20) price จาก scan row dict
+    ใช้ logic เดียวกับ PrecisionScanCandidate.breakout_price property:
+    high20 = price × (1 + turtle_dist_pct/100)
+    ('r' เป็น plain dict จาก scan_df ไม่ใช่ model instance จึงไม่มี property นี้ให้เรียกตรงๆ)
+    """
+    try:
+        p = float(r.get('price') or 0)
+        d = float(r.get('turtle_dist_pct', 99.0))
+        if p <= 0 or d >= 99.0:
+            return None
+        return round(p * (1 + d / 100.0), 2)
+    except (TypeError, ValueError):
+        return None
+
+
 def _calculate_convergence_gap(bo_price, b_price):
     """
     คำนวณ % difference ระหว่าง BO (Breakout) และ B (ABCD) entry prices
@@ -2654,6 +2671,10 @@ def precision_momentum_scanner(request):
                         f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
                         _sec = f.get('sector') or 'Unknown'
                         _sec_pct = sector_stage2_ratio.get(_sec, 0.0)
+                        _conv_gap = _calculate_convergence_gap(
+                            _get_bo_price_from_row(r),
+                            (r.get('abcd') or {}).get('entry')
+                        )
                         bulk_candidates.append(PrecisionScanCandidate(
                             user=user,
                             market='SET',
@@ -2777,16 +2798,8 @@ def precision_momentum_scanner(request):
                             abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
                             abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
                             # Convergence Check: BO vs B (ABCD)
-                            convergence_gap_pct=_calculate_convergence_gap(
-                                r.get('breakout_price'),
-                                (r.get('abcd') or {}).get('entry')
-                            ),
-                            convergence_status=_get_convergence_status(
-                                _calculate_convergence_gap(
-                                    r.get('breakout_price'),
-                                    (r.get('abcd') or {}).get('entry')
-                                )
-                            ),
+                            convergence_gap_pct=_conv_gap,
+                            convergence_status=_get_convergence_status(_conv_gap),
                         ))
 
 
@@ -2847,6 +2860,9 @@ def precision_momentum_scanner(request):
         'rs': '-rs_rating',          # RS Rating (Minervini Relative Strength)
         'launcher': '-launcher_score', # Explosive Launcher Score
         'cmf': '-cmf',                # Chaikin Money Flow (Institutional Accumulation)
+        'abcd_entry': '-abcd_entry',              # B (ABCD) entry price
+        'abcd_quality': '-abcd_quality',          # ABCD pattern quality (high/medium/low)
+        'convergence_status': 'convergence_gap_pct',  # BO-B Convergence: smallest gap (strongest) first
     }
     use_db_sort = sort_by in valid_db_sorts
     order_field = valid_db_sorts.get(sort_by, '-technical_score')
@@ -5951,6 +5967,10 @@ def us_precision_scanner(request):
                         f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
                         _sec = f.get('sector') or 'Unknown'
                         _sec_pct = sector_stage2_ratio.get(_sec, 0.0)
+                        _conv_gap = _calculate_convergence_gap(
+                            _get_bo_price_from_row(r),
+                            (r.get('abcd') or {}).get('entry')
+                        )
                         bulk_candidates.append(PrecisionScanCandidate(
                             user=user,
                             market='US',
@@ -6074,16 +6094,8 @@ def us_precision_scanner(request):
                             abcd_quality=(r.get('abcd') or {}).get('quality', 'medium'),
                             abcd_is_thin=(r.get('abcd') or {}).get('is_thin', False),
                             # Convergence Check: BO vs B (ABCD)
-                            convergence_gap_pct=_calculate_convergence_gap(
-                                r.get('breakout_price'),
-                                (r.get('abcd') or {}).get('entry')
-                            ),
-                            convergence_status=_get_convergence_status(
-                                _calculate_convergence_gap(
-                                    r.get('breakout_price'),
-                                    (r.get('abcd') or {}).get('entry')
-                                )
-                            ),
+                            convergence_gap_pct=_conv_gap,
+                            convergence_status=_get_convergence_status(_conv_gap),
                         ))
 
                     if bulk_candidates:
@@ -6142,6 +6154,9 @@ def us_precision_scanner(request):
         'rs': '-rs_rating',          # RS Rating (Minervini Relative Strength)
         'launcher': '-launcher_score', # Explosive Launcher Score
         'cmf': '-cmf',                # Chaikin Money Flow (Institutional Accumulation)
+        'abcd_entry': '-abcd_entry',              # B (ABCD) entry price
+        'abcd_quality': '-abcd_quality',          # ABCD pattern quality (high/medium/low)
+        'convergence_status': 'convergence_gap_pct',  # BO-B Convergence: smallest gap (strongest) first
     }
     use_db_sort = sort_by in valid_db_sorts
     order_field = valid_db_sorts.get(sort_by, '-technical_score')
