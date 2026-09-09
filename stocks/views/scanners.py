@@ -6907,13 +6907,14 @@ def _scan_value_symbol(sym, market='US'):
     """สแกนหุ้นหนึ่งตัวสำหรับ value scanner — ใช้ร่วมกันทั้ง SET และ US
 
     market กำหนดต้นทุนเงินทุน (rf/ERP/ภาษี) และ market cap ขั้นต่ำ
-    ไทยใช้ ฿10B ส่วน US ใช้ $2B — คนละสกุลจึงใช้ตัวเลขเดียวกันไม่ได้
+    ไทยใช้ ฿3B ส่วน US ใช้ $2B — คนละสกุลจึงใช้ตัวเลขเดียวกันไม่ได้
+    ฿3B ตั้งไว้ต่ำพอให้หุ้น MAI ใน universe ผ่านเข้ามาได้ ไม่ใช่เหลือแต่ SET100
     คืน None เมื่อไม่ผ่านเกณฑ์หรือข้อมูลไม่พอ"""
     is_th = market == 'SET'
     rf      = TH_RISK_FREE_PCT      if is_th else US_RISK_FREE_PCT
     erp     = TH_EQUITY_PREMIUM_PCT if is_th else US_EQUITY_PREMIUM_PCT
     tax     = TH_TAX_RATE           if is_th else US_TAX_RATE
-    min_cap = 10.0 if is_th else 2.0
+    min_cap = 3.0 if is_th else 2.0
     try:
         ticker = yf.Ticker(sym)
         info   = ticker.info or {}
@@ -6930,7 +6931,7 @@ def _scan_value_symbol(sym, market='US'):
         if pe and pe > 30:
             return None
 
-        # Market cap ขั้นต่ำ — ฿10B (ไทย) / $2B (US) ตัดหุ้นเล็กสภาพคล่องต่ำ
+        # Market cap ขั้นต่ำ — ฿3B (ไทย) / $2B (US) ตัดหุ้นเล็กสภาพคล่องต่ำ
         mkt_cap = (info.get('marketCap') or 0) / 1e9
         if mkt_cap < min_cap:
             return None
