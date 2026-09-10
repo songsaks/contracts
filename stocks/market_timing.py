@@ -61,13 +61,14 @@ def _count_distribution_days(closes, volumes, end_idx, ftd_idx=None, lookback=25
 
     แยกออกมาเป็นฟังก์ชันเพื่อเรียกย้อนหลังได้ ใช้คำนวณทั้งค่าปัจจุบันและ trend
     ftd_idx: ถ้า FTD ยืนยันแล้ว *ก่อน* end_idx ให้เริ่มนับใหม่จากวันถัดจาก FTD
-             (ถ้า FTD เกิดหลัง end_idx แปลว่า ณ วันนั้นยังไม่มี FTD จึงไม่ล้าง)
+             (ถ้า FTD เกิดหลัง end_idx แปลว่า ณ วันนั้นยังไม่มี FTD จึงไม่ล้าง
+              ต้องใช้ <= ไม่ใช่ < เพราะ FTD ที่เกิดวันล่าสุดพอดีก็ต้องล้างเช่นกัน)
     """
     if end_idx < 1:
         return 0
     window = min(lookback, end_idx)
     start = end_idx + 1 - window
-    if ftd_idx is not None and ftd_idx < end_idx and ftd_idx + 1 > start:
+    if ftd_idx is not None and ftd_idx <= end_idx and ftd_idx + 1 > start:
         start = ftd_idx + 1
 
     count = 0
