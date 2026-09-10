@@ -8806,6 +8806,23 @@ def debug_scan_symbol(request, symbol):
 #   ส่งคืนรายการพารามิเตอร์สำเร็จรูปสำหรับการทดสอบย้อนหลัง
 #   รองรับการกรองตาม Strategy Type และ Market
 # ============================================================
+@login_required
+def backtest_lab(request):
+    """
+    หน้าเทียบผล backtest — เปลือกหน้าเว็บอย่างเดียว ตัวเลขดึงผ่าน API ด้วย fetch
+    เพราะโหมด universe ต้องดึงราคา 40 ตัว x 3 ปี ถ้า render ฝั่ง server จะค้างยาว
+    """
+    from stocks.utils import PRESET_DEFINITIONS, EXIT_RULE_DEFINITIONS
+    return render(request, 'stocks/backtest_lab.html', {
+        'presets': PRESET_DEFINITIONS,
+        'exit_rules': EXIT_RULE_DEFINITIONS,
+        # ส่งเป็น dict ให้ json_script ฝั่งเทมเพลต escape ให้เอง
+        # ({{ dict|safe }} จะได้ repr ของ Python ซึ่งพังทันทีถ้าข้อความมี ' ปน)
+        'default_preset': (request.GET.get('preset') or 'safety_first').strip().lower(),
+        'default_symbol': (request.GET.get('symbol') or '').strip().upper(),
+    })
+
+
 def _backtest_options(request, symbol_dfs):
     """
     อ่านตัวเลือก costs / timing จาก query string แล้วคืน (cost_pct, gates)

@@ -1,0 +1,327 @@
+{% extends 'stocks/base_stocks.html' %}
+
+{% block title %}Backtest Lab — เทียบเกณฑ์ย้อนหลัง{% endblock %}
+
+{% block content %}
+<style>
+.bt-wrap { max-width: 1180px; margin-inline: auto; }
+.bt-card {
+  background:#fff; border:1px solid #e8ecf0; border-radius:16px;
+  box-shadow:0 1px 6px rgba(0,0,0,0.06); overflow:hidden; margin-bottom:18px;
+}
+.bt-head {
+  padding:13px 20px; background:linear-gradient(180deg,#1e293b,#0f172a); color:#e2e8f0;
+  font-size:0.72rem; font-weight:800; letter-spacing:.9px; text-transform:uppercase;
+}
+.bt-body { padding:20px; }
+.bt-label { font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; }
+.bt-input, .bt-select {
+  width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:9px;
+  font-size:0.9rem; font-weight:600; color:#0f172a; background:#fff;
+}
+.bt-input:focus, .bt-select:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.13); }
+.bt-btn { padding:10px 24px; border:none; border-radius:9px; background:#1d4ed8; color:#fff;
+          font-weight:800; font-size:0.85rem; cursor:pointer; }
+.bt-btn:hover { background:#1e40af; }
+.bt-btn:disabled { background:#94a3b8; cursor:not-allowed; }
+
+/* ปุ่มสลับโหมด */
+.bt-seg { display:inline-flex; background:#eef2f7; border-radius:11px; padding:3px; gap:3px; }
+.bt-seg-btn { padding:8px 16px; border:none; background:transparent; border-radius:9px;
+              font-size:0.8rem; font-weight:700; color:#64748b; cursor:pointer; }
+.bt-seg-btn.is-active { background:#fff; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+
+/* สวิตช์ตัวเลือก */
+.bt-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;
+             font-size:0.82rem; font-weight:600; color:#334155; }
+.bt-toggle input { width:17px; height:17px; accent-color:#1d4ed8; cursor:pointer; }
+
+/* ── ตารางผล ─────────────────────────────────────────────
+   แท่งเทียบ avg return แผ่ออกจากเส้นศูนย์กลาง ทิศทาง+เครื่องหมาย+ตัวเลข
+   ทำให้อ่านบวก/ลบได้โดยไม่ต้องพึ่งสี (เขียว/แดงแยกกันไม่ออกสำหรับตาบอดสี) */
+.bt-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.84rem; }
+.bt-table th {
+  padding:10px 12px; background:#f8fafc; color:#64748b; text-align:left;
+  font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+  border-bottom:1px solid #e2e8f0; white-space:nowrap;
+}
+.bt-table th.num, .bt-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.bt-table td { padding:11px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.bt-table tr:last-child td { border-bottom:none; }
+.bt-table tr.is-best td { background:#f0f9ff; }
+.bt-rule { font-weight:800; color:#0f172a; }
+.bt-rule-sub { font-size:0.7rem; color:#94a3b8; font-weight:500; line-height:1.35; }
+
+.bt-bar { position:relative; height:20px; min-width:150px; }
+.bt-bar-axis { position:absolute; left:50%; top:0; bottom:0; width:1px; background:#cbd5e1; }
+.bt-bar-fill { position:absolute; top:3px; height:14px; border-radius:4px; }
+.bt-bar-pos { background:#16a34a; left:50%; }
+.bt-bar-neg { background:#dc2626; }
+.bt-val-pos { color:#15803d; font-weight:800; }
+.bt-val-neg { color:#b91c1c; font-weight:800; }
+
+.bt-chip { display:inline-block; padding:2px 9px; border-radius:999px; font-size:0.66rem; font-weight:800; }
+.bt-chip-best { background:#dbeafe; color:#1e40af; }
+.bt-chip-warn { background:#fffbeb; color:#b45309; }
+.bt-note {
+  display:flex; gap:9px; background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #94a3b8;
+  border-radius:10px; padding:11px 15px; font-size:0.78rem; color:#475569; line-height:1.6;
+  margin-bottom:14px;
+}
+.bt-note.is-warn { border-left-color:#f59e0b; background:#fffbeb; }
+.bt-status { padding:40px 20px; text-align:center; color:#64748b; font-size:0.88rem; font-weight:600; }
+.bt-spin { width:26px; height:26px; border:3px solid #e2e8f0; border-top-color:#1d4ed8;
+           border-radius:50%; animation:btspin .8s linear infinite; margin:0 auto 12px; }
+@keyframes btspin { to { transform:rotate(360deg); } }
+.bt-scroll { overflow-x:auto; }
+@media (max-width: 768px) { .bt-table { min-width:720px; } }
+</style>
+
+<div class="bt-wrap">
+
+  <div class="mb-3">
+    <h4 class="fw-bold mb-1" style="color:#0f172a;">Backtest Lab</h4>
+    <div class="text-muted" style="font-size:0.82rem;">
+      ทดสอบเกณฑ์ย้อนหลัง 3 ปี — เทียบว่า <b>เกณฑ์เข้า</b> ไหนดีกว่า หรือ <b>กฎออก</b> ไหนดีกว่า
+    </div>
+  </div>
+
+  <!-- ── ตัวควบคุม ─────────────────────────────────── -->
+  <div class="bt-card">
+    <div class="bt-body">
+      <div class="bt-seg mb-3" role="tablist">
+        <button class="bt-seg-btn is-active" data-mode="exit" type="button">เทียบกฎออก</button>
+        <button class="bt-seg-btn" data-mode="preset" type="button">เทียบเกณฑ์เข้า</button>
+      </div>
+
+      <div class="row g-3 align-items-end">
+        <div class="col-6 col-md-3">
+          <label class="bt-label mb-1">หุ้น</label>
+          <input id="btSymbol" class="bt-input" value="{{ default_symbol }}"
+                 placeholder="เว้นว่าง = รวมหลายตัว" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-3" id="btPresetWrap">
+          <label class="bt-label mb-1">เกณฑ์เข้า</label>
+          <select id="btPreset" class="bt-select">
+            {% for key, rule in presets.items %}
+            <option value="{{ key }}" {% if key == default_preset %}selected{% endif %}>{{ key }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-2" id="btLimitWrap">
+          <label class="bt-label mb-1">จำนวนหุ้นใน pool</label>
+          <input id="btLimit" class="bt-input" value="40" inputmode="numeric">
+        </div>
+        <div class="col-6 col-md-2" id="btAtrWrap">
+          <label class="bt-label mb-1">ตัวคูณ ATR</label>
+          <input id="btAtr" class="bt-input" value="2.5" inputmode="decimal">
+        </div>
+        <div class="col-12 col-md-2">
+          <button id="btRun" class="bt-btn w-100" type="button">รัน Backtest</button>
+        </div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-4 mt-3 pt-3" style="border-top:1px solid #f1f5f9;">
+        <label class="bt-toggle">
+          <input type="checkbox" id="btCosts" checked>
+          หักค่าธรรมเนียมไป-กลับ 0.34%
+        </label>
+        <label class="bt-toggle">
+          <input type="checkbox" id="btTiming">
+          ไม่เข้าไม้ตอนตลาด RED (Distribution Day ≥ 5)
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ผลลัพธ์ ───────────────────────────────────── -->
+  <div class="bt-card">
+    <div class="bt-head" id="btResultHead">ผลการทดสอบ</div>
+    <div id="btResult">
+      <div class="bt-status">กดปุ่ม “รัน Backtest” เพื่อเริ่ม</div>
+    </div>
+  </div>
+
+  <div class="bt-note is-warn">
+    <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-top:2px;"></i>
+    <span>
+      <b>อ่านผลอย่างระวัง</b> — ชุดหุ้นที่ทดสอบมาจากหุ้นที่ยังซื้อขายอยู่ในปัจจุบัน
+      หุ้นที่ถูกถอนออกจากตลาดไปแล้วไม่อยู่ในชุดนี้ (survivorship bias)
+      <b>ผลจริงจะแย่กว่าตัวเลขที่เห็นเสมอ</b> ใช้เทียบว่ากฎไหนดีกว่ากันได้ แต่อย่าใช้เป็นคำมั่นว่าจะได้ผลตอบแทนเท่านี้
+    </span>
+  </div>
+
+  <div class="bt-note">
+    <i class="fa-solid fa-lightbulb" style="color:#94a3b8;margin-top:2px;"></i>
+    <span>
+      <b>Win rate สูงไม่ได้แปลว่าดีกว่า</b> — กฎที่ชนะ 40% แต่กำไรครั้งละน้อย ขาดทุนครั้งละมาก
+      แพ้กฎที่ชนะ 20% แต่ปล่อยให้กำไรวิ่ง ให้ดู <b>ผลตอบแทนเฉลี่ยต่อไม้</b> เป็นหลัก
+      และดู <b>จำนวนไม้</b> ประกอบ — ต่ำกว่า 10 ไม้ถือว่าสถิติยังไม่นิ่งพอเชื่อ
+    </span>
+  </div>
+
+</div>
+
+{{ exit_rules|json_script:"btExitLabels" }}
+{{ presets|json_script:"btPresetLabels" }}
+<script>
+(function () {
+  var EXIT_LABELS = JSON.parse(document.getElementById('btExitLabels').textContent);
+  var PRESET_LABELS = JSON.parse(document.getElementById('btPresetLabels').textContent);
+  var API_EXIT = "{% url 'stocks:api_backtest_exit_rules' %}";
+  var API_PRESET = "{% url 'stocks:api_backtest_presets' %}";
+  var API_PRESET_UNI = "{% url 'stocks:api_backtest_presets_universe' %}";
+
+  var mode = 'exit';
+  var box = document.getElementById('btResult');
+  var head = document.getElementById('btResultHead');
+  var runBtn = document.getElementById('btRun');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function num(v, d) { return (v === null || v === undefined) ? '—' : Number(v).toFixed(d === undefined ? 2 : d); }
+
+  // โหมดไหนใช้ช่องไหน — ซ่อนช่องที่ไม่เกี่ยวเพื่อไม่ให้เข้าใจผิดว่ามีผล
+  function syncFields() {
+    var sym = document.getElementById('btSymbol').value.trim();
+    document.getElementById('btLimitWrap').style.display = sym ? 'none' : '';
+    document.getElementById('btAtrWrap').style.display = (mode === 'exit') ? '' : 'none';
+    document.getElementById('btPresetWrap').style.display = (mode === 'exit') ? '' : 'none';
+  }
+
+  document.querySelectorAll('[data-mode]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('[data-mode]').forEach(function (x) { x.classList.remove('is-active'); });
+      b.classList.add('is-active');
+      mode = b.dataset.mode;
+      syncFields();
+    });
+  });
+  document.getElementById('btSymbol').addEventListener('input', syncFields);
+  syncFields();
+
+  function buildUrl() {
+    var sym = document.getElementById('btSymbol').value.trim().toUpperCase();
+    var p = new URLSearchParams();
+    if (sym) p.set('symbol', sym);
+    if (!document.getElementById('btCosts').checked) p.set('costs', '0');
+    if (document.getElementById('btTiming').checked) p.set('timing', '1');
+
+    if (mode === 'exit') {
+      p.set('preset', document.getElementById('btPreset').value);
+      p.set('atr_mult', document.getElementById('btAtr').value || '2.5');
+      if (!sym) p.set('limit', document.getElementById('btLimit').value || '40');
+      return API_EXIT + '?' + p.toString();
+    }
+    if (sym) return API_PRESET + '?' + p.toString();
+    p.set('limit', document.getElementById('btLimit').value || '40');
+    return API_PRESET_UNI + '?' + p.toString();
+  }
+
+  function bar(v, maxAbs) {
+    if (v === null || v === undefined || !maxAbs) return '<div class="bt-bar"><div class="bt-bar-axis"></div></div>';
+    var pct = Math.min(50, Math.abs(v) / maxAbs * 50);
+    var side = v >= 0
+      ? '<div class="bt-bar-fill bt-bar-pos" style="width:' + pct + '%;"></div>'
+      : '<div class="bt-bar-fill bt-bar-neg" style="width:' + pct + '%;left:' + (50 - pct) + '%;"></div>';
+    return '<div class="bt-bar"><div class="bt-bar-axis"></div>' + side + '</div>';
+  }
+
+  function render(data) {
+    var rows = data.results || [];
+    if (data.result) rows = [data.result];
+    rows = rows.filter(function (r) { return !r.error; });
+    if (!rows.length) {
+      box.innerHTML = '<div class="bt-status">ไม่มีสัญญาณเข้าเงื่อนไขเลยในช่วง 3 ปีที่ทดสอบ</div>';
+      return;
+    }
+
+    // ตัวชี้วัดหลักคือผลตอบแทนเฉลี่ยต่อไม้ ไม่ใช่ win rate
+    var scored = rows.filter(function (r) { return r.avg_return_pct !== null && r.trades_count >= 10; });
+    var best = scored.length ? scored.reduce(function (a, b) {
+      return (b.avg_return_pct > a.avg_return_pct) ? b : a; }) : null;
+    var maxAbs = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.avg_return_pct || 0); })) || 1;
+
+    var isExit = (mode === 'exit');
+    var html = '<div class="bt-scroll"><table class="bt-table"><thead><tr>' +
+      '<th>' + (isExit ? 'กฎออก' : 'เกณฑ์เข้า') + '</th>' +
+      '<th class="num">ไม้</th><th class="num">Win %</th>' +
+      '<th class="num">ผลตอบแทนเฉลี่ย/ไม้</th><th>เทียบกัน</th>' +
+      '<th class="num">Max DD %</th><th class="num">ถือ (วัน)</th>' +
+      (isExit ? '<th>ออกด้วยอะไร</th>' : '') +
+      '</tr></thead><tbody>';
+
+    rows.forEach(function (r) {
+      var key = isExit ? r.exit_rule : r.preset;
+      var sub = isExit ? (EXIT_LABELS[r.exit_rule] || '') : (PRESET_LABELS[r.preset] || r.rule || '');
+      var v = r.avg_return_pct;
+      var cls = (v === null || v === undefined) ? '' : (v >= 0 ? 'bt-val-pos' : 'bt-val-neg');
+      var glyph = (v === null || v === undefined) ? '' : (v >= 0 ? '▲ ' : '▼ ');
+      var isBest = best && key === (isExit ? best.exit_rule : best.preset);
+
+      var reasons = '';
+      if (isExit && r.exit_reasons) {
+        reasons = Object.keys(r.exit_reasons).sort(function (a, b) {
+          return r.exit_reasons[b] - r.exit_reasons[a];
+        }).map(function (k) { return esc(k) + ' ' + r.exit_reasons[k]; }).join(' · ');
+      }
+
+      html += '<tr class="' + (isBest ? 'is-best' : '') + '">' +
+        '<td><div class="bt-rule">' + esc(key) +
+          (isBest ? ' <span class="bt-chip bt-chip-best">ดีที่สุด</span>' : '') +
+          (r.low_sample ? ' <span class="bt-chip bt-chip-warn">sample น้อย</span>' : '') +
+        '</div><div class="bt-rule-sub">' + esc(sub) + '</div></td>' +
+        '<td class="num">' + (r.trades_count || 0) + '</td>' +
+        '<td class="num">' + num(r.win_rate_pct, 1) + '</td>' +
+        '<td class="num ' + cls + '">' + glyph + (v === null || v === undefined ? '—' : (v >= 0 ? '+' : '') + num(v)) + '%</td>' +
+        '<td>' + bar(v, maxAbs) + '</td>' +
+        '<td class="num">' + num(r.max_drawdown_pct, 1) + '</td>' +
+        '<td class="num">' + num(r.avg_hold_days, 1) + '</td>' +
+        (isExit ? '<td class="bt-rule-sub">' + reasons + '</td>' : '') +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    var meta = [];
+    if (data.symbol) meta.push('หุ้น ' + esc(data.symbol));
+    if (data.universe_size) meta.push('รวม ' + data.universe_size + ' ตัวเป็น pool เดียว');
+    if (data.preset && mode === 'exit') meta.push('เกณฑ์เข้า ' + esc(data.preset));
+    meta.push(data.cost_pct ? ('หักค่าธรรมเนียม ' + data.cost_pct + '%') : 'ไม่หักค่าธรรมเนียม');
+    if (data.market_filtered) {
+      var blocked = rows.reduce(function (a, r) { return Math.max(a, r.blocked_by_market || 0); }, 0);
+      meta.push('กรองตลาด RED (ข้ามสัญญาณ ' + blocked + ' ครั้ง)');
+    }
+    if (data.cached) meta.push('ผลจากแคช');
+
+    html += '<div class="bt-body" style="border-top:1px solid #f1f5f9;padding-top:14px;">' +
+            '<div class="bt-rule-sub">' + esc(meta.join(' · ')) + '</div></div>';
+    box.innerHTML = html;
+    head.textContent = isExit ? 'เทียบกฎออก — สัญญาณเข้าชุดเดียวกันทุกแถว' : 'เทียบเกณฑ์เข้า';
+  }
+
+  runBtn.addEventListener('click', function () {
+    var sym = document.getElementById('btSymbol').value.trim();
+    runBtn.disabled = true;
+    box.innerHTML = '<div class="bt-status"><div class="bt-spin"></div>' +
+      (sym ? 'กำลังดึงราคา 3 ปีและคำนวณ…' :
+             'กำลังดึงราคาหลายสิบตัว ครั้งแรกอาจใช้เวลา 1–3 นาที (ครั้งต่อไปเร็วเพราะแคช 24 ชม.)') +
+      '</div>';
+    fetch(buildUrl(), {credentials: 'same-origin'})
+      .then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+          return j;
+        });
+      })
+      .then(render)
+      .catch(function (e) {
+        box.innerHTML = '<div class="bt-status" style="color:#b91c1c;">รันไม่สำเร็จ — ' + esc(e.message) + '</div>';
+      })
+      .finally(function () { runBtn.disabled = false; });
+  });
+})();
+</script>
+{% endblock %}
