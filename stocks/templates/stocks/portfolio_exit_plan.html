@@ -266,8 +266,10 @@
   {% endif %}
 
   <!-- ── SUMMARY STATS ──────────────────────────────── -->
-  {# สีของแต่ละใบผูกกับ class .is-on ไม่ใช่ inline style เพราะตัวเลขเปลี่ยนตาม
-     ตลาดที่เลือก — ถ้าฝัง style จาก count รวมไว้ สีจะค้างไม่ตรงกับตัวเลข #}
+  {% comment %}
+    สีของแต่ละใบผูกกับ class .is-on ไม่ใช่ inline style เพราะตัวเลขเปลี่ยนตาม
+    ตลาดที่เลือก — ถ้าฝัง style จาก count รวมไว้ สีจะค้างไม่ตรงกับตัวเลข
+  {% endcomment %}
   <div class="row g-2 mb-4" id="epSummary">
     <div class="col-6 col-md-3">
       <div class="ep-stat ep-stat-red {% if urgent_count > 0 %}is-on{% endif %}" data-stat="urgent">
