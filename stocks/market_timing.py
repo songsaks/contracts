@@ -56,6 +56,32 @@ def _argmin(arr):
     return lo
 
 
+def _count_distribution_days(closes, volumes, end_idx, ftd_idx=None, lookback=25):
+    """นับวันแจกของในหน้าต่าง lookback วันที่จบที่ end_idx (รวม end_idx)
+
+    แยกออกมาเป็นฟังก์ชันเพื่อเรียกย้อนหลังได้ ใช้คำนวณทั้งค่าปัจจุบันและ trend
+    ftd_idx: ถ้า FTD ยืนยันแล้ว *ก่อน* end_idx ให้เริ่มนับใหม่จากวันถัดจาก FTD
+             (ถ้า FTD เกิดหลัง end_idx แปลว่า ณ วันนั้นยังไม่มี FTD จึงไม่ล้าง)
+    """
+    if end_idx < 1:
+        return 0
+    window = min(lookback, end_idx)
+    start = end_idx + 1 - window
+    if ftd_idx is not None and ftd_idx < end_idx and ftd_idx + 1 > start:
+        start = ftd_idx + 1
+
+    count = 0
+    for i in range(max(start, 1), end_idx + 1):
+        prev_close = float(closes[i - 1])
+        curr_close = float(closes[i])
+        if prev_close == 0:
+            continue
+        pct_change = (curr_close - prev_close) / prev_close * 100.0
+        if pct_change <= -0.2 and float(volumes[i]) > float(volumes[i - 1]):
+            count += 1
+    return count
+
+
 def get_market_timing_status(market='SET'):
     """
     คำนวณ Market Timing Indicator ตามหลักการของ William O'Neil (CAN SLIM):
@@ -81,6 +107,10 @@ def get_market_timing_status(market='SET'):
             res = {
                 'market': market,
                 'distribution_count': 1,
+                'dist_trend': [],
+                'dist_direction': 'flat',
+                'dist_trend_label': '',
+                'dist_trend_action': '',
                 'ftd_detected': False,
                 'days_since_ftd': None,
                 'status_code': 'GREEN',
@@ -103,23 +133,28 @@ def get_market_timing_status(market='SET'):
 
         ftd = _detect_follow_through_day(closes, volumes)
 
-        lookback = min(25, n - 1)
-        start_idx = n - lookback
-        # หลัง FTD ยืนยันแล้ว นับ Distribution Day ใหม่เฉพาะตั้งแต่วันถัดจาก FTD
-        if ftd['ftd_detected'] and ftd['ftd_idx'] + 1 > start_idx:
-            start_idx = ftd['ftd_idx'] + 1
+        _ftd_idx = ftd['ftd_idx'] if ftd['ftd_detected'] else None
+        distribution_count = _count_distribution_days(closes, volumes, n - 1, _ftd_idx)
 
-        distribution_count = 0
-        for i in range(max(start_idx, 1), n):
-            prev_close = float(closes[i - 1])
-            curr_close = float(closes[i])
-            prev_vol = float(volumes[i - 1])
-            curr_vol = float(volumes[i])
+        # Trend ย้อนหลัง 3 วัน (เก่า→ใหม่) — ตัวเลขนิ่งๆ บอกทิศทางไม่ได้
+        # 3→4→5 คือกำลังแย่ลง ส่วน 5→4→3 คือกำลังฟื้น ทั้งที่วันนี้อาจเท่ากัน
+        dist_trend = [
+            _count_distribution_days(closes, volumes, idx, _ftd_idx)
+            for idx in range(max(1, n - 3), n)
+        ]
+        if dist_trend:
+            _first, _last = dist_trend[0], dist_trend[-1]
+            dist_direction = 'worse' if _last > _first else ('better' if _last < _first else 'flat')
+        else:
+            dist_direction = 'flat'
 
-            pct_change = (curr_close - prev_close) / prev_close * 100.0
-
-            if pct_change <= -0.2 and curr_vol > prev_vol:
-                distribution_count += 1
+        # ตัวเลขอย่างเดียวอ่านไม่ออกว่าให้ทำอะไร จึงแปลเป็นคำ + การกระทำไปเลย
+        _TREND_TEXT = {
+            'worse':  ('กำลังแย่ลง',  'ถอยเป็นเงินสด'),
+            'better': ('กำลังดีขึ้น', 'เริ่มกลับเข้า'),
+            'flat':   ('ทรงตัว',      'ถือตามแผนเดิม'),
+        }
+        dist_trend_label, dist_trend_action = _TREND_TEXT[dist_direction]
 
         ftd_note = ''
         if ftd['ftd_detected']:
@@ -150,6 +185,10 @@ def get_market_timing_status(market='SET'):
         res = {
             'market': market,
             'distribution_count': distribution_count,
+            'dist_trend': dist_trend,
+            'dist_direction': dist_direction,
+            'dist_trend_label': dist_trend_label,
+            'dist_trend_action': dist_trend_action,
             'ftd_detected': ftd['ftd_detected'],
             'days_since_ftd': ftd['days_since_ftd'],
             'status_code': status_code,
@@ -167,6 +206,10 @@ def get_market_timing_status(market='SET'):
         res = {
             'market': market,
             'distribution_count': 1,
+            'dist_trend': [],
+            'dist_direction': 'flat',
+            'dist_trend_label': '',
+            'dist_trend_action': '',
             'ftd_detected': False,
             'days_since_ftd': None,
             'status_code': 'GREEN',

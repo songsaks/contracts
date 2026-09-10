@@ -181,6 +181,19 @@
             <div class="text-end">
                 <div class="small text-muted" style="font-size:0.75rem;">วันแจกของ (Distribution Days)</div>
                 <div class="fw-bold fs-5" style="color: {{ market_timing.status_color }};">{{ market_timing.distribution_count }} / 25 วัน</div>
+                {% if market_timing.dist_trend %}
+                {# ตัวเลขวันเดียวบอกทิศทางไม่ได้ — 3 วันย้อนหลังบอกว่ากำลังแย่ลงหรือฟื้น #}
+                <div class="d-flex align-items-center justify-content-end gap-2 mt-1" style="font-size:0.72rem;"
+                     title="จำนวนวันแจกของเมื่อ 3 วันทำการล่าสุด (เก่า→ใหม่) — ดูทิศทาง ไม่ใช่ดูเลขวันเดียว">
+                    <span class="fw-bold" style="color:{% if market_timing.dist_direction == 'worse' %}#dc2626{% elif market_timing.dist_direction == 'better' %}#15803d{% else %}#64748b{% endif %};">
+                        {% for d in market_timing.dist_trend %}{{ d }}{% if not forloop.last %} → {% endif %}{% endfor %}
+                    </span>
+                    <span style="color:#64748b;">
+                        {{ market_timing.dist_trend_label }} →
+                        <strong style="color:{% if market_timing.dist_direction == 'worse' %}#dc2626{% elif market_timing.dist_direction == 'better' %}#15803d{% else %}#64748b{% endif %};">{{ market_timing.dist_trend_action }}</strong>
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

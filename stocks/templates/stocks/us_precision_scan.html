@@ -597,6 +597,19 @@
             <div class="text-end">
                 <div class="small text-muted" style="font-size:0.75rem;">Distribution Days (25 Sessions)</div>
                 <div class="fw-bold fs-5" style="color: {{ market_timing.status_color }};">{{ market_timing.distribution_count }} / 25 Days</div>
+                {% if market_timing.dist_trend %}
+                {# วันเดียวบอกทิศทางไม่ได้ — 3 วันย้อนหลังบอกว่ากำลังแย่ลงหรือฟื้น #}
+                <div class="d-flex align-items-center justify-content-end gap-2 mt-1" style="font-size:0.72rem;"
+                     title="Distribution day count over the last 3 sessions (oldest → newest) — read the direction, not a single day">
+                    <span class="fw-bold" style="color:{% if market_timing.dist_direction == 'worse' %}#dc2626{% elif market_timing.dist_direction == 'better' %}#15803d{% else %}#64748b{% endif %};">
+                        {% for d in market_timing.dist_trend %}{{ d }}{% if not forloop.last %} → {% endif %}{% endfor %}
+                    </span>
+                    <span style="color:#64748b;">
+                        {{ market_timing.dist_trend_label }} →
+                        <strong style="color:{% if market_timing.dist_direction == 'worse' %}#dc2626{% elif market_timing.dist_direction == 'better' %}#15803d{% else %}#64748b{% endif %};">{{ market_timing.dist_trend_action }}</strong>
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
