@@ -3,6 +3,8 @@
 
 {% block title %}Exit Plan — Portfolio{% endblock %}
 
+{% block container_class %}container-fluid px-0{% endblock %}
+
 {% block content %}
 <style>
 /* ── Exit Plan: แถบควบคุม + มุมมองตาราง ──────────────────────
@@ -34,8 +36,20 @@
   background:#fff; border:1px solid #e8ecf0; border-radius:16px;
   box-shadow:0 1px 6px rgba(0,0,0,.07); overflow-x:auto;
 }
-/* คุมความกว้างหน้า: จอกว้างไม่ยืดเต็ม จอเล็กใช้เต็มพื้นที่ */
-.ep-page { max-width:1080px; margin-inline:auto; }
+/* ── ความกว้างหน้า ────────────────────────────────────────────
+   70% ของจอ วางกลาง ตามที่ต้องการ แต่มีพื้นล่างกันแคบ:
+   min-width ทำให้จอ 1280 ไม่หดเหลือ 896px จนตาราง 9 คอลัมน์อัด
+   และ max-width กันยืดเกินบนจอ ultrawide
+   เขียนเป็น .container-fluid.ep-page เพื่อให้ชนะ .container-fluid ของ Bootstrap */
+.container-fluid.ep-page {
+  width: 70%;
+  max-width: 1500px;     /* จอ ultrawide: 70% จะยืดจนคอลัมน์ห่างอีก จึงมีเพดาน
+                            จอ ≤2140px ยังได้ 70% เต็มตามที่ตั้งไว้ */
+  margin-inline: auto;   /* วางกลางจอ */
+}
+/* จอเล็กลง 70% จะแคบเกินสำหรับตาราง 9 คอลัมน์ จึงคืนพื้นที่ให้ตามลำดับ */
+@media (max-width: 1200px) { .container-fluid.ep-page { width: 84%; } }
+@media (max-width: 992px)  { .container-fluid.ep-page { width: 94%; } }
 
 /* fixed layout + ความกว้างต่อคอลัมน์ กัน browser ยืดคอลัมน์จนห่างผิดสัดส่วน */
 .ep-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.8rem; table-layout:fixed; }
@@ -107,7 +121,7 @@
 @media (max-width: 992px) { .ep-hide-lg { display:none; } }
 
 @media (max-width: 768px) {
-  .ep-page { padding-inline:0 !important; }
+  .container-fluid.ep-page { width:100%; min-width:0; padding-inline:0; }
   .ep-table { table-layout:auto; min-width:660px; font-size:0.78rem; }
   .ep-table thead th, .ep-table tbody td { padding:9px 10px; }
   .ep-table thead th:first-child,
