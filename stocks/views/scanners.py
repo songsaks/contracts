@@ -7519,10 +7519,33 @@ def us_sepa_scanner(request):
                         except Exception as _e:
                             _sepa_log.debug(f'[US SEPA] Earnings {symbol}: {_e}')
 
+                        # Trend Template 8 ข้อ — องค์ประกอบที่ 1 ของ SEPA
+                        # ใช้ df กับ rs_v ที่มีอยู่แล้ว จึงไม่ต้องดึงข้อมูลเพิ่ม
+                        try:
+                            from stocks.utils import check_trend_template
+                            _tt_res = check_trend_template(df, rs_v)
+                            tt_score_v = _tt_res.get('score', 0)
+                        except Exception:
+                            tt_score_v = 0
+
+                        # Stage 4 (แจกจ่าย/ขาลง): ราคาใต้ MA200 และ MA200 ลาดลง
+                        stage4_v = False
+                        try:
+                            _s200 = ta.sma(df['Close'], length=200)
+                            if _s200 is not None:
+                                _s200c = _s200.dropna()
+                                if len(_s200c) >= 20:
+                                    stage4_v = bool(curr < float(_s200c.iloc[-1])
+                                                    and float(_s200c.iloc[-1]) < float(_s200c.iloc[-20]))
+                        except Exception:
+                            pass
+
                         return {
                             'symbol': symbol,
                             'price': round(curr, 2),
                             'stage2': True,
+                            'stage4': stage4_v,
+                            'trend_template_score': tt_score_v,
                             'rs_rating': rs_v,
                             'vcp_setup': vcp.get('setup', False),
                             'vcp_contractions': vcp.get('contractions', 0),
@@ -7582,6 +7605,8 @@ def us_sepa_scanner(request):
                         sector=sector_map.get(r['symbol'], 'Unknown'),
                         price=r['price'],
                         stage2=r['stage2'],
+                        stage4=r.get('stage4', False),
+                        trend_template_score=r.get('trend_template_score', 0),
                         rs_rating=r['rs_rating'],
                         vcp_setup=r['vcp_setup'],
                         vcp_contractions=r['vcp_contractions'],
@@ -7637,11 +7662,19 @@ def us_sepa_scanner(request):
     vcp_only        = request.GET.get('vcp_only') == '1'
     hide_at_tp      = request.GET.get('hide_at_tp', '1') == '1'
     earnings_filter = request.GET.get('earnings_filter') == '1'
+    # tt_only: บังคับ Trend Template ครบ 8/8 — ไม่เปิดเป็นค่าเริ่มต้นเพราะเข้มมาก
+    tt_only         = request.GET.get('tt_only') == '1'
+    # stage4_hide: ซ่อนหุ้น Stage 4 (แจกจ่าย) ไม่ควรอยู่ในลิสต์ซื้อ
+    stage4_hide     = request.GET.get('stage4_hide', '1') == '1'
 
     if vcp_only:
         candidates = [c for c in candidates if c.vcp_setup]
     if hide_at_tp:
         candidates = [c for c in candidates if c.upside_to_high >= 10.0]
+    if tt_only:
+        candidates = [c for c in candidates if (getattr(c, 'trend_template_score', 0) or 0) >= 8]
+    if stage4_hide:
+        candidates = [c for c in candidates if not getattr(c, 'stage4', False)]
 
     # RS filter: enforce ≥70 (scan saves down to 60 for flexibility)
     candidates = [c for c in candidates if c.rs_rating >= 70]
@@ -7700,6 +7733,11 @@ def us_sepa_scanner(request):
         if roe_v >= 17:   sc += 8
         elif roe_v >= 10: sc += 3
         if getattr(c, 'eps_accel', False): sc += 10
+        # Trend Template คือองค์ประกอบที่ 1 ของ SEPA — ข้อละ 5 แต้ม (สูงสุด 40)
+        # ให้น้ำหนักเท่า VCP เพราะเป็นฐานที่องค์ประกอบอื่นตั้งอยู่
+        _tt = getattr(c, 'trend_template_score', 0) or 0
+        sc += _tt * 5
+        c.tt_score = _tt
         c.sepa_score = sc
 
     # Sort by SEPA Score descending
@@ -7719,6 +7757,8 @@ def us_sepa_scanner(request):
         'vcp_only':         vcp_only,
         'hide_at_tp':       hide_at_tp,
         'earnings_filter':  earnings_filter,
+        'tt_only':          tt_only,
+        'stage4_hide':      stage4_hide,
         'watchlist_symbols': watchlist_symbols,
     }
     return render(request, 'stocks/us_sepa_scanner.html', context)

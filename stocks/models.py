@@ -956,6 +956,8 @@ class USSepaCandidate(models.Model):
 
     # ── SEPA Stage 2 ────────────────────────────────────────────
     stage2      = models.BooleanField(default=False)    # price > SMA150 AND SMA150 rising
+    stage4      = models.BooleanField(default=False)    # Stage 4 (แจกจ่าย/ขาลง): price < SMA200 AND SMA200 ลาดลง
+    trend_template_score = models.IntegerField(default=0)  # Minervini Trend Template 0-8
 
     # ── Relative Strength ───────────────────────────────────────
     rs_rating   = models.IntegerField(default=0)        # 0-99 percentile vs universe
