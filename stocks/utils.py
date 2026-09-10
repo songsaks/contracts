@@ -371,7 +371,8 @@ def check_trend_template(df, rs_rating=0):
             'sma200_trending_up':     sma200_v > sma200_1m_ago,
             'sma50_above_150_200':    sma50_v > sma150_v and sma50_v > sma200_v,
             'price_above_sma50':      price > sma50_v,
-            'price_25pct_above_low':  price >= year_low * 1.25,
+            # Minervini กำหนด 30% เหนือจุดต่ำสุด 52 สัปดาห์ (เดิมโค้ดใช้ 25% ซึ่งผ่อนกว่าตำรา)
+            'price_30pct_above_low':  price >= year_low * 1.30,
             'price_within_25pct_of_high': price >= year_high * 0.75,
             'rs_strong':              rs_rating >= 70,
         }
@@ -725,6 +726,7 @@ def compute_fallback_alert_signals(symbol, market='SET'):
         s = sma150.dropna()
         if len(s) >= 20:
             stage2 = bool(price > float(s.iloc[-1]) and float(s.iloc[-1]) > float(s.iloc[-20]))
+
 
     ema20 = ta.ema(df['Close'], length=20)
     ema20_rising = False

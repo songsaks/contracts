@@ -84,6 +84,21 @@
                         <label class="form-check-label small fw-semibold" for="hideAtTpToggle">🚫 ซ่อน AT/NEAR TP</label>
                     </div>
 
+                    <div class="filter-toggle">
+                        <input class="form-check-input" type="checkbox" id="ttOnlyToggle"
+                               {% if tt_only %}checked{% endif %} onchange="applyFilters()">
+                        <label class="form-check-label small fw-semibold" for="ttOnlyToggle">
+                            📐 Trend Template 8/8
+                            <span class="badge rounded-pill ms-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.6rem;font-weight:700;border:1px solid #bfdbfe;">MINERVINI</span>
+                        </label>
+                    </div>
+
+                    <div class="filter-toggle">
+                        <input class="form-check-input" type="checkbox" id="stage4HideToggle"
+                               {% if stage4_hide %}checked{% endif %} onchange="applyFilters()">
+                        <label class="form-check-label small fw-semibold" for="stage4HideToggle">🚫 ซ่อน Stage 4</label>
+                    </div>
+
                     <!-- Earnings Filter — Minervini EPS/Rev ≥25% -->
                     <div class="filter-toggle earnings-toggle">
                         <input class="form-check-input" type="checkbox" id="earningsFilterToggle"
@@ -106,7 +121,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <span class="small text-muted fw-bold">History:</span>
                         <select class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.75rem;"
-                                onchange="location.href='?run_idx='+this.value+'&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}&earnings_filter={{ earnings_filter|yesno:'1,0' }}'">
+                                onchange="location.href='?run_idx='+this.value+'&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}&earnings_filter={{ earnings_filter|yesno:'1,0' }}&tt_only={{ tt_only|yesno:'1,0' }}&stage4_hide={{ stage4_hide|yesno:'1,0' }}'">
                             {% for run in all_runs %}
                             <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
                                 {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
@@ -127,6 +142,7 @@
                         <th class="ps-4 py-3" style="width:145px;">Symbol</th>
                         <th class="py-3">Price / Chg</th>
                         <th class="py-3 text-center col-hide-md">Trend Stage</th>
+                        <th class="py-3 text-center col-hide-sm" title="Trend Template ของ Minervini — เกณฑ์ 8 ข้อ ต้องผ่านครบจึงถือว่าอยู่ในเทรนด์ขาขึ้นจริง">TT</th>
                         <th class="py-3 text-center col-hide-sm">VCP Base</th>
                         <th class="py-3 text-center col-hide-sm">% from Pivot</th>
                         <th class="py-3 text-center col-hide-md">Signals</th>
@@ -185,13 +201,31 @@
 
                         <!-- Trend Stage -->
                         <td class="py-3 text-center col-hide-md">
-                            {% if item.stage2 %}
+                            {% if item.stage4 %}
+                            <span class="badge rounded-pill px-3 py-1" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;"
+                                  title="Stage 4 — ราคาใต้ MA200 และ MA200 ลาดลง: ระยะแจกจ่าย/ขาลง ไม่ควรซื้อ">
+                                <i class="fas fa-triangle-exclamation me-1"></i> STAGE 4
+                            </span>
+                            {% elif item.stage2 %}
                             <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">
                                 <i class="fas fa-check-circle me-1"></i> STAGE 2
                             </span>
                             {% else %}
                             <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9;color:#64748b;">STAGE 1/3</span>
                             {% endif %}
+                        </td>
+
+                        <!-- Trend Template 8 ข้อ -->
+                        <td class="py-3 text-center col-hide-sm">
+                            {% with tt=item.trend_template_score|default:0 %}
+                            <span class="badge rounded-pill px-3 py-1" style="{% if tt >= 8 %}background:#dcfce7;color:#15803d;border:1px solid #86efac;{% elif tt >= 6 %}background:#fef3c7;color:#b45309;border:1px solid #fde68a;{% else %}background:#f1f5f9;color:#64748b;{% endif %}"
+                                  title="ผ่านเกณฑ์ Trend Template {{ tt }} จาก 8 ข้อ — Minervini ต้องการครบ 8/8">
+                                {{ tt }}/8{% if tt >= 8 %} ✓{% endif %}
+                            </span>
+                            {% if item.eps_accel %}
+                            <div style="margin-top:3px;"><span class="badge rounded-pill" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;font-size:0.58rem;" title="EPS Acceleration — กำไรคาดการณ์ข้างหน้าโตกว่ากำไรที่ทำได้จริง">EPS ↑</span></div>
+                            {% endif %}
+                            {% endwith %}
                         </td>
 
                         <!-- VCP Base -->
@@ -302,7 +336,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="11" class="text-center py-5">
+                        <td colspan="12" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="fas fa-search mb-2 d-block" style="font-size:2rem;opacity:.4;"></i>
                                 No high-potential SEPA setups found.<br>
@@ -525,8 +559,10 @@ function applyFilters() {
     const vcp      = document.getElementById('vcpOnlyToggle').checked     ? '1' : '0';
     const tp       = document.getElementById('hideAtTpToggle').checked    ? '1' : '0';
     const earnings = document.getElementById('earningsFilterToggle').checked ? '1' : '0';
+    const tt       = document.getElementById('ttOnlyToggle').checked      ? '1' : '0';
+    const st4      = document.getElementById('stage4HideToggle').checked  ? '1' : '0';
     const runIdx   = {{ selected_run_idx }};
-    location.href = `?run_idx=${runIdx}&vcp_only=${vcp}&hide_at_tp=${tp}&earnings_filter=${earnings}`;
+    location.href = `?run_idx=${runIdx}&vcp_only=${vcp}&hide_at_tp=${tp}&earnings_filter=${earnings}&tt_only=${tt}&stage4_hide=${st4}`;
 }
 // Init tooltips
 document.addEventListener('DOMContentLoaded', () => {

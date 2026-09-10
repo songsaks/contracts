@@ -373,6 +373,8 @@ class PrecisionScanCandidate(models.Model):
 
     # ====== Stage Analysis & Risk (v5) ======
     stage2           = models.BooleanField(default=False)         # Weinstein Stage 2: price > SMA150 AND SMA150 rising
+    stage4           = models.BooleanField(default=False)         # Stage 4 (แจกจ่าย/ขาลง): price < SMA200 AND SMA200 ลาดลง — สัญญาณห้ามซื้อ/ให้ออก
+    eps_accel        = models.BooleanField(default=False)         # EPS Acceleration: กำไรคาดการณ์ข้างหน้า > กำไรที่ทำได้จริง
     earnings_soon    = models.BooleanField(default=False)         # US only: earnings date within 14 days (caution)
 
     # ====== Institutional Footprint (v6) ======

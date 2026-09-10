@@ -1879,6 +1879,17 @@ def minervini_sepa_scanner(request):
     if hide_at_tp:
         candidates = [c for c in candidates if c.upside_to_high >= 10.0]
 
+    # tt_only: บังคับ Trend Template ครบ 8/8 ตามที่ Minervini กำหนด
+    # ไม่เปิดเป็นค่าเริ่มต้นเพราะ 8/8 เข้มมาก ให้ผู้ใช้เลือกเอง
+    tt_only = request.GET.get('tt_only') == '1'
+    if tt_only:
+        candidates = [c for c in candidates if (getattr(c, 'trend_template_score', 0) or 0) >= 8]
+
+    # stage4_hide: ซ่อนหุ้น Stage 4 (แจกจ่าย/ขาลง) — ไม่ควรอยู่ในลิสต์ซื้อตั้งแต่แรก
+    stage4_hide = request.GET.get('stage4_hide', '1') == '1'
+    if stage4_hide:
+        candidates = [c for c in candidates if not getattr(c, 'stage4', False)]
+
     # earnings_filter: กรองเฉพาะหุ้นที่ผ่านเกณฑ์ Minervini Earnings (EPS ≥ 25% หรือ Rev ≥ 25%)
     earnings_filter = request.GET.get('earnings_filter') == '1'
     if earnings_filter:
@@ -1930,6 +1941,13 @@ def minervini_sepa_scanner(request):
         elif eps_g >= 10: sc += 5
         if rev_g >= 50:  sc += 10
         elif rev_g >= 25: sc += 6
+        # Trend Template คือองค์ประกอบที่ 1 ของ SEPA — เดิมคะแนนนี้ไม่ถูกนับเลย
+        # ให้ข้อละ 5 แต้ม (สูงสุด 40) เทียบเท่าน้ำหนัก VCP เพราะเป็นฐานของทั้งระบบ
+        _tt = getattr(c, 'trend_template_score', 0) or 0
+        sc += _tt * 5
+        if getattr(c, 'eps_accel', False):
+            sc += 10
+        c.tt_score = _tt
         c.sepa_score = sc
 
     # Sort by SEPA Score descending
@@ -1947,6 +1965,8 @@ def minervini_sepa_scanner(request):
         'vcp_only': vcp_only,
         'hide_at_tp': hide_at_tp,
         'earnings_filter': earnings_filter,
+        'tt_only': tt_only,
+        'stage4_hide': stage4_hide,
     }
     return render(request, 'stocks/sepa_scanner.html', context)
 
@@ -2325,6 +2345,20 @@ def precision_momentum_scanner(request):
                         except Exception:
                             pass
 
+                        # Stage 4 (แจกจ่าย/ขาลง) — ตรงข้ามกับ Stage 2 ใน Stage Analysis ของ Minervini
+                        # ราคาใต้ MA200 และ MA200 ลาดลง = ห้ามซื้อ และเป็นสัญญาณให้ออกถ้าถืออยู่
+                        stage4_flag = False
+                        try:
+                            sma200_s = ta.sma(df['Close'], length=200)
+                            if sma200_s is not None:
+                                sma200_clean = sma200_s.dropna()
+                                if len(sma200_clean) >= 20:
+                                    sma200_cur = float(sma200_clean.iloc[-1])
+                                    sma200_4w  = float(sma200_clean.iloc[-20])
+                                    stage4_flag = (current_price < sma200_cur) and (sma200_cur < sma200_4w)
+                        except Exception:
+                            pass
+
                         # ====== Fundamental Data (bulk-fetched after all threads complete) ======
                         # ตัวแปรเหล่านี้ไม่ถูกใช้ใน thread - bulk enrichment เป็นตัวทำใน step 2
 
@@ -2661,6 +2695,7 @@ def precision_momentum_scanner(request):
                             'stock_3m_ret': stock_3m_ret,
                             'rs_rating': rs_ratings_map.get(symbol, 0),
                             'stage2': stage2_flag,
+                            'stage4': stage4_flag,
                             'pocket_pivot': pocket_pivot_flag,
                             'pp_at_ma50': pp_at_ma50_flag,
                             'wyckoff_spring': wyckoff_spring_flag,
@@ -2776,7 +2811,13 @@ def precision_momentum_scanner(request):
                             eps_g = keystat.get('earningsQuarterlyGrowth') or fin_data.get('earningsGrowth') or 0.0
                             eps_growth = float(eps_g) * 100
                             rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
-                            fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth}
+                            # EPS Acceleration — กำไรคาดการณ์ข้างหน้าโตกว่ากำไรที่ทำได้จริง
+                            # ใช้ defaultKeyStatistics ที่ดึงมาอยู่แล้ว จึงไม่เพิ่ม network call
+                            _eps_t = float(keystat.get('trailingEps') or 0)
+                            _eps_f = float(keystat.get('forwardEps') or 0)
+                            eps_accel = bool(_eps_t > 0 and _eps_f > _eps_t)
+                            fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth,
+                                                    'rev_growth': rev_growth, 'eps_accel': eps_accel}
                     except Exception as e:
                         print(f"[Precision] Bulk Fundamental fetch failed: {e}")
 
@@ -2856,6 +2897,8 @@ def precision_momentum_scanner(request):
                             ema20_rising=r.get('ema20_rising', False),
                             hh_hl_structure=r.get('hh_hl_structure', False),
                             stage2=r.get('stage2', False),
+                            stage4=r.get('stage4', False),
+                            eps_accel=f.get('eps_accel', False),
                             pocket_pivot=r.get('pocket_pivot', False),
                             pp_at_ma50=r.get('pp_at_ma50', False),
                             wyckoff_spring=r.get('wyckoff_spring', False),
@@ -5625,6 +5668,20 @@ def us_precision_scanner(request):
                         except Exception:
                             pass
 
+                        # Stage 4 (แจกจ่าย/ขาลง) — ตรงข้ามกับ Stage 2 ใน Stage Analysis ของ Minervini
+                        # ราคาใต้ MA200 และ MA200 ลาดลง = ห้ามซื้อ และเป็นสัญญาณให้ออกถ้าถืออยู่
+                        stage4_flag = False
+                        try:
+                            sma200_s = ta.sma(df['Close'], length=200)
+                            if sma200_s is not None:
+                                sma200_clean = sma200_s.dropna()
+                                if len(sma200_clean) >= 20:
+                                    sma200_cur = float(sma200_clean.iloc[-1])
+                                    sma200_4w  = float(sma200_clean.iloc[-20])
+                                    stage4_flag = (current_price < sma200_cur) and (sma200_cur < sma200_4w)
+                        except Exception:
+                            pass
+
                         # ====== Fundamental Data (bulk-fetched after all threads complete) ======
                         # ตัวแปรเหล่านี้ไม่ถูกใช้ใน thread - bulk enrichment เป็นตัวทำใน step 2
 
@@ -5960,6 +6017,7 @@ def us_precision_scanner(request):
                             'stock_3m_ret': stock_3m_ret,
                             'rs_rating': rs_ratings_map.get(symbol, 0),
                             'stage2': stage2_flag,
+                            'stage4': stage4_flag,
                             'pocket_pivot': pocket_pivot_flag,
                             'pp_at_ma50': pp_at_ma50_flag,
                             'wyckoff_spring': wyckoff_spring_flag,
@@ -6074,7 +6132,13 @@ def us_precision_scanner(request):
                             eps_g = keystat.get('earningsQuarterlyGrowth') or fin_data.get('earningsGrowth') or 0.0
                             eps_growth = float(eps_g) * 100
                             rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
-                            fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth}
+                            # EPS Acceleration — กำไรคาดการณ์ข้างหน้าโตกว่ากำไรที่ทำได้จริง
+                            # ใช้ defaultKeyStatistics ที่ดึงมาอยู่แล้ว จึงไม่เพิ่ม network call
+                            _eps_t = float(keystat.get('trailingEps') or 0)
+                            _eps_f = float(keystat.get('forwardEps') or 0)
+                            eps_accel = bool(_eps_t > 0 and _eps_f > _eps_t)
+                            fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth,
+                                                    'rev_growth': rev_growth, 'eps_accel': eps_accel}
                     except Exception as e:
                         print(f"[Precision] Bulk Fundamental fetch failed: {e}")
 
@@ -6154,6 +6218,8 @@ def us_precision_scanner(request):
                             ema20_rising=r.get('ema20_rising', False),
                             hh_hl_structure=r.get('hh_hl_structure', False),
                             stage2=r.get('stage2', False),
+                            stage4=r.get('stage4', False),
+                            eps_accel=f.get('eps_accel', False),
                             pocket_pivot=r.get('pocket_pivot', False),
                             pp_at_ma50=r.get('pp_at_ma50', False),
                             wyckoff_spring=r.get('wyckoff_spring', False),
