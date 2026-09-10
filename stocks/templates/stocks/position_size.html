@@ -1,0 +1,269 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Position Size — Quant Risk{% endblock %}
+
+{% block content %}
+<style>
+.ps-wrap { max-width: 1080px; margin-inline: auto; }
+.ps-card {
+  background:#fff; border:1px solid #e8ecf0; border-radius:16px;
+  box-shadow:0 1px 6px rgba(0,0,0,0.06); overflow:hidden; margin-bottom:18px;
+}
+.ps-card-head {
+  padding:13px 20px; background:linear-gradient(180deg,#1e293b,#0f172a); color:#e2e8f0;
+  font-size:0.72rem; font-weight:800; letter-spacing:.9px; text-transform:uppercase;
+}
+.ps-card-body { padding:20px; }
+.ps-label { font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; }
+.ps-input {
+  width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:9px;
+  font-size:0.92rem; font-weight:600; color:#0f172a; font-variant-numeric:tabular-nums;
+}
+.ps-input:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.13); }
+.ps-btn {
+  padding:10px 22px; border:none; border-radius:9px; background:#1d4ed8; color:#fff;
+  font-weight:800; font-size:0.85rem; cursor:pointer;
+}
+.ps-btn:hover { background:#1e40af; }
+
+/* ผลลัพธ์หลัก — ตัวเลขที่ผู้ใช้มาหา ต้องเด่นที่สุดในหน้า */
+.ps-answer { text-align:center; padding:26px 20px; background:#f0f9ff; border-bottom:1px solid #e0f2fe; }
+.ps-answer-num { font-size:3rem; font-weight:900; color:#075985; line-height:1; font-variant-numeric:tabular-nums; }
+.ps-answer-unit { font-size:1rem; font-weight:700; color:#0369a1; }
+.ps-answer-sub { font-size:0.82rem; color:#0c4a6e; margin-top:8px; }
+.ps-answer.is-blocked { background:#fef2f2; border-bottom-color:#fee2e2; }
+.ps-answer.is-blocked .ps-answer-num { font-size:1.4rem; color:#b91c1c; }
+
+.ps-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:#eef2f7; }
+.ps-cell { background:#fff; padding:14px 16px; }
+.ps-cell-num { font-size:1.15rem; font-weight:800; color:#0f172a; font-variant-numeric:tabular-nums; }
+.ps-cell-label { font-size:0.68rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+
+/* แถบวัด Heat */
+.ps-heat-bar { height:22px; border-radius:11px; background:#eef2f7; overflow:hidden; position:relative; }
+.ps-heat-fill { height:100%; border-radius:11px; transition:width .4s; }
+.ps-heat-ok    { background:linear-gradient(90deg,#22c55e,#16a34a); }
+.ps-heat-warm  { background:linear-gradient(90deg,#fbbf24,#d97706); }
+.ps-heat-over  { background:linear-gradient(90deg,#f87171,#dc2626); }
+.ps-heat-unknown { background:linear-gradient(90deg,#cbd5e1,#94a3b8); }
+.ps-chip { display:inline-block; padding:3px 11px; border-radius:999px; font-size:0.7rem; font-weight:800; }
+
+.ps-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
+.ps-table th {
+  text-align:left; padding:9px 12px; background:#f8fafc; color:#64748b;
+  font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+  border-bottom:1px solid #e2e8f0;
+}
+.ps-table td { padding:9px 12px; border-bottom:1px solid #f1f5f9; font-variant-numeric:tabular-nums; }
+.ps-table tr:last-child td { border-bottom:none; }
+.ps-note {
+  display:flex; gap:9px; background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #94a3b8;
+  border-radius:10px; padding:11px 15px; font-size:0.78rem; color:#475569; line-height:1.6;
+}
+@media (max-width: 576px) { .ps-answer-num { font-size:2.2rem; } }
+</style>
+
+<div class="ps-wrap">
+
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h4 class="fw-bold mb-1" style="color:#0f172a;">Quant Position Size</h4>
+      <div class="text-muted" style="font-size:0.82rem;">
+        คำนวณจำนวนหุ้นจาก <b>ความเสี่ยงที่ยอมรับได้</b> ไม่ใช่จากเงินที่มี
+      </div>
+    </div>
+    <a href="{% url 'stocks:portfolio_exit_plan' %}" class="text-decoration-none"
+       style="font-size:0.82rem;color:#475569;">Exit Plan →</a>
+  </div>
+
+  <!-- ── ฟอร์ม ─────────────────────────────────────── -->
+  <div class="ps-card">
+    <div class="ps-card-head">ข้อมูลไม้ที่จะเข้า</div>
+    <div class="ps-card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-6 col-md-2">
+          <label class="ps-label mb-1">หุ้น</label>
+          <input class="ps-input" name="symbol" value="{{ symbol }}" placeholder="BA" autocomplete="off">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="ps-label mb-1">ราคาเข้า</label>
+          <input class="ps-input" name="entry" value="{{ entry|default_if_none:'' }}" inputmode="decimal">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="ps-label mb-1">Stop Loss</label>
+          <input class="ps-input" name="stop" value="{{ stop|default_if_none:'' }}" inputmode="decimal">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="ps-label mb-1">เสี่ยง %</label>
+          <input class="ps-input" name="risk" value="{{ risk_pct }}" inputmode="decimal">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="ps-label mb-1">น้ำหนักสูงสุด %</label>
+          <input class="ps-input" name="max_weight" value="{{ max_weight_pct }}" inputmode="decimal">
+        </div>
+        <div class="col-6 col-md-2">
+          <button type="submit" class="ps-btn w-100">คำนวณ</button>
+        </div>
+      </form>
+      {% if symbol and not prefill_found %}
+      <div class="ps-note mt-3">
+        <i class="fa-solid fa-circle-info" style="color:#94a3b8;"></i>
+        <span>ยังไม่มีผลสแกนของ <b>{{ symbol }}</b> จึงเติมราคา/stop ให้อัตโนมัติไม่ได้ — กรอกเองได้เลย</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── ผลลัพธ์ ───────────────────────────────────── -->
+  {% if result %}
+  <div class="ps-card">
+    <div class="ps-card-head">ขนาดไม้ที่ควรซื้อ</div>
+
+    {% if result.error %}
+    <div class="ps-answer is-blocked">
+      <div class="ps-answer-num">ยังไม่ควรเข้าไม้นี้</div>
+      <div class="ps-answer-sub">{{ result.error }}</div>
+    </div>
+    {% else %}
+    <div class="ps-answer">
+      <div class="ps-answer-num">{{ result.shares|intcomma }} <span class="ps-answer-unit">หุ้น</span></div>
+      <div class="ps-answer-sub">
+        มูลค่า {% if market != 'US' %}฿{% else %}${% endif %}{{ result.position_value|floatformat:0|intcomma }}
+        · ถ้าหลุด stop เสีย {% if market != 'US' %}฿{% else %}${% endif %}{{ result.risk_amount|floatformat:0|intcomma }}
+        ({{ result.risk_pct_actual }}% ของพอร์ต)
+      </div>
+    </div>
+
+    <div class="ps-grid">
+      <div class="ps-cell">
+        <div class="ps-cell-num">{{ result.stop_distance_pct }}%</div>
+        <div class="ps-cell-label">ระยะถึง Stop</div>
+      </div>
+      <div class="ps-cell">
+        <div class="ps-cell-num">{{ result.weight_pct }}%</div>
+        <div class="ps-cell-label">น้ำหนักในพอร์ต</div>
+      </div>
+      <div class="ps-cell">
+        <div class="ps-cell-num">{{ result.cost_estimate|floatformat:0|intcomma }}</div>
+        <div class="ps-cell-label">ค่าธรรมเนียมไป-กลับ</div>
+      </div>
+      <div class="ps-cell">
+        <div class="ps-cell-num">{{ result.heat_after_pct }}%</div>
+        <div class="ps-cell-label">Heat หลังเข้าไม้นี้</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="ps-card-body" style="border-top:1px solid #f1f5f9;">
+      {% comment %}
+        บอกให้ชัดว่าจำนวนถูกจำกัดด้วยอะไร ผู้ใช้จะได้รู้ว่าถ้าอยากได้ไม้ใหญ่ขึ้น
+        ต้องไปแก้ที่ตัวไหน — ไม่ใช่เดาว่าระบบคิดยังไง
+      {% endcomment %}
+      <div class="ps-label mb-2">เพดานที่คำนวณได้ (ระบบเลือกตัวที่น้อยที่สุด)</div>
+      <table class="ps-table">
+        <thead><tr><th>เพดาน</th><th>ซื้อได้สูงสุด</th><th>ความหมาย</th></tr></thead>
+        <tbody>
+          <tr {% if result.limited_by == 'risk' %}style="background:#eff6ff;"{% endif %}>
+            <td class="fw-bold">ความเสี่ยงต่อไม้{% if result.limited_by == 'risk' %} <span class="ps-chip" style="background:#dbeafe;color:#1e40af;">ตัวจำกัด</span>{% endif %}</td>
+            <td>{{ result.caps.risk|intcomma }}</td>
+            <td class="text-muted">เสีย {{ risk_pct }}% ของพอร์ตถ้าหลุด stop</td>
+          </tr>
+          <tr {% if result.limited_by == 'weight' %}style="background:#eff6ff;"{% endif %}>
+            <td class="fw-bold">น้ำหนักต่อตัว{% if result.limited_by == 'weight' %} <span class="ps-chip" style="background:#dbeafe;color:#1e40af;">ตัวจำกัด</span>{% endif %}</td>
+            <td>{{ result.caps.weight|intcomma }}</td>
+            <td class="text-muted">ไม่เกิน {{ max_weight_pct }}% ของพอร์ต แม้ stop จะแคบมาก</td>
+          </tr>
+          {% if result.caps.cash is not None %}
+          <tr {% if result.limited_by == 'cash' %}style="background:#eff6ff;"{% endif %}>
+            <td class="fw-bold">เงินสด{% if result.limited_by == 'cash' %} <span class="ps-chip" style="background:#dbeafe;color:#1e40af;">ตัวจำกัด</span>{% endif %}</td>
+            <td>{{ result.caps.cash|intcomma }}</td>
+            <td class="text-muted">เงินที่ซื้อได้จริง หักค่าธรรมเนียมขาซื้อแล้ว</td>
+          </tr>
+          {% endif %}
+          <tr {% if result.limited_by == 'heat' %}style="background:#eff6ff;"{% endif %}>
+            <td class="fw-bold">Portfolio Heat{% if result.limited_by == 'heat' %} <span class="ps-chip" style="background:#dbeafe;color:#1e40af;">ตัวจำกัด</span>{% endif %}</td>
+            <td>{{ result.caps.heat|intcomma }}</td>
+            <td class="text-muted">ความเสี่ยงรวมทุกไม้ไม่เกิน {{ max_heat_pct }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Portfolio Heat ───────────────────────────── -->
+  <div class="ps-card">
+    <div class="ps-card-head">Portfolio Heat — ถ้าทุกไม้หลุด stop พร้อมกันวันนี้</div>
+    <div class="ps-card-body">
+      <div class="d-flex align-items-baseline justify-content-between mb-2 flex-wrap gap-2">
+        <div>
+          <span style="font-size:2rem;font-weight:900;color:#0f172a;font-variant-numeric:tabular-nums;">{{ heat.heat_pct }}%</span>
+          <span class="text-muted" style="font-size:0.85rem;">จากเพดาน {{ heat.max_heat_pct }}%</span>
+        </div>
+        <span class="ps-chip"
+              style="background:{% if heat.status == 'over' %}#fef2f2;color:#b91c1c{% elif heat.status == 'warm' %}#fffbeb;color:#b45309{% elif heat.status == 'unknown' %}#f1f5f9;color:#475569{% else %}#f0fdf4;color:#15803d{% endif %};">
+          {{ heat.label }}
+        </span>
+      </div>
+
+      <div class="ps-heat-bar mb-2">
+        {% widthratio heat.heat_pct heat.max_heat_pct 100 as heat_w %}
+        <div class="ps-heat-fill ps-heat-{{ heat.status }}"
+             style="width:{% if heat_w > 100 %}100{% else %}{{ heat_w }}{% endif %}%;"></div>
+      </div>
+      <div class="text-muted mb-3" style="font-size:0.76rem;">
+        เสี่ยงรวม ฿{{ heat.total_risk|floatformat:0|intcomma }} จากพอร์ต ฿{{ equity|floatformat:0|intcomma }}
+        (รวมเงินสด ฿{{ total_cash|floatformat:0|intcomma }})
+        · เหลือพื้นที่รับความเสี่ยงอีก {{ heat.room_pct }}%
+      </div>
+
+      {% if heat.unprotected_count %}
+      <div class="ps-note mb-3" style="border-left-color:#f59e0b;">
+        <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>
+        <span>
+          <b>{{ heat.unprotected_count }}</b> ตัวยังไม่ได้ตั้ง Stop Loss
+          ({% for s in heat.unprotected %}{{ s }}{% if not forloop.last %}, {% endif %}{% endfor %})
+          — ความเสี่ยงของไม้เหล่านี้คือ <b>ไม่จำกัด</b> ไม่ใช่ศูนย์ ตัวเลข Heat ด้านบนจึงต่ำกว่าความจริง
+        </span>
+      </div>
+      {% endif %}
+
+      {% if heat.positions %}
+      <table class="ps-table">
+        <thead><tr><th>หุ้น</th><th>Stop</th><th>เสี่ยง</th><th>% พอร์ต</th></tr></thead>
+        <tbody>
+          {% for r in heat.positions %}
+          <tr>
+            <td class="fw-bold">{{ r.symbol }}</td>
+            <td>{{ r.stop_price|floatformat:2 }}</td>
+            <td>{% if r.locked_profit %}<span class="text-muted">ล็อกกำไรแล้ว</span>{% else %}฿{{ r.risk_amount|floatformat:0|intcomma }}{% endif %}</td>
+            <td>{{ r.risk_pct }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="text-muted" style="font-size:0.82rem;">ยังไม่มีไม้ที่ประเมินความเสี่ยงได้</div>
+      {% endif %}
+
+      {% if holdings_count != priced_count %}
+      <div class="ps-note mt-3">
+        <i class="fa-solid fa-circle-info" style="color:#94a3b8;"></i>
+        <span>ดึงราคาได้ {{ priced_count }} จาก {{ holdings_count }} ตัว — ตัวที่ดึงไม่ได้ไม่ถูกนับใน Heat</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="ps-note">
+    <i class="fa-solid fa-lightbulb" style="color:#94a3b8;"></i>
+    <span>
+      <b>ทำไมต้องคิดจากความเสี่ยง</b> — ถ้าซื้อด้วยเงินเท่ากันทุกไม้ ไม้ที่ stop กว้างจะเสียหนักกว่าไม้ที่ stop แคบหลายเท่า
+      ทั้งที่ตั้งใจให้เท่ากัน การคิดจากระยะ stop ทำให้ทุกไม้ <b>เสียเท่ากันเมื่อผิดทาง</b> ผลรวมระยะยาวจึงคาดเดาได้
+      · หน่วยเงินของ Heat คิดเป็นบาททั้งพอร์ต (แปลง USD ที่ {{ usd_thb|floatformat:2 }})
+    </span>
+  </div>
+
+</div>
+{% endblock %}

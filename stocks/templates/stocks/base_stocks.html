@@ -496,6 +496,13 @@
                                     <i class="fas fa-bell me-2 text-warning"></i> Watchlist (US)
                                 </a>
                             </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'position_size_calculator' %}active{% endif %}"
+                                   href="{% url 'stocks:position_size_calculator' %}">
+                                    <i class="fas fa-scale-balanced me-2 text-info"></i> Position Size (ขนาดไม้ตามความเสี่ยง)
+                                </a>
+                            </li>
                         </ul>
                     </li>
 

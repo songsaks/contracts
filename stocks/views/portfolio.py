@@ -1719,3 +1719,143 @@ def manual_update_trade_exit(request):
 # AI Daily Agent Reports (SEPA / CAN SLIM / Trend Following / Momentum + Portfolio comparison)
 # ==============================================================================
 
+
+
+# ==============================================================================
+# Quant Position Size — คำนวณขนาดไม้จากความเสี่ยง + Portfolio Heat
+# ==============================================================================
+def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
+                             risk_pct=None, max_weight_pct=None, max_heat_pct=None):
+    """
+    รวบรวม equity / เงินสด / heat ปัจจุบัน แล้วคำนวณขนาดไม้
+    แยกออกมาเป็นฟังก์ชันเพื่อให้ทั้งหน้าเว็บและ API ใช้ตรรกะชุดเดียวกัน
+    """
+    from stocks.models import PortfolioCash, PrecisionScanCandidate
+    from stocks.alert_engine import fetch_live_prices, _NON_PRICEABLE_CATEGORIES
+    from stocks.position_sizing import (
+        calculate_position_size, calculate_portfolio_heat,
+        DEFAULT_RISK_PCT, DEFAULT_MAX_WEIGHT_PCT, DEFAULT_MAX_HEAT_PCT,
+    )
+    from stocks.utils import simple_trailing_stop
+
+    risk_pct = float(risk_pct or DEFAULT_RISK_PCT)
+    max_weight_pct = float(max_weight_pct or DEFAULT_MAX_WEIGHT_PCT)
+    max_heat_pct = float(max_heat_pct or DEFAULT_MAX_HEAT_PCT)
+
+    holdings = [p for p in Portfolio.objects.filter(user=user)
+                if p.category not in _NON_PRICEABLE_CATEGORIES]
+    prices = fetch_live_prices({(p.symbol, p.market) for p in holdings}) if holdings else {}
+
+    # stop ที่ใช้จริงของแต่ละไม้: SL จากผลสแกนล่าสุด ถ้าไม่มีก็ ATR trailing stop
+    prec_by_symbol = {}
+    for row in (PrecisionScanCandidate.objects
+                .filter(user=user, symbol__in={p.symbol.split('.')[0].upper() for p in holdings})
+                .order_by('symbol', '-scan_run')):
+        prec_by_symbol.setdefault(row.symbol, row)
+
+    usd_thb = _get_usd_thb()
+    equity = 0.0
+    heat_rows = []
+    for p in holdings:
+        px = prices.get(p.symbol)
+        if not px:
+            continue
+        fx = usd_thb if p.market != MarketType.SET else 1.0
+        equity += float(p.quantity or 0) * px * fx
+        prec = prec_by_symbol.get(p.symbol.split('.')[0].upper())
+        stop_used = float(getattr(prec, 'stop_loss', 0) or 0)
+        if stop_used <= 0:
+            stop_used = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier) or 0
+        heat_rows.append({
+            'symbol': p.symbol,
+            'quantity': float(p.quantity or 0),
+            'current_price': px * fx,      # คิด heat เป็นสกุลเดียว (บาท) ทั้งพอร์ต
+            'stop_price': stop_used * fx,
+        })
+
+    cash_thb = PortfolioCash.objects.filter(user=user, currency='THB').first()
+    cash_usd = PortfolioCash.objects.filter(user=user, currency='USD').first()
+    cash_thb = float(cash_thb.balance) if cash_thb else 0.0
+    cash_usd = float(cash_usd.balance) if cash_usd else 0.0
+    total_cash = cash_thb + cash_usd * usd_thb
+    equity += total_cash
+
+    heat = calculate_portfolio_heat(heat_rows, equity, max_heat_pct=max_heat_pct)
+
+    # เติมราคา/stop ให้อัตโนมัติจากผลสแกนล่าสุด ถ้าผู้ใช้ยังไม่ได้กรอกมา
+    market = MarketType.SET
+    prefill = None
+    if symbol:
+        clean = symbol.split('.')[0].upper()
+        prefill = (PrecisionScanCandidate.objects
+                   .filter(user=user, symbol=clean).order_by('-scan_run').first())
+        if prefill:
+            market = getattr(prefill, 'market', MarketType.SET) or MarketType.SET
+            if entry is None:
+                entry = prefill.price
+            if stop is None:
+                stop = prefill.stop_loss
+
+    result = None
+    if entry and stop:
+        cash_for_market = cash_usd if market == MarketType.US else cash_thb
+        result = calculate_position_size(
+            equity=equity if market != MarketType.US else equity / usd_thb,
+            entry_price=float(entry), stop_price=float(stop), risk_pct=risk_pct,
+            cash_available=cash_for_market, max_weight_pct=max_weight_pct,
+            market=market, current_heat_pct=heat['heat_pct'], max_heat_pct=max_heat_pct,
+        )
+
+    return {
+        'symbol': symbol or '', 'entry': entry, 'stop': stop, 'market': market,
+        'risk_pct': risk_pct, 'max_weight_pct': max_weight_pct, 'max_heat_pct': max_heat_pct,
+        'equity': round(equity, 2), 'cash_thb': cash_thb, 'cash_usd': cash_usd,
+        'total_cash': round(total_cash, 2), 'usd_thb': usd_thb,
+        'heat': heat, 'result': result,
+        'prefill_found': prefill is not None,
+        'priced_count': len(heat_rows), 'holdings_count': len(holdings),
+    }
+
+
+@login_required
+def position_size_calculator(request):
+    """หน้าคำนวณขนาดไม้ตามความเสี่ยง พร้อมมาตรวัด Portfolio Heat"""
+    def _num(name):
+        raw = (request.GET.get(name) or '').strip()
+        try:
+            return float(raw) if raw else None
+        except ValueError:
+            return None
+
+    ctx = _position_sizing_context(
+        request.user,
+        symbol=(request.GET.get('symbol') or '').strip().upper() or None,
+        entry=_num('entry'), stop=_num('stop'), risk_pct=_num('risk'),
+        max_weight_pct=_num('max_weight'), max_heat_pct=_num('max_heat'),
+    )
+    return render(request, 'stocks/position_size.html', ctx)
+
+
+@login_required
+def api_position_size(request):
+    """JSON เดียวกับหน้าเว็บ — ให้หน้าอื่น (เช่น Trade Flow) เรียกใช้ได้"""
+    from django.http import JsonResponse
+
+    def _num(name):
+        raw = (request.GET.get(name) or '').strip()
+        try:
+            return float(raw) if raw else None
+        except ValueError:
+            return None
+
+    ctx = _position_sizing_context(
+        request.user,
+        symbol=(request.GET.get('symbol') or '').strip().upper() or None,
+        entry=_num('entry'), stop=_num('stop'), risk_pct=_num('risk'),
+        max_weight_pct=_num('max_weight'), max_heat_pct=_num('max_heat'),
+    )
+    return JsonResponse({
+        'equity': ctx['equity'], 'total_cash': ctx['total_cash'],
+        'heat': ctx['heat'], 'result': ctx['result'],
+        'entry': ctx['entry'], 'stop': ctx['stop'], 'market': ctx['market'],
+    })
