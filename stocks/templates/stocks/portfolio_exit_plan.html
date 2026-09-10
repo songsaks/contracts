@@ -130,6 +130,16 @@
 }
 .ep-empty { padding:36px; text-align:center; color:#94a3b8; font-weight:600; font-size:0.85rem; }
 
+/* แถบแจ้งรายการที่ไม่ได้อยู่ในแผน (กองทุน/เงินสด หรือดึงราคาไม่สำเร็จ) */
+.ep-notice {
+  display:flex; align-items:flex-start; gap:9px;
+  background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #94a3b8;
+  border-radius:10px; padding:10px 14px; margin-bottom:16px;
+  font-size:0.78rem; color:#475569; line-height:1.55;
+}
+.ep-notice i { color:#94a3b8; margin-top:2px; flex-shrink:0; }
+.ep-notice b { color:#334155; }
+
 /* ── Responsive ──────────────────────────────────────────────
    แท็บเล็ตลงไป: ยอมให้เลื่อนแนวนอนแทนการซ่อนข้อมูลทิ้ง แล้วตรึง
    คอลัมน์ชื่อหุ้นไว้ เพื่อให้เลื่อนดูตัวเลขได้โดยไม่หลงว่าเป็นหุ้นตัวไหน */
@@ -311,6 +321,21 @@
 
   {% endif %}
 
+  {% comment %}
+    รายการที่ไม่มีราคาตลาดหรือดึงข้อมูลไม่ได้ ต้องบอกให้เห็น ไม่ใช่หายไปเฉยๆ
+    เพราะหน้านี้ใช้ตัดสินใจขาย — แถวที่หายไปจะถูกอ่านว่า "ไม่มีอะไรต้องทำ"
+  {% endcomment %}
+  {% if non_priceable_count or error_count %}
+  <div class="ep-notice">
+    <i class="fa-solid fa-circle-info"></i>
+    <span>
+      {% if error_count %}<b>{{ error_count }}</b> รายการดึงราคาไม่สำเร็จ — แสดงเป็นแถวสีเทาและไม่ถูกนับในสรุปด้านบน{% endif %}
+      {% if non_priceable_count and error_count %} · {% endif %}
+      {% if non_priceable_count %}ไม่รวมกองทุน/เงินสด <b>{{ non_priceable_count }}</b> รายการ ({% for p in non_priceable %}{{ p.symbol }}{% if not forloop.last %}, {% endif %}{% endfor %}) เพราะไม่มีราคาตลาดให้วางแผนออก{% endif %}
+    </span>
+  </div>
+  {% endif %}
+
   <!-- ── EMPTY ─────────────────────────────────────── -->
   {% if not items %}
   <div class="text-center py-5">
@@ -377,7 +402,7 @@
             data-rel3m="{{ item.rel_3m|default:0 }}">
           <td class="text-start">
             <div class="d-flex align-items-center gap-2">
-              <span class="ep-dot" style="background:{% if sig == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif sig == 'EXIT' %}#d97706{% elif sig == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};"></span>
+              <span class="ep-dot" style="background:{% if item.data_error %}#64748b{% elif sig == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif sig == 'EXIT' %}#d97706{% elif sig == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};"></span>
               <div>
                 <div class="ep-sym">{{ item.obj.symbol }}</div>
                 <div class="ep-sub">
@@ -425,7 +450,7 @@
             </div>
           </td>
           <td class="text-start">
-            <span class="ep-action" style="background:{% if sig == 'STRONG EXIT' or item.sl_hit %}#fef2f2;color:#b91c1c;border-color:#fecaca{% elif sig == 'EXIT' %}#fffbeb;color:#b45309;border-color:#fde68a{% elif sig == 'WATCH' %}#fff7ed;color:#c2410c;border-color:#fed7aa{% else %}#f0fdf4;color:#15803d;border-color:#bbf7d0{% endif %};">
+            <span class="ep-action" style="background:{% if item.data_error %}#f1f5f9;color:#475569;border-color:#cbd5e1{% elif sig == 'STRONG EXIT' or item.sl_hit %}#fef2f2;color:#b91c1c;border-color:#fecaca{% elif sig == 'EXIT' %}#fffbeb;color:#b45309;border-color:#fde68a{% elif sig == 'WATCH' %}#fff7ed;color:#c2410c;border-color:#fed7aa{% else %}#f0fdf4;color:#15803d;border-color:#bbf7d0{% endif %};">
               {{ item.action }}
             </span>
             {% if item.action_detail %}<div class="ep-sub mt-1">{{ item.action_detail|truncatechars:44 }}</div>{% endif %}
@@ -453,7 +478,7 @@
        style="background:#fff;
               box-shadow:0 1px 6px rgba(0,0,0,0.07);
               border:1px solid #e8ecf0;
-              border-left:4px solid {% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif item.exit_signal == 'EXIT' %}#d97706{% elif item.exit_signal == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};">
+              border-left:4px solid {% if item.data_error %}#64748b{% elif item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif item.exit_signal == 'EXIT' %}#d97706{% elif item.exit_signal == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};">
 
     <!-- ═══ A: HEADER ROW ═════════════════════════════ -->
     <div class="d-flex align-items-start gap-3 px-4 py-3 flex-wrap"
@@ -462,7 +487,7 @@
       <!-- Avatar -->
       <div class="rounded-3 d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0"
            style="width:44px;height:44px;font-size:0.7rem;letter-spacing:0.5px;
-                  background:{% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif item.exit_signal == 'EXIT' %}#d97706{% elif item.exit_signal == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};">
+                  background:{% if item.data_error %}#64748b{% elif item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif item.exit_signal == 'EXIT' %}#d97706{% elif item.exit_signal == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};">
         {{ item.obj.symbol|slice:":3" }}
       </div>
 

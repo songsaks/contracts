@@ -105,6 +105,124 @@ def _build_exit_action_plan(*, market_label, market_timing, cs, current_price, e
     return steps
 
 
+# ตัวเลขที่หน้า Exit Plan ใช้จาก history มีแค่ ราคาปิดล่าสุด, ราคาปิดวันก่อน,
+# 10D Low และ 20D Low — 3 เดือนเหลือเฟือ ไม่ต้องโหลดย้อนหลัง 1 ปีเหมือนเดิม
+EXIT_PLAN_HISTORY_PERIOD = "3mo"
+# ภาวะตลาดเป็นค่ากลางของทุกคน ไม่ต้องโหลด ^SET.BK ย้อนหลัง 430 วันใหม่ทุก request
+EXIT_PLAN_MARKET_CACHE_SEC = 900
+
+
+def _exit_plan_yf_symbol(symbol, market):
+    """แปลงสัญลักษณ์ในพอร์ตเป็นรูปแบบที่ yfinance เข้าใจ"""
+    if market == MarketType.SET and not symbol.endswith('.BK'):
+        return f"{symbol}.BK"
+    if market == MarketType.CRYPTO and '-' not in symbol:
+        return f"{symbol}-USD"
+    return symbol
+
+
+def _clean_ohlc(df):
+    """ทำ DataFrame จาก yfinance ให้อยู่ในรูปคอลัมน์แบนและตัดแถวที่ไม่มีราคาปิดทิ้ง
+    คืน None ถ้าไม่เหลือข้อมูลใช้ได้"""
+    if df is None or df.empty:
+        return None
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [c[0] for c in df.columns]
+    df = df.loc[:, ~df.columns.duplicated()]
+    if 'Close' not in df.columns:
+        return None
+    df = df.dropna(subset=['Close'])
+    return df if not df.empty else None
+
+
+def _fetch_exit_plan_history(pairs, period=EXIT_PLAN_HISTORY_PERIOD):
+    """ดึงราคาย้อนหลังของทุกตัวในพอร์ตด้วย request เดียว แทนการยิงทีละตัว
+
+    pairs: iterable ของ (symbol, market)
+    คืน {symbol เดิม: DataFrame} — ตัวที่ดึงไม่ได้จะไม่มี key อยู่ใน dict
+    """
+    out = {}
+    yf_map = {}                      # yf symbol -> symbol เดิม (ตัวแรกที่เจอ)
+    for sym, mkt in pairs:
+        yf_map.setdefault(_exit_plan_yf_symbol(sym, mkt), sym)
+    yf_symbols = list(yf_map)
+    if not yf_symbols:
+        return out
+
+    try:
+        raw = yf.download(yf_symbols, period=period, interval="1d", progress=False,
+                          group_by="ticker", threads=True, auto_adjust=True)
+    except Exception:
+        logger.exception("[ExitPlan] batch download ล้มเหลว (%d ตัว)", len(yf_symbols))
+        raw = None
+
+    if raw is not None and not raw.empty:
+        # ยิงตัวเดียว yfinance คืนคอลัมน์แบนมาเลย ไม่ได้ซ้อนชั้น ticker
+        if len(yf_symbols) == 1:
+            df = _clean_ohlc(raw)
+            if df is not None:
+                out[yf_map[yf_symbols[0]]] = df
+        else:
+            for ys in yf_symbols:
+                if ys not in raw.columns.get_level_values(0):
+                    continue
+                df = _clean_ohlc(raw[ys].copy())
+                if df is not None:
+                    out[yf_map[ys]] = df
+
+    # batch พังทั้งก้อน (Yahoo ล่ม/rate limit) — ถอยไปยิงทีละตัวแบบเดิม
+    # ไม่งั้นความผิดพลาดครั้งเดียวจะทำให้ทั้งพอร์ตกลายเป็นแถว "ดึงข้อมูลไม่ได้"
+    if not out:
+        logger.warning("[ExitPlan] batch ไม่ได้ข้อมูลเลย ถอยไปยิงทีละตัว (%d ตัว)", len(yf_symbols))
+        for ys, sym in yf_map.items():
+            try:
+                df = _clean_ohlc(yf.Ticker(ys).history(period=period))
+                if df is not None:
+                    out[sym] = df
+            except Exception:
+                logger.debug("[ExitPlan] ยิงเดี่ยว %s ล้มเหลว", ys, exc_info=True)
+
+    # ตัวที่ยังไม่ได้ผล และยังไม่เคยเติม suffix — ลองสลับ .BK ทีละตัวแบบเดิม
+    for sym, mkt in pairs:
+        if sym in out or _exit_plan_yf_symbol(sym, mkt) != sym:
+            continue
+        alt = sym.replace('.BK', '') if '.BK' in sym else f"{sym}.BK"
+        logger.debug("[ExitPlan] %s ไม่มีข้อมูล ลอง %s", sym, alt)
+        try:
+            df = _clean_ohlc(yf.Ticker(alt).history(period=period))
+            if df is not None:
+                out[sym] = df
+        except Exception:
+            logger.debug("[ExitPlan] fallback %s ล้มเหลว", alt, exc_info=True)
+    return out
+
+
+def _exit_plan_error_item(item, reason):
+    """แถวสำรองสำหรับหุ้นที่ดึงข้อมูลไม่ได้
+
+    หน้านี้ใช้ตัดสินใจว่าตัวไหนต้องขาย การปล่อยให้แถวหายไปเงียบๆ ผู้ใช้จะอ่านว่า
+    "ตัวนี้ไม่มีอะไรต้องทำ" ซึ่งผิดไปในทางที่อันตราย จึงคืนแถวที่มีคีย์ครบเหมือนแถวปกติ
+    แต่ตั้งค่าเป็นกลางทั้งหมด และติดธง data_error ให้เทมเพลตแสดงสถานะให้เห็น
+    """
+    return {
+        'obj': item, 'market': item.market, 'data_error': True, 'error_reason': reason,
+        'current_price': 0, 'day_change': 0,
+        'entry_price': float(item.entry_price or 0), 'gain_loss_pct': 0,
+        'quantity': float(item.quantity or 0), 'days_held': 0,
+        'sl_price': None, 'tp_price': None, 'turtle_s1': 0, 'turtle_s2': 0,
+        's1_hit': False, 's2_hit': False, 'rsi': None, 'adx': None,
+        'price_pattern': '', 'price_pattern_score': 0, 'rel_1m': 0.0, 'rel_3m': 0.0,
+        'rvol': 0.0, 'rvol_bullish': True, 'sell_score': 0, 'exit_signal': '',
+        'current_pct': None, 'entry_pct': None, 'sl_hit': False, 'tp_hit': False,
+        'action': 'ดึงข้อมูลไม่ได้', 'action_style': 'secondary',
+        'action_detail': f'{reason} — ตัวเลขในแถวนี้ยังไม่อัปเดต ให้เช็คราคาจากแหล่งอื่นก่อนตัดสินใจ',
+        'near_sl': False,
+        'triggers': [{'label': f'ไม่มีข้อมูลราคา - {reason}', 'level': 'warning'}],
+        'is_leader': False, 'is_laggard': False, 'anti_avg_down': False,
+        'cmf': None, 'rs_rating': 0, 'action_plan': [],
+    }
+
+
 @login_required
 def portfolio_exit_plan(request):
     """
@@ -114,35 +232,42 @@ def portfolio_exit_plan(request):
     - สัญญาณออกที่ active อยู่
     - เรียงตาม SELL Score สูงสุดก่อน (urgent first)
     """
-    portfolio_items = Portfolio.objects.filter(user=request.user)
+    from datetime import date
+    from stocks.models import PrecisionScanCandidate
+    from stocks.utils import compute_exit_action
+    from stocks.alert_engine import _NON_PRICEABLE_CATEGORIES
+
+    # กองทุนกับเงินสดไม่มีราคาตลาดให้ดึง ถ้าปล่อยเข้าลูปจะได้ราคา 0 แล้วโชว์ขาดทุน -100%
+    # endpoint รีเฟรชราคาก็กรองชุดเดียวกันนี้อยู่แล้ว — แยกออกมานับให้ผู้ใช้เห็นแทนการทิ้งเงียบ
+    all_holdings = list(Portfolio.objects.filter(user=request.user))
+    portfolio_items = [p for p in all_holdings if p.category not in _NON_PRICEABLE_CATEGORIES]
+    non_priceable = [p for p in all_holdings if p.category in _NON_PRICEABLE_CATEGORIES]
+
+    # ── ดึงราคาย้อนหลังทั้งพอร์ตในครั้งเดียว แทนการยิง yfinance ทีละตัว ──
+    hist_map = _fetch_exit_plan_history([(p.symbol, p.market) for p in portfolio_items])
+
+    # ── ดึง PrecisionScanCandidate ครั้งเดียวทั้งพอร์ต แทน query ต่อหุ้น ──
+    # เรียง -scan_run เหมือนเดิม แล้วเก็บตัวแรกของแต่ละ symbol = ผลสแกนล่าสุด
+    prec_by_symbol = {}
+    for _row in (PrecisionScanCandidate.objects
+                 .filter(user=request.user,
+                         symbol__in={p.symbol.split('.')[0].upper() for p in portfolio_items})
+                 .order_by('symbol', '-scan_run')):
+        prec_by_symbol.setdefault(_row.symbol, _row)
+
     items = []
 
     for item in portfolio_items:
         try:
             symbol = item.symbol
-            # Determine correct symbol string for yfinance based on database market field
-            fetch_symbol = symbol
-            if item.market == MarketType.SET and not symbol.endswith('.BK'):
-                fetch_symbol = f"{symbol}.BK"
-            elif item.market == MarketType.CRYPTO and '-' not in symbol:
-                fetch_symbol = f"{symbol}-USD"
-            
-            t = yf.Ticker(fetch_symbol)
-            hist = t.history(period="1y")
+            hist = hist_map.get(symbol)
+            if hist is None:
+                items.append(_exit_plan_error_item(item, 'ไม่พบข้อมูลราคาจาก Yahoo'))
+                continue
 
-            # Fallback if empty (for robustness with manually entered symbols)
-            if hist.empty and fetch_symbol == symbol:
-                alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
-                logger.debug("Symbol %s empty, trying %s", symbol, alt_sym)
-                t = yf.Ticker(alt_sym)
-                hist = t.history(period="1y")
-            if isinstance(hist.columns, pd.MultiIndex):
-                hist.columns = [col[0] for col in hist.columns]
-            hist = hist.loc[:, ~hist.columns.duplicated()]
-
-            current_price = float(hist['Close'].iloc[-1]) if not hist.empty else 0
+            current_price = float(hist['Close'].iloc[-1])
             day_change = 0
-            if not hist.empty and len(hist) >= 2:
+            if len(hist) >= 2:
                 prev = float(hist['Close'].iloc[-2])
                 day_change = ((current_price - prev) / prev * 100) if prev else 0
 
@@ -150,15 +275,15 @@ def portfolio_exit_plan(request):
             turtle_s1_exit = 0
             turtle_s2_exit = 0
             s1_hit = s2_hit = False
-            
-            if not hist.empty:
-                # Use daily Low for Turtle exits
-                hist_lows = hist['Low']
+
+            # Use daily Low for Turtle exits
+            hist_lows = hist['Low'] if 'Low' in hist.columns else None
+            if hist_lows is not None:
                 if len(hist_lows) >= 10:
                     turtle_s1_exit = float(hist_lows.tail(10).min())
                 if len(hist_lows) >= 20:
                     turtle_s2_exit = float(hist_lows.tail(20).min())
-                
+
                 s1_hit = current_price <= turtle_s1_exit if turtle_s1_exit > 0 else False
                 s2_hit = current_price <= turtle_s2_exit if turtle_s2_exit > 0 else False
 
@@ -167,15 +292,9 @@ def portfolio_exit_plan(request):
             gain_loss_pct = ((current_price - entry_price) / entry_price * 100) if entry_price else 0
 
             # days held
-            from datetime import date
             days_held = (date.today() - item.added_at.date()).days if item.added_at else 0
 
-            # ดึง PrecisionScanCandidate
-            clean_symbol = symbol.split('.')[0].upper()
-            from stocks.models import PrecisionScanCandidate
-            prec_data = (PrecisionScanCandidate.objects
-                         .filter(user=request.user, symbol=clean_symbol)
-                         .order_by('-scan_run').first())
+            prec_data = prec_by_symbol.get(symbol.split('.')[0].upper())
 
             sl_price = tp_price = rsi_val = adx_val = None
             price_pattern = ''
@@ -202,7 +321,6 @@ def portfolio_exit_plan(request):
                 cmf_val     = prec_data.cmf
 
             # ===== คำแนะนำออก/ถือ — ใช้ฟังก์ชันกลาง compute_exit_action (แหล่งเดียวกับ alert engine) =====
-            from stocks.utils import compute_exit_action
             _ea = compute_exit_action(
                 prec_data, current_price=current_price, entry_price=entry_price,
                 quantity=quantity, turtle_s1=turtle_s1_exit, turtle_s2=turtle_s2_exit,
@@ -323,8 +441,9 @@ def portfolio_exit_plan(request):
                 'rs_rating':    (prec_data.rs_rating if prec_data else 0) or 0,
             })
         except Exception as e:
-            print(f"[ExitPlan] Error {item.symbol}: {e}")
-            continue
+            # อย่าปล่อยให้แถวหายไปเงียบๆ — แสดงเป็นแถว "ดึงข้อมูลไม่ได้" ให้ผู้ใช้เห็น
+            logger.exception("[ExitPlan] คำนวณ %s ไม่สำเร็จ", item.symbol)
+            items.append(_exit_plan_error_item(item, f'คำนวณไม่สำเร็จ ({type(e).__name__})'))
 
     # เรียงตาม SELL Score สูงสุดก่อน
     items.sort(key=lambda x: x['sell_score'], reverse=True)
@@ -353,6 +472,8 @@ def portfolio_exit_plan(request):
 
     _n_items = len(items)
     for _it in items:
+        if _it.get('data_error'):
+            continue          # ไม่มีตัวเลขให้อ้างอิง แผนปฏิบัติการจะกลายเป็นการเดา
         _mk = _it['obj'].market
         _cs = '$' if _mk != MarketType.SET else '฿'
         _mk_label = 'US' if _mk == MarketType.US else ('SET' if _mk == MarketType.SET else str(_mk))
@@ -371,13 +492,16 @@ def portfolio_exit_plan(request):
     # ====== Portfolio Health Summary ======
     def _summarize(rows):
         n = len(rows)
+        # แถวที่ดึงข้อมูลไม่ได้ต้องไม่ถูกนับเป็น "ถือต่อได้" เพราะยังไม่รู้ว่าสถานะจริงเป็นอย่างไร
+        ok = [i for i in rows if not i.get('data_error')]
         return {
-            'urgent':  sum(1 for i in rows if i['exit_signal'] == 'STRONG EXIT' or i['sl_hit']),
-            'warning': sum(1 for i in rows if i['exit_signal'] == 'EXIT'),
-            'watch':   sum(1 for i in rows if i['exit_signal'] == 'WATCH'),
-            'healthy': sum(1 for i in rows if not i['exit_signal'] and not i['sl_hit']),
+            'urgent':  sum(1 for i in ok if i['exit_signal'] == 'STRONG EXIT' or i['sl_hit']),
+            'warning': sum(1 for i in ok if i['exit_signal'] == 'EXIT'),
+            'watch':   sum(1 for i in ok if i['exit_signal'] == 'WATCH'),
+            'healthy': sum(1 for i in ok if not i['exit_signal'] and not i['sl_hit']),
+            'error':   n - len(ok),
             'total':   n,
-            'avg_sell': round(sum(i['sell_score'] for i in rows) / n, 1) if n else 0,
+            'avg_sell': round(sum(i['sell_score'] for i in ok) / len(ok), 1) if ok else 0,
         }
 
     # สรุปแยกตลาด เพื่อให้การ์ดสรุปเปลี่ยนตามแท็บที่เลือกโดยไม่ต้องโหลดหน้าใหม่
@@ -394,24 +518,29 @@ def portfolio_exit_plan(request):
     watch_count, healthy_count  = _all['watch'], _all['healthy']
     total_count, avg_sell_score = _all['total'], _all['avg_sell']
 
-    # Market Condition
-    market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
-    try:
-        from datetime import datetime as _mcdt
-        from datetime import timedelta as _mctd
+    # Market Condition — ค่าเดียวกันสำหรับทุกคน จึง cache ไว้แทนการโหลด 430 วันใหม่ทุก request
+    from django.core.cache import cache as _mc_cache
+    market_condition = _mc_cache.get('exit_plan_market_condition')
+    if market_condition is None:
+        market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
+        try:
+            from datetime import datetime as _mcdt
+            from datetime import timedelta as _mctd
 
-        import pytz as _mcpytz
-        _mc_bkk   = _mcpytz.timezone('Asia/Bangkok')
-        _mc_now   = _mcdt.now(_mc_bkk)
-        _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
-        _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
-        _mc_df = yf.download("^SET.BK", start=_mc_start, end=_mc_end, interval="1d", progress=False)
-        if _mc_df is not None and not _mc_df.empty:
-            if isinstance(_mc_df.columns, pd.MultiIndex):
-                _mc_df.columns = _mc_df.columns.droplevel(1)
-            market_condition = _get_market_condition(_mc_df)
-    except Exception:
-        pass
+            import pytz as _mcpytz
+            _mc_bkk   = _mcpytz.timezone('Asia/Bangkok')
+            _mc_now   = _mcdt.now(_mc_bkk)
+            _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
+            _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
+            _mc_df = yf.download("^SET.BK", start=_mc_start, end=_mc_end, interval="1d", progress=False)
+            if _mc_df is not None and not _mc_df.empty:
+                if isinstance(_mc_df.columns, pd.MultiIndex):
+                    _mc_df.columns = _mc_df.columns.droplevel(1)
+                market_condition = _get_market_condition(_mc_df)
+                _mc_cache.set('exit_plan_market_condition', market_condition,
+                              EXIT_PLAN_MARKET_CACHE_SEC)
+        except Exception:
+            logger.debug("[ExitPlan] ดึงภาวะตลาด ^SET.BK ไม่สำเร็จ", exc_info=True)
 
     return render(request, 'stocks/portfolio_exit_plan.html', {
         'items': items,
@@ -419,11 +548,14 @@ def portfolio_exit_plan(request):
         'warning_count': warning_count,
         'watch_count':   watch_count,
         'healthy_count': healthy_count,
+        'error_count':   _all['error'],
         'total_count':   total_count,
         'avg_sell_score': avg_sell_score,
         'market_condition': market_condition,
         'market_summaries': market_summaries,
         'market_summaries_json': json.dumps(market_summaries),
+        'non_priceable': non_priceable,
+        'non_priceable_count': len(non_priceable),
     })
 
 
