@@ -8881,6 +8881,92 @@ def api_backtest_presets(request):
 
 
 @login_required
+def api_backtest_exit_rules(request):
+    """
+    เทียบว่ากฎ "ออก" แบบไหนให้ผลดีกว่า บนสัญญาณเข้าชุดเดียวกัน
+    ตอบคำถามที่ backtest เดิมตอบไม่ได้: SL คงที่ 3% + เป้า R:R (ที่ backtest เดิมใช้)
+    เทียบกับ ATR Trailing / Turtle ที่พอร์ตใช้จริง อันไหนดีกว่า
+
+    GET params:
+      symbol   (ถ้าไม่ระบุ = รวมหุ้น top market cap เป็น pool เดียว ให้ sample ใหญ่ขึ้น)
+      preset   (default safety_first)
+      limit    (จำนวนหุ้นในโหมด universe, default 40, max 80)
+      costs    ('0' เพื่อไม่หักค่าธรรมเนียม)
+      timing   ('1' เพื่อไม่เปิดไม้ใหม่ตอนตลาด RED)
+      atr_mult (ตัวคูณ ATR ของ trailing stop, default 2.5 = ค่าเดียวกับพอร์ต)
+    """
+    from django.core.cache import cache
+    from django.http import JsonResponse as _JR
+    from stocks.models import ScannableSymbol
+    from stocks.utils import (compare_exit_rules, compare_exit_rules_universe,
+                              PRESET_DEFINITIONS, EXIT_RULE_DEFINITIONS)
+
+    preset = (request.GET.get('preset') or 'safety_first').strip().lower()
+    if preset not in PRESET_DEFINITIONS:
+        return _JR({'error': f'unknown preset: {preset}', 'valid': list(PRESET_DEFINITIONS)}, status=400)
+    try:
+        atr_mult = float(request.GET.get('atr_mult') or 2.5)
+    except (TypeError, ValueError):
+        atr_mult = 2.5
+
+    symbol = (request.GET.get('symbol') or '').strip().upper()
+    if symbol:
+        sym_bk = symbol if (symbol.endswith('.BK') or '.' in symbol) else f"{symbol}.BK"
+        try:
+            df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=20)
+        except Exception as e:
+            return _JR({'error': f'fetch failed: {e}'}, status=502)
+        if df is None or df.empty:
+            return _JR({'error': f'no data for {symbol}'}, status=404)
+        cost_pct, gates = _backtest_options(request, {symbol: df})
+        results = compare_exit_rules(df, preset=preset, cost_pct=cost_pct,
+                                     market_gate=(gates or {}).get(symbol),
+                                     atr_multiplier=atr_mult)
+        return _JR({'symbol': symbol, 'preset': preset, 'atr_multiplier': atr_mult,
+                    'cost_pct': cost_pct, 'market_filtered': bool(gates),
+                    'rules': EXIT_RULE_DEFINITIONS, 'results': results})
+
+    try:
+        limit = min(int(request.GET.get('limit', 40)), 80)
+    except (TypeError, ValueError):
+        limit = 40
+
+    _c = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
+    _t = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
+    cache_key = f'backtest_exit_rules_v1_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        cached['cached'] = True
+        return _JR(cached)
+
+    symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0)
+                   .order_by('-market_cap')[:limit].values_list('symbol', flat=True))
+    if not symbols:
+        return _JR({'error': 'no symbols available to test'}, status=404)
+
+    symbol_dfs = {}
+    for sym in symbols:
+        sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
+        try:
+            df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=20)
+            if df is not None and not df.empty:
+                symbol_dfs[sym] = df
+        except Exception:
+            continue
+    if not symbol_dfs:
+        return _JR({'error': 'failed to fetch price data for universe symbols'}, status=502)
+
+    cost_pct, gates = _backtest_options(request, symbol_dfs)
+    results = compare_exit_rules_universe(symbol_dfs, preset=preset, market_gates=gates,
+                                          cost_pct=cost_pct, atr_multiplier=atr_mult)
+    payload = {'universe_size': len(symbol_dfs), 'preset': preset, 'atr_multiplier': atr_mult,
+               'cost_pct': cost_pct, 'market_filtered': bool(gates),
+               'rules': EXIT_RULE_DEFINITIONS, 'results': results, 'cached': False}
+    cache.set(cache_key, payload, timeout=60 * 60 * 24)
+    return _JR(payload)
+
+
+@login_required
 def api_backtest_presets_universe(request):
     """
     Backtest ย้อนหลังของเกณฑ์ preset รวมสัญญาณจากหุ้นหลายตัว (universe) เป็น trade pool เดียว

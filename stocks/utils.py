@@ -254,6 +254,184 @@ def build_market_gate(index_df, target_index, max_dist_days=5, lookback=25):
     return aligned.fillna(True).to_numpy(dtype=bool)
 
 
+EXIT_RULE_DEFINITIONS = {
+    'fixed':     'SL คงที่ % + เป้า R:R + จำกัดวันถือ (เกณฑ์เดิมของ backtest)',
+    'atr_trail': 'ATR Trailing Stop — สูงสุดตั้งแต่เข้า − ATR14 × ตัวคูณ (แบบที่พอร์ตใช้จริง)',
+    'turtle_s1': 'Turtle S1 — ออกเมื่อปิดต่ำกว่าจุดต่ำสุด 10 วัน',
+    'turtle_s2': 'Turtle S2 — ออกเมื่อปิดต่ำกว่าจุดต่ำสุด 20 วัน',
+    'combo':     'ATR Trail + Turtle S1 — อะไรมาก่อนออกก่อน (ใกล้เคียงระบบจริงที่สุด)',
+}
+
+
+def wilder_atr(high, low, close, length=14):
+    """ATR แบบ Wilder (RMA) — นิยามเดียวกับ ta.atr ที่ระบบใช้ตอนคำนวณ trailing stop จริง
+    เขียนเองด้วย pandas เพื่อให้ backtest ไม่ผูกกับ pandas_ta และผลตรงกับของจริง"""
+    prev_close = close.shift(1)
+    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    return tr.ewm(alpha=1.0 / length, adjust=False).mean()
+
+
+def _simulate_exit(arrays, entry_idx, *, exit_rule, sl_pct, rr_target, max_hold_days,
+                   atr_multiplier, n):
+    """
+    เดินราคาไปข้างหน้าจากวันเข้า แล้วคืน (exit_price, hold_days, reason)
+
+    ทุกกฎมี "stop เริ่มต้น" ที่ sl_pct เหมือนกัน — เข้าไม้โดยไม่มี stop ไม่ใช่สิ่งที่ระบบทำ
+    กฎ trailing จะยกระดับ stop ตามราคาสูงสุดนับจากวันเข้าเท่านั้น ไม่ลดลง
+
+    การเติมคำสั่ง: ถ้าเปิดต่ำกว่า stop อยู่แล้ว (gap) จะได้ราคาเปิด ไม่ใช่ราคา stop
+    — การสมมติว่าได้ราคา stop เสมอทำให้ผลดูดีกว่าความจริง
+    """
+    opens, highs, lows, closes, atr = arrays
+    entry = closes[entry_idx]
+    hard_stop = entry * (1 - sl_pct / 100.0)
+    stop = hard_stop
+    target = entry + (entry - hard_stop) * rr_target if exit_rule == 'fixed' else None
+    highest = highs[entry_idx]
+
+    limit = n if not max_hold_days else min(entry_idx + 1 + max_hold_days, n)
+    j = entry_idx
+    for j in range(entry_idx + 1, limit):
+        # ── เช็คว่าโดน stop ของ "เมื่อวาน" ก่อน แล้วค่อยยก stop ด้วยราคาวันนี้ ──
+        # ลำดับนี้สำคัญ: ใช้ high ของวันนี้ยก stop แล้วเช็ค low ของวันเดียวกัน
+        # จะกลายเป็นการรู้อนาคตภายในแท่ง
+        if opens[j] <= stop:
+            return opens[j], j - entry_idx, 'gap_through_stop'
+        if lows[j] <= stop:
+            return stop, j - entry_idx, 'stop'
+        if target is not None and highs[j] >= target:
+            return target, j - entry_idx, 'target'
+
+        if exit_rule in ('turtle_s1', 'turtle_s2', 'combo'):
+            lb = 20 if exit_rule == 'turtle_s2' else 10
+            if j - lb >= 0:
+                turtle = lows[j - lb:j].min()
+                if closes[j] <= turtle:
+                    return closes[j], j - entry_idx, 'turtle'
+
+        highest = max(highest, highs[j])
+        if exit_rule in ('atr_trail', 'combo') and atr is not None and atr[j] > 0:
+            stop = max(stop, highest - atr[j] * atr_multiplier)
+
+    j = min(j, n - 1)
+    return closes[j], max(1, j - entry_idx), 'timeout'
+
+
+def generate_exit_rule_trades(df, preset, *, exit_rule='combo', sl_pct=3.0, rr_target=1.5,
+                              max_hold_days=0, period_days=750, cost_pct=0.0,
+                              market_gate=None, atr_multiplier=2.5):
+    """
+    เหมือน _generate_preset_trades แต่ออกด้วยกฎที่ระบบใช้จริง (ATR trail / Turtle)
+    แทน SL คงที่ + เป้า R:R
+
+    max_hold_days=0 = ไม่จำกัดวันถือ ซึ่งเป็นค่าที่ถูกต้องสำหรับกฎ trailing
+    (จุดประสงค์ของ trailing คือ "ปล่อยให้กำไรวิ่ง" การตัดที่ 20 วันทำให้วัดผลผิด)
+    """
+    if df is None or len(df) < 200:
+        return None, {'blocked_by_market': 0}
+    if exit_rule not in EXIT_RULE_DEFINITIONS:
+        raise ValueError(f"Unknown exit_rule: {exit_rule}")
+
+    keep = period_days + 200
+    d_full = _build_preset_indicators(df).tail(keep)
+    gate = None
+    if market_gate is not None:
+        g = np.asarray(market_gate, dtype=bool)
+        if len(g) >= len(d_full):
+            gate = g[-len(d_full):]
+
+    d = d_full.reset_index(drop=True)
+    signal = _preset_signal(d, preset).fillna(False)
+    atr = wilder_atr(d['High'], d['Low'], d['Close']).to_numpy()
+    arrays = (d['Open'].values, d['High'].values, d['Low'].values, d['Close'].values, atr)
+    n = len(d)
+
+    trades, blocked = [], 0
+    i, last_exit_idx = 200, -1
+    while i < n - 1:
+        if signal.iloc[i] and i > last_exit_idx:
+            if gate is not None and not gate[i]:
+                blocked += 1
+                i += 1
+                continue
+            exit_price, hold_days, reason = _simulate_exit(
+                arrays, i, exit_rule=exit_rule, sl_pct=sl_pct, rr_target=rr_target,
+                max_hold_days=max_hold_days, atr_multiplier=atr_multiplier, n=n)
+            entry = arrays[3][i]
+            trades.append({
+                'ret_pct': (exit_price - entry) / entry * 100 - float(cost_pct or 0),
+                'hold_days': hold_days,
+                'exit_reason': reason,
+            })
+            last_exit_idx = i + hold_days
+        i += 1
+
+    return trades, {'blocked_by_market': blocked}
+
+
+def run_exit_rule_backtest(df, preset='safety_first', exit_rule='combo', **kw):
+    """รัน backtest ของ preset หนึ่งตัวด้วยกฎออกที่เลือก แล้วสรุปผลพร้อมสัดส่วนเหตุผลที่ออก"""
+    trades, meta = generate_exit_rule_trades(df, preset, exit_rule=exit_rule, **kw)
+    if trades is None:
+        return {'preset': preset, 'exit_rule': exit_rule, 'error': 'Insufficient data'}
+    summary = _summarize_trades(preset, trades)
+    summary['exit_rule'] = exit_rule
+    summary['exit_rule_label'] = EXIT_RULE_DEFINITIONS[exit_rule]
+    summary['blocked_by_market'] = meta['blocked_by_market']
+    reasons = {}
+    for t in trades:
+        reasons[t['exit_reason']] = reasons.get(t['exit_reason'], 0) + 1
+    summary['exit_reasons'] = reasons
+    return summary
+
+
+def compare_exit_rules(df, preset='safety_first', exit_rules=None, **kw):
+    """
+    รันกฎออกหลายแบบบนสัญญาณเข้าชุดเดียวกัน เพื่อเทียบว่ากฎไหนให้ผลดีกว่า
+    ตัวแปรเดียวที่ต่างกันคือกฎออก — สัญญาณเข้า ค่าธรรมเนียม และตัวกรองตลาดเหมือนกันหมด
+    """
+    rules = exit_rules or list(EXIT_RULE_DEFINITIONS)
+    out = []
+    for r in rules:
+        # 'fixed' ต้องมีเพดานวันถือ ไม่งั้นไม้ที่ไม่โดน SL/TP จะถือยาวผิดเจตนาของกฎ
+        kw_r = dict(kw)
+        if r == 'fixed' and not kw_r.get('max_hold_days'):
+            kw_r['max_hold_days'] = 20
+        out.append(run_exit_rule_backtest(df, preset=preset, exit_rule=r, **kw_r))
+    return out
+
+
+def compare_exit_rules_universe(symbol_dfs, preset='safety_first', exit_rules=None,
+                                market_gates=None, **kw):
+    """เทียบกฎออกโดยรวมสัญญาณจากหุ้นหลายตัวเป็น pool เดียว ให้ sample ใหญ่พอสรุปได้"""
+    rules = exit_rules or list(EXIT_RULE_DEFINITIONS)
+    out = []
+    for r in rules:
+        kw_r = dict(kw)
+        if r == 'fixed' and not kw_r.get('max_hold_days'):
+            kw_r['max_hold_days'] = 20
+        pooled, blocked, tested, with_signal = [], 0, 0, 0
+        reasons = {}
+        for sym, df in symbol_dfs.items():
+            trades, meta = generate_exit_rule_trades(
+                df, preset, exit_rule=r, market_gate=(market_gates or {}).get(sym), **kw_r)
+            blocked += meta['blocked_by_market']
+            if trades is None:
+                continue
+            tested += 1
+            if trades:
+                with_signal += 1
+                pooled.extend(trades)
+                for t in trades:
+                    reasons[t['exit_reason']] = reasons.get(t['exit_reason'], 0) + 1
+        summary = _summarize_trades(preset, pooled)
+        summary.update({'exit_rule': r, 'exit_rule_label': EXIT_RULE_DEFINITIONS[r],
+                        'symbols_tested': tested, 'symbols_with_signal': with_signal,
+                        'blocked_by_market': blocked, 'exit_reasons': reasons})
+        out.append(summary)
+    return out
+
+
 def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20,
                             period_days=750, cost_pct=0.0, market_gate=None):
     """สร้างรายการเทรดจากสัญญาณ preset หนึ่งตัวบน df เดียว (ไม่สรุปผล)
