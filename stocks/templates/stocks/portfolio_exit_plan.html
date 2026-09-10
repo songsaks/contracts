@@ -53,15 +53,19 @@
 
 /* fixed layout + ความกว้างต่อคอลัมน์ กัน browser ยืดคอลัมน์จนห่างผิดสัดส่วน */
 .ep-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.8rem; table-layout:fixed; }
-.ep-table col.c-sym    { width:19%; }
-.ep-table col.c-price  { width:10%; }
-.ep-table col.c-pl     { width:11%; }
-.ep-table col.c-sltp   { width:11%; }
-.ep-table col.c-dist   { width:9%;  }
-.ep-table col.c-rsi    { width:6%;  }
-.ep-table col.c-rs     { width:6%;  }
-.ep-table col.c-sell   { width:8%;  }
-.ep-table col.c-act    { width:20%; }
+/* ความกว้างอยู่ที่ <th> ไม่ใช่ <col> เพราะ display:none ใช้กับ <col> ไม่ได้
+   (Blink/WebKit ข้ามให้) พอซ่อนคอลัมน์ RS ที่จอ ≤992px กล่องคอลัมน์จะเหลือ 9
+   สวนกับเซลล์ 8 ช่อง แล้วความกว้างเลื่อนผิดตำแหน่งตั้งแต่คอลัมน์ SELL เป็นต้นไป
+   ตั้งที่ <th> แทน คอลัมน์ที่ถูกซ่อนจะหายไปจากการคำนวณด้วย จึงตรงกันเสมอ */
+.ep-table th.c-sym    { width:19%; }
+.ep-table th.c-price  { width:10%; }
+.ep-table th.c-pl     { width:11%; }
+.ep-table th.c-sltp   { width:11%; }
+.ep-table th.c-dist   { width:9%;  }
+.ep-table th.c-rsi    { width:6%;  }
+.ep-table th.c-rs     { width:6%;  }
+.ep-table th.c-sell   { width:8%;  }
+.ep-table th.c-act    { width:20%; }
 .ep-table thead th {
   position:sticky; top:0; z-index:2;
   background:linear-gradient(180deg,#1e293b,#0f172a); color:#e2e8f0;
@@ -110,15 +114,24 @@
   font-variant-numeric:tabular-nums;
 }
 .ep-action {
-  display:inline-block; padding:4px 11px; border-radius:8px;
+  display:inline-block; max-width:100%; padding:4px 11px; border-radius:8px;
   border:1px solid; font-size:0.72rem; font-weight:800; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; vertical-align:middle;
+}
+/* คำอธิบายใต้ป้ายคำแนะนำ: ตัดท้ายด้วย … แทนการถูกเฉือนหายเฉยๆ เวลาคอลัมน์แคบ */
+.ep-table tbody td:last-child .ep-sub {
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .ep-empty { padding:36px; text-align:center; color:#94a3b8; font-weight:600; font-size:0.85rem; }
 
 /* ── Responsive ──────────────────────────────────────────────
    แท็บเล็ตลงไป: ยอมให้เลื่อนแนวนอนแทนการซ่อนข้อมูลทิ้ง แล้วตรึง
    คอลัมน์ชื่อหุ้นไว้ เพื่อให้เลื่อนดูตัวเลขได้โดยไม่หลงว่าเป็นหุ้นตัวไหน */
-@media (max-width: 992px) { .ep-hide-lg { display:none; } }
+@media (max-width: 992px) {
+  .ep-hide-lg { display:none; }
+  /* คอลัมน์ RS หายไป 6% — ยกให้คอลัมน์คำแนะนำ ไม่ให้ข้อความถูกบีบ */
+  .ep-table th.c-act { width:26%; }
+}
 
 @media (max-width: 768px) {
   .container-fluid.ep-page { width:100%; min-width:0; padding-inline:0; }
@@ -285,8 +298,6 @@
       </div>
     </div>
   </div>
-    </div>
-  </div>
 
   {% endif %}
 
@@ -335,30 +346,25 @@
   <!-- ── TABLE VIEW ─────────────────────────────────── -->
   <div id="exitTableWrap" class="ep-table-wrap" style="display:none;">
     <table class="ep-table">
-      <colgroup>
-        <col class="c-sym"><col class="c-price"><col class="c-pl">
-        <col class="c-sltp ep-hide-sm"><col class="c-dist ep-hide-md">
-        <col class="c-rsi ep-hide-md"><col class="c-rs ep-hide-lg">
-        <col class="c-sell"><col class="c-act">
-      </colgroup>
       <thead>
         <tr>
-          <th class="text-start">หุ้น</th>
-          <th>ราคา</th>
-          <th>กำไร/ขาดทุน</th>
-          <th class="ep-hide-sm">SL / TP</th>
-          <th class="ep-hide-md">ระยะถึง SL</th>
-          <th class="ep-hide-md">RSI</th>
-          <th class="ep-hide-lg">RS</th>
-          <th>Sell</th>
-          <th class="text-start">คำแนะนำ</th>
+          <th class="c-sym text-start">หุ้น</th>
+          <th class="c-price">ราคา</th>
+          <th class="c-pl">กำไร/ขาดทุน</th>
+          <th class="c-sltp ep-hide-sm">SL / TP</th>
+          <th class="c-dist ep-hide-md">ระยะถึง SL</th>
+          <th class="c-rsi ep-hide-md">RSI</th>
+          <th class="c-rs ep-hide-lg">RS</th>
+          <th class="c-sell">Sell</th>
+          <th class="c-act text-start">คำแนะนำ</th>
         </tr>
       </thead>
       <tbody>
       {% for item in items %}
         {% with sig=item.exit_signal %}
         <tr class="ep-row" data-market="{{ item.market }}" data-symbol="{{ item.obj.symbol }}"
-            data-sell="{{ item.sell_score|default:0 }}" data-rs="{{ item.rs_rating|default:0 }}">
+            data-sell="{{ item.sell_score|default:0 }}" data-rs="{{ item.rs_rating|default:0 }}"
+            data-rel3m="{{ item.rel_3m|default:0 }}">
           <td class="text-start">
             <div class="d-flex align-items-center gap-2">
               <span class="ep-dot" style="background:{% if sig == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif sig == 'EXIT' %}#d97706{% elif sig == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};"></span>
@@ -1077,8 +1083,13 @@ document.getElementById('aiAnalyzeBtn').addEventListener('click', function() {
     if (!tb) return;
     var rows = Array.prototype.slice.call(tb.querySelectorAll('.ep-row'));
     if (byRs) {
+      // ใช้กติกาเดียวกับการ์ด: ไม่มีข้อมูล RS → 999 (ท้ายสุด) ไม่ใช่ 0 (บนสุด)
+      // ถ้า RS เท่ากันให้ตัดสินด้วย REL 3M เหมือนกัน แถวจึงเรียงตรงกับการ์ด
       rows.sort(function (a, b) {
-        return (parseFloat(a.dataset.rs) || 0) - (parseFloat(b.dataset.rs) || 0);
+        var ra = parseFloat(a.dataset.rs || '0') || 999;
+        var rb = parseFloat(b.dataset.rs || '0') || 999;
+        if (ra !== rb) return ra - rb;
+        return parseFloat(a.dataset.rel3m || '0') - parseFloat(b.dataset.rel3m || '0');
       });
     } else {
       rows.sort(function (a, b) {
