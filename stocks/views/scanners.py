@@ -1,4 +1,7 @@
-from .base import * 
+from .base import *
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import (
     _get_usd_thb, _compute_signals, _get_market_condition, _get_precision_scan_data,
@@ -8803,11 +8806,49 @@ def debug_scan_symbol(request, symbol):
 #   ส่งคืนรายการพารามิเตอร์สำเร็จรูปสำหรับการทดสอบย้อนหลัง
 #   รองรับการกรองตาม Strategy Type และ Market
 # ============================================================
+def _backtest_options(request, symbol_dfs):
+    """
+    อ่านตัวเลือก costs / timing จาก query string แล้วคืน (cost_pct, gates)
+
+    costs  : ค่าเริ่มต้น = หักค่าธรรมเนียมไป-กลับ (ส่ง costs=0 เพื่อดูตัวเลขดิบ)
+             ตัวเลขดิบมองดูดีกว่าความจริงเสมอ จึงให้ "หัก" เป็นค่าตั้งต้น
+    timing : timing=1 = ไม่เปิดไม้ใหม่ตอนตลาด RED (Distribution Day >= 5)
+             คืน gates เป็น dict {symbol: bool array} ให้ตรงกับวันของหุ้นแต่ละตัว
+    """
+    from stocks.position_sizing import round_trip_cost_pct
+    from stocks.utils import build_market_gate
+
+    cost_pct = 0.0 if (request.GET.get('costs') or '').strip() == '0' else round_trip_cost_pct('SET')
+
+    if (request.GET.get('timing') or '').strip() != '1':
+        return cost_pct, None
+
+    try:
+        index_df = yf.Ticker('^SET.BK').history(period="3y", interval="1d", timeout=20)
+    except Exception:
+        logger.warning("[Backtest] ดึงดัชนี ^SET.BK ไม่ได้ — ข้ามตัวกรองภาวะตลาด", exc_info=True)
+        return cost_pct, None
+    if index_df is None or index_df.empty:
+        return cost_pct, None
+
+    gates = {}
+    for sym, df in symbol_dfs.items():
+        try:
+            gates[sym] = build_market_gate(index_df, df.index)
+        except Exception:
+            logger.debug("[Backtest] สร้าง market gate ของ %s ไม่สำเร็จ", sym, exc_info=True)
+    return cost_pct, (gates or None)
+
+
 @login_required
 def api_backtest_presets(request):
     """
     Backtest ย้อนหลังของเกณฑ์ Trade Flow / Precision Filter presets สำหรับหุ้นตัวเดียว
-    GET params: symbol (required), preset (optional — ถ้าไม่ระบุจะรันทุก preset)
+    GET params:
+      symbol   (required)
+      preset   (optional — ถ้าไม่ระบุจะรันทุก preset)
+      costs    ('0' เพื่อปิดการหักค่าธรรมเนียม — ค่าเริ่มต้นคือหัก)
+      timing   ('1' เพื่อกรองไม่ให้เปิดไม้ใหม่ตอนตลาด RED ตามเกณฑ์ Distribution Day)
     """
     from django.http import JsonResponse as _JR
     from stocks.utils import run_preset_backtest, run_all_presets_backtest, PRESET_DEFINITIONS
@@ -8826,13 +8867,16 @@ def api_backtest_presets(request):
     if df is None or df.empty:
         return _JR({'error': f'no data for {symbol}'}, status=404)
 
+    cost_pct, gate = _backtest_options(request, {symbol: df})
+    gate = gate.get(symbol) if gate else None
+
     if preset:
         if preset not in PRESET_DEFINITIONS:
             return _JR({'error': f'unknown preset: {preset}', 'valid': list(PRESET_DEFINITIONS)}, status=400)
-        result = run_preset_backtest(df, preset=preset)
+        result = run_preset_backtest(df, preset=preset, cost_pct=cost_pct, market_gate=gate)
         return _JR({'symbol': symbol, 'result': result})
 
-    results = run_all_presets_backtest(df)
+    results = run_all_presets_backtest(df, cost_pct=cost_pct, market_gate=gate)
     return _JR({'symbol': symbol, 'results': results})
 
 
@@ -8854,7 +8898,9 @@ def api_backtest_presets_universe(request):
     except (TypeError, ValueError):
         limit = 40
 
-    cache_key = f'backtest_presets_universe_v1_{limit}'
+    _ck_costs = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
+    _ck_timing = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
+    cache_key = f'backtest_presets_universe_v2_{limit}_c{_ck_costs}_t{_ck_timing}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -8881,8 +8927,10 @@ def api_backtest_presets_universe(request):
     if not symbol_dfs:
         return _JR({'error': 'failed to fetch price data for universe symbols'}, status=502)
 
-    results = run_all_presets_backtest_universe(symbol_dfs)
-    payload = {'universe_size': len(symbol_dfs), 'requested_limit': limit, 'results': results, 'cached': False}
+    cost_pct, gates = _backtest_options(request, symbol_dfs)
+    results = run_all_presets_backtest_universe(symbol_dfs, cost_pct=cost_pct, market_gates=gates)
+    payload = {'universe_size': len(symbol_dfs), 'requested_limit': limit, 'results': results,
+               'cost_pct': cost_pct, 'market_filtered': bool(gates), 'cached': False}
     cache.set(cache_key, payload, timeout=60 * 60 * 24)
     return _JR(payload)
 

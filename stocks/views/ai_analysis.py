@@ -2635,10 +2635,13 @@ def api_stock_ai_advisor(request):
     backtest_text = "  (ไม่สามารถดึงข้อมูล backtest ได้)"
     try:
         from stocks.utils import run_all_presets_backtest
+        from stocks.position_sizing import round_trip_cost_pct
         sym_bk = symbol if symbol.endswith('.BK') else f"{symbol}.BK"
         df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=15)
         if df is not None and not df.empty:
-            results = [r for r in run_all_presets_backtest(df) if r.get('trades_count')]
+            # หักค่าธรรมเนียมก่อนส่งให้ AI — ตัวเลขดิบดูดีกว่าความจริงเสมอ
+            _cost = round_trip_cost_pct('SET')
+            results = [r for r in run_all_presets_backtest(df, cost_pct=_cost) if r.get('trades_count')]
             if results:
                 results.sort(key=lambda x: -(x.get('win_rate_pct') or 0))
                 backtest_text = "\n".join(
@@ -2703,7 +2706,7 @@ def api_stock_ai_advisor(request):
         f"หุ้น: {symbol} (สแกนล่าสุด {stock.scan_run.strftime('%d/%m/%Y %H:%M')})\n\n"
         "=== สัญญาณทางเทคนิค ===\n" + signals + "\n"
         "=== แผนราคา (จากระบบสแกน) ===\n" + trade_plan + "\n"
-        "=== Backtest 3 ปี ของแต่ละ Preset (รวมสัญญาณทั้งหมดในอดีตของหุ้นนี้) ===\n" + backtest_text + "\n\n"
+        "=== Backtest 3 ปี ของแต่ละ Preset (หักค่าธรรมเนียมไป-กลับแล้ว) ===\n" + backtest_text + "\n\n"
         "**คำสั่งพิเศษ (หัวใจหลัก)**: จงนำสัญญาณทางเทคนิคทั้งหมดมา 'เชื่อมโยงกัน' เป็นภาพใหญ่เหมือนที่นักวิเคราะห์ผู้เชี่ยวชาญทำ อย่าแค่อ่านค่าให้ฟังทีละบรรทัด\n"
         "- หากเจอ Wyckoff Effort-vs-Result Warning (E-R) ร่วมกับ Stage 2, VCP และ Sector Strength สูง ให้ตีความชี้ชัดไปเลยว่า 'น่าจะเป็นการซุ่มเก็บของ (Absorption/Accumulation)' เพราะรายใหญ่กำลังดักซื้อของจากคนที่เทขายทำกำไร ทำให้โวลุ่มสูงแต่ราคาไม่ตก แนะนำให้จับตาดูการทะลุเบรกเอาต์\n"
         "- หากเจอ E-R Warning หรือ Upthrust ในโซนแนวต้านโดยขาดสัญญาณซัพพอร์ตอื่น ให้ระบุชัดเจนว่าเป็น 'สัญญาณอันตราย/การแจกจ่าย (Distribution)'\n"

@@ -205,12 +205,79 @@ def _preset_signal(d, preset):
     raise ValueError(f"Unknown preset: {preset}")
 
 
-def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
-    """คืน list ของ trade dict ({ret_pct, hold_days}) จากสัญญาณ preset หนึ่งตัวบน df เดียว ไม่สรุปผล"""
-    if df is None or len(df) < 200:
-        return None
+def build_market_gate(index_df, target_index, max_dist_days=5, lookback=25):
+    """
+    สร้างตัวกรองภาวะตลาดย้อนหลัง — True = วันนั้น "อนุญาตให้เข้าไม้"
 
-    d = _build_preset_indicators(df).tail(period_days + 200).reset_index(drop=True)
+    ใช้เกณฑ์ Distribution Day เดียวกับแบนเนอร์ในระบบ (William O'Neil / CAN SLIM):
+    นับวันที่ดัชนีปิดลบ >= 0.2% บน volume สูงกว่าวันก่อน ภายใน 25 วันทำการล่าสุด
+    ถึงเกณฑ์ max_dist_days เมื่อไรถือว่า RED = ห้ามเปิดไม้ใหม่
+
+    ข้อแตกต่างจากของจริงที่ต้องรู้: ตัวนี้ *ไม่* ล้างตัวนับเมื่อเกิด Follow-Through Day
+    เพราะการหา FTD ย้อนหลังทุกแท่งต้องรู้จุดต่ำสุดของรอบซึ่งเป็นข้อมูลอนาคต
+    ผลคือ gate ตัวนี้ "เข้มกว่า" แบนเนอร์จริงเล็กน้อย ซึ่งเป็นทิศทางที่ปลอดภัยกว่า
+    สำหรับการประเมินย้อนหลัง (ประเมินต่ำไว้ ดีกว่าประเมินสูงเกิน)
+
+    index_df     : OHLCV ของดัชนีอ้างอิง (^SET.BK / ^GSPC) — index เป็นวันที่
+    target_index : DatetimeIndex ของหุ้นที่จะทดสอบ ผลลัพธ์จะ align มาที่ชุดนี้
+    คืน numpy bool array ความยาวเท่ากับ target_index
+    """
+    n = len(target_index)
+    if index_df is None or len(index_df) < lookback + 2:
+        return np.ones(n, dtype=bool)      # ไม่มีข้อมูลดัชนี = ไม่กรอง
+
+    idx = index_df.copy()
+    if isinstance(idx.columns, pd.MultiIndex):
+        idx.columns = idx.columns.droplevel(1)
+    if 'Close' not in idx.columns or 'Volume' not in idx.columns:
+        return np.ones(n, dtype=bool)
+
+    closes = idx['Close'].astype(float).values
+    volumes = idx['Volume'].astype(float).values
+
+    # วันแจกของ: ปิดลบ >= 0.2% บน volume สูงกว่าวันก่อนหน้า
+    dist_day = np.zeros(len(idx), dtype=bool)
+    for i in range(1, len(idx)):
+        if closes[i - 1] <= 0:
+            continue
+        chg = (closes[i] - closes[i - 1]) / closes[i - 1] * 100
+        if chg <= -0.2 and volumes[i] > volumes[i - 1]:
+            dist_day[i] = True
+
+    counts = np.zeros(len(idx), dtype=int)
+    for i in range(len(idx)):
+        counts[i] = dist_day[max(0, i + 1 - lookback):i + 1].sum()
+
+    allowed = pd.Series(counts < max_dist_days, index=idx.index)
+    # ดัชนีกับหุ้นอาจหยุดคนละวัน — ใช้ค่าล่าสุดที่ทราบ ณ วันนั้น (ffill) ไม่ใช่ค่าอนาคต
+    aligned = allowed.reindex(allowed.index.union(target_index)).ffill().reindex(target_index)
+    return aligned.fillna(True).to_numpy(dtype=bool)
+
+
+def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20,
+                            period_days=750, cost_pct=0.0, market_gate=None):
+    """สร้างรายการเทรดจากสัญญาณ preset หนึ่งตัวบน df เดียว (ไม่สรุปผล)
+
+    cost_pct    : ค่าธรรมเนียมไป-กลับเป็น % ของมูลค่าซื้อขาย หักออกจากผลตอบแทนทุกไม้
+                  (หุ้นไทยราว 0.34% ซึ่งกินความเสี่ยงของ SL 3% ไปราว 10% ต่อไม้)
+    market_gate : bool array ยาวเท่า df — False = ห้ามเปิดไม้ใหม่วันนั้น (จาก build_market_gate)
+                  ไม่กระทบไม้ที่ถืออยู่แล้ว เพราะกฎออกเป็นคนละเรื่องกับกฎเข้า
+
+    คืน (trades, meta) โดย meta มี blocked_by_market = จำนวนสัญญาณที่ถูกตลาดกรองทิ้ง
+    หรือ (None, meta) เมื่อข้อมูลไม่พอ
+    """
+    if df is None or len(df) < 200:
+        return None, {'blocked_by_market': 0}
+
+    keep = period_days + 200
+    d_full = _build_preset_indicators(df).tail(keep)
+    gate = None
+    if market_gate is not None:
+        g = np.asarray(market_gate, dtype=bool)
+        if len(g) >= len(d_full):
+            gate = g[-len(d_full):]        # ตัดให้ตรงช่วงเดียวกับที่ tail มา
+
+    d = d_full.reset_index(drop=True)
     signal = _preset_signal(d, preset).fillna(False)
 
     closes = d['Close'].values
@@ -219,10 +286,15 @@ def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days
     n = len(d)
 
     trades = []
+    blocked_by_market = 0
     i = 200  # เว้นช่วง warm-up ให้ indicator นิ่งก่อน
     last_exit_idx = -1
     while i < n - 1:
         if signal.iloc[i] and i > last_exit_idx:
+            if gate is not None and not gate[i]:
+                blocked_by_market += 1     # ตลาด RED — ข้ามสัญญาณนี้ไป
+                i += 1
+                continue
             entry = closes[i]
             sl = entry * (1 - sl_pct / 100)
             tp = entry + (entry - sl) * rr_target
@@ -240,12 +312,12 @@ def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days
                 j = min(i + max_hold_days, n - 1)
                 exit_price = closes[j]
                 hold_days = j - i
-            ret_pct = (exit_price - entry) / entry * 100
+            ret_pct = (exit_price - entry) / entry * 100 - float(cost_pct or 0)
             trades.append({'ret_pct': ret_pct, 'hold_days': hold_days})
             last_exit_idx = i + hold_days
         i += 1
 
-    return trades
+    return trades, {'blocked_by_market': blocked_by_market}
 
 
 def _summarize_trades(preset, trades):
@@ -281,41 +353,53 @@ def _summarize_trades(preset, trades):
     }
 
 
-def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, max_hold_days=20,
+                        period_days=750, cost_pct=0.0, market_gate=None):
     """
     รัน backtest ของเกณฑ์ preset หนึ่งตัวย้อนหลัง period_days วัน สำหรับหุ้นตัวเดียว
-    Entry: วันถัดจากที่สัญญาณ preset เป็นจริง (เปิดที่ราคาปิดวันสัญญาณ ป้องกัน look-ahead)
+    Entry: ที่ราคาปิดของวันที่สัญญาณเป็นจริง (ซื้อ MOC ได้จริง ไม่ใช่ look-ahead)
     Exit: SL/TP (คำนวณแบบเดียวกับที่ Trade Flow แสดง) หรือหมดเวลาถือ max_hold_days
-    Returns: {preset, trades_count, win_rate_pct, avg_return_pct, expectancy_pct, max_drawdown_pct,
-              avg_hold_days, low_sample}
+    cost_pct/market_gate: ดู _generate_preset_trades
     """
-    trades = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days, period_days)
+    trades, meta = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days,
+                                           period_days, cost_pct, market_gate)
     if trades is None:
         return {'preset': preset, 'error': 'Insufficient data'}
-    return _summarize_trades(preset, trades)
+    summary = _summarize_trades(preset, trades)
+    summary['cost_pct'] = round(float(cost_pct or 0), 4)
+    summary['market_filtered'] = market_gate is not None
+    summary['blocked_by_market'] = meta['blocked_by_market']
+    return summary
 
 
-def run_all_presets_backtest(df, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+def run_all_presets_backtest(df, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750,
+                             cost_pct=0.0, market_gate=None):
     """รัน run_preset_backtest กับทุก preset ใน PRESET_DEFINITIONS แล้วคืนเป็น list (หุ้นตัวเดียว)"""
     return [
         run_preset_backtest(df, preset=p, sl_pct=sl_pct, rr_target=rr_target,
-                             max_hold_days=max_hold_days, period_days=period_days)
+                             max_hold_days=max_hold_days, period_days=period_days,
+                             cost_pct=cost_pct, market_gate=market_gate)
         for p in PRESET_DEFINITIONS
     ]
 
 
-def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20,
+                                 period_days=750, cost_pct=0.0, market_gates=None):
     """
     รัน backtest ของ preset หนึ่งตัว รวมสัญญาณจากหุ้นหลายตัวเป็น trade pool เดียว
     เพื่อให้ได้ sample size ที่มากพอสรุปผลได้ (ต่างจาก run_preset_backtest ที่ดูทีละตัว)
-    symbol_dfs: dict {symbol: dataframe ราคาย้อนหลัง}
-    Returns: สรุปผลรวม + symbols_with_signal (หุ้นที่มีอย่างน้อย 1 สัญญาณในช่วงที่ทดสอบ)
+    symbol_dfs  : dict {symbol: dataframe ราคาย้อนหลัง}
+    market_gates: dict {symbol: bool array} — ตัวกรองภาวะตลาดต่อหุ้น (None = ไม่กรอง)
     """
     all_trades = []
     symbols_with_signal = []
     symbols_tested = 0
+    blocked_total = 0
     for symbol, df in symbol_dfs.items():
-        trades = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days, period_days)
+        gate = (market_gates or {}).get(symbol)
+        trades, meta = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days,
+                                               period_days, cost_pct, gate)
+        blocked_total += meta['blocked_by_market']
         if trades is None:
             continue
         symbols_tested += 1
@@ -326,14 +410,19 @@ def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, 
     summary = _summarize_trades(preset, all_trades)
     summary['symbols_tested'] = symbols_tested
     summary['symbols_with_signal'] = len(symbols_with_signal)
+    summary['cost_pct'] = round(float(cost_pct or 0), 4)
+    summary['market_filtered'] = bool(market_gates)
+    summary['blocked_by_market'] = blocked_total
     return summary
 
 
-def run_all_presets_backtest_universe(symbol_dfs, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+def run_all_presets_backtest_universe(symbol_dfs, sl_pct=3.0, rr_target=1.5, max_hold_days=20,
+                                      period_days=750, cost_pct=0.0, market_gates=None):
     """รัน run_preset_backtest_universe กับทุก preset ใน PRESET_DEFINITIONS"""
     return [
         run_preset_backtest_universe(symbol_dfs, preset=p, sl_pct=sl_pct, rr_target=rr_target,
-                                      max_hold_days=max_hold_days, period_days=period_days)
+                                      max_hold_days=max_hold_days, period_days=period_days,
+                                      cost_pct=cost_pct, market_gates=market_gates)
         for p in PRESET_DEFINITIONS
     ]
 
