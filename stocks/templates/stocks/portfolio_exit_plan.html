@@ -359,9 +359,9 @@
           <th class="c-sym text-start">หุ้น</th>
           <th class="c-price">ราคา</th>
           <th class="c-pl">กำไร/ขาดทุน</th>
-          <th class="c-sltp ep-hide-sm">SL / TP</th>
-          <th class="c-dist ep-hide-md">ระยะถึง SL</th>
-          <th class="c-rsi ep-hide-md">RSI</th>
+          <th class="c-sltp">SL / TP</th>
+          <th class="c-dist">ระยะถึง SL</th>
+          <th class="c-rsi">RSI</th>
           <th class="c-rs ep-hide-lg">RS</th>
           <th class="c-sell">Sell</th>
           <th class="c-act text-start">คำแนะนำ</th>
@@ -397,11 +397,11 @@
             </div>
             <div class="ep-sub">ทุน {{ item.entry_price|floatformat:2 }}</div>
           </td>
-          <td class="ep-hide-sm">
+          <td>
             <div class="ep-sub"><span class="ep-down">SL {{ item.sl_price|floatformat:2|default:"—" }}</span></div>
             <div class="ep-sub"><span class="ep-up">TP {{ item.tp_price|floatformat:2|default:"—" }}</span></div>
           </td>
-          <td class="ep-hide-md">
+          <td>
             {% if item.sl_hit %}
               <span class="ep-chip ep-chip-red">หลุด SL</span>
             {% elif item.near_sl %}
@@ -410,7 +410,7 @@
               <span class="ep-sub">ปกติ</span>
             {% endif %}
           </td>
-          <td class="ep-hide-md">
+          <td>
             <span class="ep-num" style="color:{% if item.rsi > 70 %}#dc2626{% elif item.rsi < 40 %}#64748b{% else %}#0f172a{% endif %};">{{ item.rsi|floatformat:0 }}</span>
           </td>
           <td class="ep-hide-lg">
