@@ -4,6 +4,100 @@
 {% block title %}Exit Plan — Portfolio{% endblock %}
 
 {% block content %}
+<style>
+/* ── Exit Plan: แถบควบคุม + มุมมองตาราง ──────────────────────
+   สีทั้งหมดผูกกับ token เพื่อให้อ่านออกทั้งธีมสว่างและมืด */
+.ep-controls { --ep-bd:#e2e8f0; --ep-mut:#64748b; --ep-fg:#0f172a; --ep-surface:#f8fafc; }
+.ep-seg {
+  display:inline-flex; gap:2px; padding:3px;
+  background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px;
+}
+.ep-seg-btn {
+  border:none; background:transparent; cursor:pointer;
+  padding:6px 14px; border-radius:999px;
+  font-size:0.78rem; font-weight:700; color:#64748b;
+  display:inline-flex; align-items:center; gap:6px;
+  transition:background .15s, color .15s, box-shadow .15s;
+}
+.ep-seg-btn:hover { color:#0f172a; }
+.ep-seg-btn.is-active {
+  background:#fff; color:#0f172a;
+  box-shadow:0 1px 3px rgba(15,23,42,.12);
+}
+.ep-seg-count {
+  font-size:0.68rem; font-weight:800; padding:1px 7px; border-radius:999px;
+  background:#e2e8f0; color:#475569;
+}
+.ep-seg-btn.is-active .ep-seg-count { background:#0f172a; color:#fff; }
+
+.ep-table-wrap {
+  background:#fff; border:1px solid #e8ecf0; border-radius:16px;
+  box-shadow:0 1px 6px rgba(0,0,0,.07); overflow-x:auto;
+}
+.ep-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.82rem; }
+.ep-table thead th {
+  position:sticky; top:0; z-index:1;
+  background:#f8fafc; color:#64748b;
+  font-size:0.68rem; font-weight:800; letter-spacing:.4px; text-transform:uppercase;
+  padding:11px 12px; text-align:center; white-space:nowrap;
+  border-bottom:1px solid #e2e8f0;
+}
+.ep-table tbody td {
+  padding:11px 12px; text-align:center; vertical-align:middle;
+  border-bottom:1px solid #f1f5f9;
+}
+.ep-table tbody tr:last-child td { border-bottom:none; }
+.ep-table tbody tr { transition:background .12s; }
+.ep-table tbody tr:hover { background:#f8fafc; }
+
+.ep-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.ep-sym { font-weight:800; color:#0f172a; font-size:0.86rem; line-height:1.15; }
+.ep-sub { font-size:0.68rem; color:#94a3b8; line-height:1.3; }
+.ep-num { font-weight:700; color:#0f172a; font-variant-numeric:tabular-nums; }
+.ep-up   { color:#16a34a !important; }
+.ep-down { color:#dc2626 !important; }
+
+.ep-chip {
+  display:inline-block; padding:2px 9px; border-radius:999px;
+  font-size:0.66rem; font-weight:800; white-space:nowrap;
+}
+.ep-chip-red   { background:#fef2f2; color:#b91c1c; }
+.ep-chip-amber { background:#fffbeb; color:#b45309; }
+
+/* วงแหวนคะแนน sell — อ่านค่าได้เร็วกว่าตัวเลขเปล่า */
+.ep-score {
+  width:38px; height:38px; margin:0 auto; border-radius:50%;
+  display:grid; place-items:center;
+  background:conic-gradient(var(--c) calc(var(--v) * 1%), #eef2f7 0);
+}
+.ep-score > span {
+  width:28px; height:28px; border-radius:50%; background:#fff;
+  display:grid; place-items:center;
+  font-size:0.72rem; font-weight:800; color:var(--c);
+  font-variant-numeric:tabular-nums;
+}
+.ep-action {
+  display:inline-block; padding:4px 11px; border-radius:8px;
+  border:1px solid; font-size:0.72rem; font-weight:800; white-space:nowrap;
+}
+.ep-empty { padding:36px; text-align:center; color:#94a3b8; font-weight:600; font-size:0.85rem; }
+
+@media (max-width: 992px) { .ep-hide-lg { display:none; } }
+@media (max-width: 768px) { .ep-hide-md { display:none; } }
+@media (max-width: 576px) { .ep-hide-sm { display:none; } }
+
+[data-theme="dark"] .ep-seg, [data-bs-theme="dark"] .ep-seg { background:#1e293b; border-color:#334155; }
+[data-theme="dark"] .ep-seg-btn.is-active, [data-bs-theme="dark"] .ep-seg-btn.is-active { background:#0f172a; color:#f1f5f9; }
+[data-theme="dark"] .ep-seg-count, [data-bs-theme="dark"] .ep-seg-count { background:#334155; color:#cbd5e1; }
+[data-theme="dark"] .ep-table-wrap, [data-bs-theme="dark"] .ep-table-wrap { background:#0f172a; border-color:#334155; }
+[data-theme="dark"] .ep-table thead th, [data-bs-theme="dark"] .ep-table thead th { background:#1e293b; color:#94a3b8; border-color:#334155; }
+[data-theme="dark"] .ep-table tbody td, [data-bs-theme="dark"] .ep-table tbody td { border-color:#1e293b; }
+[data-theme="dark"] .ep-table tbody tr:hover, [data-bs-theme="dark"] .ep-table tbody tr:hover { background:#1e293b; }
+[data-theme="dark"] .ep-sym, [data-theme="dark"] .ep-num,
+[data-bs-theme="dark"] .ep-sym, [data-bs-theme="dark"] .ep-num { color:#f1f5f9; }
+[data-theme="dark"] .ep-score > span, [data-bs-theme="dark"] .ep-score > span { background:#0f172a; }
+</style>
+
 <div class="container-fluid px-2 px-md-4 py-4" style="max-width:960px;">
 
   <!-- ── PAGE HEADER ────────────────────────────────── -->
@@ -73,7 +167,7 @@
     <div class="col-6 col-md-3">
       <div class="rounded-3 p-3 text-center h-100"
            style="background:{% if urgent_count > 0 %}#fff1f2{% else %}#f8fafc{% endif %};border:1px solid {% if urgent_count > 0 %}#fecdd3{% else %}#e2e8f0{% endif %};">
-        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if urgent_count > 0 %}#dc2626{% else %}#cbd5e1{% endif %};">{{ urgent_count }}</div>
+        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if urgent_count > 0 %}#dc2626{% else %}#cbd5e1{% endif %};"><span id="epSumUrgent">{{ urgent_count }}</span></div>
         <div style="font-size:0.7rem;font-weight:700;color:{% if urgent_count > 0 %}#dc2626{% else %}#94a3b8{% endif %};letter-spacing:0.5px;text-transform:uppercase;">ออกทันที</div>
         <div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">STRONG EXIT / SL Hit</div>
       </div>
@@ -81,7 +175,7 @@
     <div class="col-6 col-md-3">
       <div class="rounded-3 p-3 text-center h-100"
            style="background:{% if warning_count > 0 %}#fffbeb{% else %}#f8fafc{% endif %};border:1px solid {% if warning_count > 0 %}#fde68a{% else %}#e2e8f0{% endif %};">
-        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if warning_count > 0 %}#d97706{% else %}#cbd5e1{% endif %};">{{ warning_count }}</div>
+        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if warning_count > 0 %}#d97706{% else %}#cbd5e1{% endif %};"><span id="epSumWarning">{{ warning_count }}</span></div>
         <div style="font-size:0.7rem;font-weight:700;color:{% if warning_count > 0 %}#d97706{% else %}#94a3b8{% endif %};letter-spacing:0.5px;text-transform:uppercase;">ทยอยขาย</div>
         <div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">EXIT signal</div>
       </div>
@@ -89,7 +183,7 @@
     <div class="col-6 col-md-3">
       <div class="rounded-3 p-3 text-center h-100"
            style="background:{% if watch_count > 0 %}#fff7ed{% else %}#f8fafc{% endif %};border:1px solid {% if watch_count > 0 %}#fed7aa{% else %}#e2e8f0{% endif %};">
-        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if watch_count > 0 %}#ea580c{% else %}#cbd5e1{% endif %};">{{ watch_count }}</div>
+        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if watch_count > 0 %}#ea580c{% else %}#cbd5e1{% endif %};"><span id="epSumWatch">{{ watch_count }}</span></div>
         <div style="font-size:0.7rem;font-weight:700;color:{% if watch_count > 0 %}#ea580c{% else %}#94a3b8{% endif %};letter-spacing:0.5px;text-transform:uppercase;">เฝ้าระวัง</div>
         <div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">WATCH signal</div>
       </div>
@@ -97,9 +191,9 @@
     <div class="col-6 col-md-3">
       <div class="rounded-3 p-3 text-center h-100"
            style="background:{% if healthy_count == total_count %}#f0fdf4{% else %}#f8fafc{% endif %};border:1px solid {% if healthy_count == total_count %}#bbf7d0{% else %}#e2e8f0{% endif %};">
-        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if healthy_count == total_count %}#16a34a{% else %}#64748b{% endif %};">{{ healthy_count }}</div>
+        <div class="fw-black mb-1" style="font-size:2rem;line-height:1;color:{% if healthy_count == total_count %}#16a34a{% else %}#64748b{% endif %};"><span id="epSumHealthy">{{ healthy_count }}</span></div>
         <div style="font-size:0.7rem;font-weight:700;color:{% if healthy_count == total_count %}#16a34a{% else %}#64748b{% endif %};letter-spacing:0.5px;text-transform:uppercase;">ถือต่อได้</div>
-        <div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">avg sell {{ avg_sell_score }}</div>
+        <div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">avg sell <span id="epSumAvg">{{ avg_sell_score }}</span></div>
       </div>
     </div>
   </div>
@@ -114,12 +208,132 @@
   </div>
   {% endif %}
 
+  <!-- ── CONTROL BAR: ตลาด + มุมมอง ─────────────────── -->
+  {% if items %}
+  <div class="ep-controls d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div class="ep-seg" role="tablist" aria-label="เลือกตลาด">
+      <button class="ep-seg-btn is-active" data-market-filter="ALL">
+        ทั้งหมด <span class="ep-seg-count">{{ market_summaries.ALL.total }}</span>
+      </button>
+      {% if market_summaries.SET.total %}
+      <button class="ep-seg-btn" data-market-filter="SET">
+        🇹🇭 ไทย <span class="ep-seg-count">{{ market_summaries.SET.total }}</span>
+      </button>
+      {% endif %}
+      {% if market_summaries.US.total %}
+      <button class="ep-seg-btn" data-market-filter="US">
+        🇺🇸 US <span class="ep-seg-count">{{ market_summaries.US.total }}</span>
+      </button>
+      {% endif %}
+      {% if market_summaries.OTHER.total %}
+      <button class="ep-seg-btn" data-market-filter="OTHER">
+        อื่นๆ <span class="ep-seg-count">{{ market_summaries.OTHER.total }}</span>
+      </button>
+      {% endif %}
+    </div>
+
+    <div class="ep-seg" role="tablist" aria-label="เลือกมุมมอง">
+      <button class="ep-seg-btn is-active" data-view="cards" title="มุมมองการ์ด — เห็นรายละเอียดครบต่อตัว">
+        <i class="fa-solid fa-grip"></i> การ์ด
+      </button>
+      <button class="ep-seg-btn" data-view="table" title="มุมมองตาราง — เทียบทุกตัวพร้อมกันในหน้าเดียว">
+        <i class="fa-solid fa-table-list"></i> ตาราง
+      </button>
+    </div>
+  </div>
+
+  <!-- ── TABLE VIEW ─────────────────────────────────── -->
+  <div id="exitTableWrap" class="ep-table-wrap" style="display:none;">
+    <table class="ep-table">
+      <thead>
+        <tr>
+          <th class="text-start">หุ้น</th>
+          <th>ราคา</th>
+          <th>กำไร/ขาดทุน</th>
+          <th class="ep-hide-sm">SL / TP</th>
+          <th class="ep-hide-md">ระยะถึง SL</th>
+          <th class="ep-hide-md">RSI</th>
+          <th class="ep-hide-lg">RS</th>
+          <th>Sell</th>
+          <th class="text-start">คำแนะนำ</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in items %}
+        {% with sig=item.exit_signal %}
+        <tr class="ep-row" data-market="{{ item.market }}" data-symbol="{{ item.obj.symbol }}"
+            data-sell="{{ item.sell_score|default:0 }}" data-rs="{{ item.rs_rating|default:0 }}">
+          <td class="text-start">
+            <div class="d-flex align-items-center gap-2">
+              <span class="ep-dot" style="background:{% if sig == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif sig == 'EXIT' %}#d97706{% elif sig == 'WATCH' %}#ea580c{% else %}#16a34a{% endif %};"></span>
+              <div>
+                <div class="ep-sym">{{ item.obj.symbol }}</div>
+                <div class="ep-sub">
+                  {% if item.market == 'SET' %}🇹🇭{% elif item.market == 'US' %}🇺🇸{% endif %}
+                  {{ item.quantity|floatformat:0 }} หุ้น · ถือ {{ item.days_held }} วัน
+                </div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="ep-num ep-t-price" data-sym="{{ item.obj.symbol }}">{{ item.current_price|floatformat:2 }}</div>
+            <div class="ep-sub {% if item.day_change >= 0 %}ep-up{% else %}ep-down{% endif %}">
+              {% if item.day_change >= 0 %}+{% endif %}{{ item.day_change|floatformat:2 }}%
+            </div>
+          </td>
+          <td>
+            <div class="ep-num ep-t-pl {% if item.gain_loss_pct >= 0 %}ep-up{% else %}ep-down{% endif %}" data-sym="{{ item.obj.symbol }}">
+              {% if item.gain_loss_pct >= 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
+            </div>
+            <div class="ep-sub">ทุน {{ item.entry_price|floatformat:2 }}</div>
+          </td>
+          <td class="ep-hide-sm">
+            <div class="ep-sub"><span class="ep-down">SL {{ item.sl_price|floatformat:2|default:"—" }}</span></div>
+            <div class="ep-sub"><span class="ep-up">TP {{ item.tp_price|floatformat:2|default:"—" }}</span></div>
+          </td>
+          <td class="ep-hide-md">
+            {% if item.sl_hit %}
+              <span class="ep-chip ep-chip-red">หลุด SL</span>
+            {% elif item.near_sl %}
+              <span class="ep-chip ep-chip-amber">ใกล้ SL</span>
+            {% else %}
+              <span class="ep-sub">ปกติ</span>
+            {% endif %}
+          </td>
+          <td class="ep-hide-md">
+            <span class="ep-num" style="color:{% if item.rsi > 70 %}#dc2626{% elif item.rsi < 40 %}#64748b{% else %}#0f172a{% endif %};">{{ item.rsi|floatformat:0 }}</span>
+          </td>
+          <td class="ep-hide-lg">
+            <span class="ep-num" style="color:{% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#64748b{% endif %};">{{ item.rs_rating|default:"—" }}</span>
+          </td>
+          <td>
+            <div class="ep-score" style="--v:{{ item.sell_score }};
+                 --c:{% if item.sell_score >= 70 %}#dc2626{% elif item.sell_score >= 45 %}#d97706{% else %}#16a34a{% endif %};">
+              <span>{{ item.sell_score }}</span>
+            </div>
+          </td>
+          <td class="text-start">
+            <span class="ep-action" style="background:{% if sig == 'STRONG EXIT' or item.sl_hit %}#fef2f2;color:#b91c1c;border-color:#fecaca{% elif sig == 'EXIT' %}#fffbeb;color:#b45309;border-color:#fde68a{% elif sig == 'WATCH' %}#fff7ed;color:#c2410c;border-color:#fed7aa{% else %}#f0fdf4;color:#15803d;border-color:#bbf7d0{% endif %};">
+              {{ item.action }}
+            </span>
+            {% if item.action_detail %}<div class="ep-sub mt-1">{{ item.action_detail|truncatechars:44 }}</div>{% endif %}
+          </td>
+        </tr>
+        {% endwith %}
+      {% endfor %}
+      </tbody>
+    </table>
+    <div id="epTableEmpty" class="ep-empty" style="display:none;">ไม่มีหุ้นในตลาดนี้</div>
+  </div>
+  {% endif %}
+
   <!-- ── STOCK CARDS ────────────────────────────────── -->
   <div id="exitCards">
   {% for item in items %}
 
   <div class="mb-3 rounded-4 overflow-hidden exit-card"
        data-symbol="{{ item.obj.symbol }}"
+       data-market="{{ item.market }}"
        data-rs="{{ item.rs_rating|default:0 }}"
        data-rs-rank="{{ item.rs_rank|default:0 }}"
        data-rel3m="{{ item.rel_3m|default:0 }}"
@@ -622,6 +836,8 @@ function openSellModal(url, sym, qty, price, entry, market) {
       plEl.style.color = up ? '#16a34a' : '#dc2626';
       plEl.innerHTML = (up ? '+' : '') + fmt(row.gl_pct) + '% ' +
         '<span class="fw-normal" style="color:#94a3b8;">vs ' + cs + fmt(row.entry) + '</span>';
+      // ตารางใช้ข้อมูลชุดเดียวกัน ไม่งั้นสองมุมมองจะโชว์ราคาคนละเวลา
+      if (window.epSyncTableRow) window.epSyncTableRow(sym, row.price, row.gl_pct);
     });
     if (stamp && data.ts) stamp.textContent = '(ล่าสุด ' + data.ts + ')';
   }
@@ -685,4 +901,82 @@ document.getElementById('aiAnalyzeBtn').addEventListener('click', function() {
         });
 });
 </script>
+
+<script>
+/* ── Exit Plan: ตัวกรองตลาด + สลับมุมมองการ์ด/ตาราง ────────────
+   สรุปแยกตลาดคำนวณฝั่ง server แล้วส่งมาเป็น JSON เพื่อไม่ให้ JS
+   ต้องรู้เกณฑ์จำแนก STRONG EXIT / EXIT / WATCH ซ้ำอีกชุด */
+(function () {
+  var SUMMARIES = {{ market_summaries_json|safe }};
+  var cardsWrap = document.getElementById('exitCards');
+  var tableWrap = document.getElementById('exitTableWrap');
+  if (!cardsWrap) return;
+
+  var currentMarket = 'ALL';
+
+  function inMarket(el) {
+    if (currentMarket === 'ALL') return true;
+    var m = el.dataset.market || '';
+    if (currentMarket === 'OTHER') return m !== 'SET' && m !== 'US';
+    return m === currentMarket;
+  }
+
+  function applyMarket() {
+    var shown = 0;
+    cardsWrap.querySelectorAll('.exit-card').forEach(function (c) {
+      var ok = inMarket(c);
+      c.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    if (tableWrap) {
+      tableWrap.querySelectorAll('.ep-row').forEach(function (r) {
+        r.style.display = inMarket(r) ? '' : 'none';
+      });
+      var empty = document.getElementById('epTableEmpty');
+      if (empty) empty.style.display = shown ? 'none' : '';
+    }
+
+    var s = SUMMARIES[currentMarket] || SUMMARIES.ALL;
+    var map = {epSumUrgent:s.urgent, epSumWarning:s.warning, epSumWatch:s.watch,
+               epSumHealthy:s.healthy, epSumAvg:s.avg_sell};
+    Object.keys(map).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = map[id];
+    });
+  }
+
+  document.querySelectorAll('[data-market-filter]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('[data-market-filter]').forEach(function (b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      currentMarket = btn.dataset.marketFilter;
+      applyMarket();
+    });
+  });
+
+  document.querySelectorAll('[data-view]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('[data-view]').forEach(function (b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      var isTable = btn.dataset.view === 'table';
+      cardsWrap.style.display = isTable ? 'none' : '';
+      if (tableWrap) tableWrap.style.display = isTable ? '' : 'none';
+    });
+  });
+
+  // ราคาที่อัปเดตทุก 90 วิ เขียนเฉพาะการ์ด — ให้ตารางตามไปด้วย
+  window.epSyncTableRow = function (sym, price, plPct) {
+    if (!tableWrap) return;
+    var p = tableWrap.querySelector('.ep-t-price[data-sym="' + sym + '"]');
+    if (p && price != null) p.textContent = Number(price).toFixed(2);
+    var l = tableWrap.querySelector('.ep-t-pl[data-sym="' + sym + '"]');
+    if (l && plPct != null) {
+      l.textContent = (plPct >= 0 ? '+' : '') + Number(plPct).toFixed(1) + '%';
+      l.classList.toggle('ep-up', plPct >= 0);
+      l.classList.toggle('ep-down', plPct < 0);
+    }
+  };
+})();
+</script>
+
 {% endblock %}

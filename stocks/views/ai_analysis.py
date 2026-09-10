@@ -284,6 +284,7 @@ def portfolio_exit_plan(request):
 
             items.append({
                 'obj':          item,
+                'market':       item.market,
                 'current_price': current_price,
                 'day_change':   day_change,
                 'entry_price':  entry_price,
@@ -368,12 +369,30 @@ def portfolio_exit_plan(request):
         )
 
     # ====== Portfolio Health Summary ======
-    urgent_count   = sum(1 for i in items if i['exit_signal'] in ('STRONG EXIT',) or i['sl_hit'])
-    warning_count  = sum(1 for i in items if i['exit_signal'] == 'EXIT')
-    watch_count    = sum(1 for i in items if i['exit_signal'] == 'WATCH')
-    healthy_count  = sum(1 for i in items if not i['exit_signal'] and not i['sl_hit'])
-    total_count    = len(items)
-    avg_sell_score = round(sum(i['sell_score'] for i in items) / total_count, 1) if total_count else 0
+    def _summarize(rows):
+        n = len(rows)
+        return {
+            'urgent':  sum(1 for i in rows if i['exit_signal'] == 'STRONG EXIT' or i['sl_hit']),
+            'warning': sum(1 for i in rows if i['exit_signal'] == 'EXIT'),
+            'watch':   sum(1 for i in rows if i['exit_signal'] == 'WATCH'),
+            'healthy': sum(1 for i in rows if not i['exit_signal'] and not i['sl_hit']),
+            'total':   n,
+            'avg_sell': round(sum(i['sell_score'] for i in rows) / n, 1) if n else 0,
+        }
+
+    # สรุปแยกตลาด เพื่อให้การ์ดสรุปเปลี่ยนตามแท็บที่เลือกโดยไม่ต้องโหลดหน้าใหม่
+    # คำนวณฝั่ง server เพื่อไม่ให้ JS ต้องรู้เกณฑ์จำแนกซ้ำอีกชุด
+    market_summaries = {
+        'ALL': _summarize(items),
+        'SET': _summarize([i for i in items if i['market'] == MarketType.SET]),
+        'US':  _summarize([i for i in items if i['market'] == MarketType.US]),
+        'OTHER': _summarize([i for i in items
+                             if i['market'] not in (MarketType.SET, MarketType.US)]),
+    }
+    _all = market_summaries['ALL']
+    urgent_count, warning_count = _all['urgent'], _all['warning']
+    watch_count, healthy_count  = _all['watch'], _all['healthy']
+    total_count, avg_sell_score = _all['total'], _all['avg_sell']
 
     # Market Condition
     market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
@@ -403,6 +422,8 @@ def portfolio_exit_plan(request):
         'total_count':   total_count,
         'avg_sell_score': avg_sell_score,
         'market_condition': market_condition,
+        'market_summaries': market_summaries,
+        'market_summaries_json': json.dumps(market_summaries),
     })
 
 
