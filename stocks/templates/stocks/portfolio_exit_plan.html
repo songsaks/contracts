@@ -119,14 +119,14 @@
   overflow:hidden; text-overflow:ellipsis; vertical-align:middle;
 }
 /* คำอธิบายใต้ป้ายคำแนะนำ: ตัดท้ายด้วย … แทนการถูกเฉือนหายเฉยๆ เวลาคอลัมน์แคบ
-   จำกัดไว้เฉพาะช่วงที่ตารางเป็น table-layout:fixed (≥769px) เท่านั้น
-   เพราะที่ ≤768px ตารางเป็น auto — nowrap จะดันความกว้างขั้นต่ำของคอลัมน์
-   ให้เท่ากับข้อความเต็ม 44 ตัวอักษร ตารางเลยกว้างเกิน min-width:660px
-   แล้วต้องเลื่อนแนวนอนไกลขึ้นแทนที่จะได้ … */
-@media (min-width: 769px) {
-  .ep-table tbody td:last-child .ep-sub {
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
+   ใช้ได้เฉพาะช่วงที่ตารางเป็น table-layout:fixed เพราะที่ ≤768px ตารางเป็น auto
+   — nowrap จะดันความกว้างขั้นต่ำของคอลัมน์ให้เท่ากับข้อความเต็ม 44 ตัวอักษร
+   ตารางเลยกว้างเกิน min-width:660px แล้วต้องเลื่อนแนวนอนไกลขึ้นแทนที่จะได้ …
+   จึงตั้งเป็นค่าตั้งต้นแล้วปลดใน @media (max-width:768px) ด้านล่าง ไม่ใช้
+   min-width:769px คู่กัน เพราะจอกว้าง 768.5px (เจอได้จาก browser zoom หรือ
+   display scaling ของ OS) จะไม่เข้าเงื่อนไขทั้งสองข้าง */
+.ep-table tbody td:last-child .ep-sub {
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .ep-empty { padding:36px; text-align:center; color:#94a3b8; font-weight:600; font-size:0.85rem; }
 
@@ -142,6 +142,8 @@
 @media (max-width: 768px) {
   .container-fluid.ep-page { width:100%; min-width:0; padding-inline:0; }
   .ep-table { table-layout:auto; min-width:660px; font-size:0.78rem; }
+  /* ตารางเป็น auto แล้ว — ปลด nowrap ไม่ให้ข้อความดันคอลัมน์จนตารางกว้างเกิน */
+  .ep-table tbody td:last-child .ep-sub { white-space:normal; }
   .ep-table thead th, .ep-table tbody td { padding:9px 10px; }
   .ep-table thead th:first-child,
   .ep-table tbody td:first-child {
