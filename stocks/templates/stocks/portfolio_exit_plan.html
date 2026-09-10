@@ -34,12 +34,25 @@
   background:#fff; border:1px solid #e8ecf0; border-radius:16px;
   box-shadow:0 1px 6px rgba(0,0,0,.07); overflow-x:auto;
 }
-.ep-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.82rem; }
+/* คุมความกว้างหน้า: จอกว้างไม่ยืดเต็ม จอเล็กใช้เต็มพื้นที่ */
+.ep-page { max-width:1080px; margin-inline:auto; }
+
+/* fixed layout + ความกว้างต่อคอลัมน์ กัน browser ยืดคอลัมน์จนห่างผิดสัดส่วน */
+.ep-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.8rem; table-layout:fixed; }
+.ep-table col.c-sym    { width:19%; }
+.ep-table col.c-price  { width:10%; }
+.ep-table col.c-pl     { width:11%; }
+.ep-table col.c-sltp   { width:11%; }
+.ep-table col.c-dist   { width:9%;  }
+.ep-table col.c-rsi    { width:6%;  }
+.ep-table col.c-rs     { width:6%;  }
+.ep-table col.c-sell   { width:8%;  }
+.ep-table col.c-act    { width:20%; }
 .ep-table thead th {
   position:sticky; top:0; z-index:2;
   background:linear-gradient(180deg,#1e293b,#0f172a); color:#e2e8f0;
   font-size:0.7rem; font-weight:800; letter-spacing:.8px; text-transform:uppercase;
-  padding:13px 12px; text-align:center; white-space:nowrap;
+  padding:11px 8px; text-align:center; white-space:nowrap;
   border-bottom:2px solid #0f172a;
   box-shadow:0 1px 0 rgba(255,255,255,.06) inset;
 }
@@ -47,8 +60,8 @@
 .ep-table thead th:first-child { border-top-left-radius:15px; }
 .ep-table thead th:last-child  { border-top-right-radius:15px; }
 .ep-table tbody td {
-  padding:11px 12px; text-align:center; vertical-align:middle;
-  border-bottom:1px solid #f1f5f9;
+  padding:9px 8px; text-align:center; vertical-align:middle;
+  border-bottom:1px solid #f1f5f9; overflow:hidden;
 }
 .ep-table tbody tr:last-child td { border-bottom:none; }
 .ep-table tbody tr { transition:background .12s, box-shadow .12s; }
@@ -88,9 +101,38 @@
 }
 .ep-empty { padding:36px; text-align:center; color:#94a3b8; font-weight:600; font-size:0.85rem; }
 
+/* ── Responsive ──────────────────────────────────────────────
+   แท็บเล็ตลงไป: ยอมให้เลื่อนแนวนอนแทนการซ่อนข้อมูลทิ้ง แล้วตรึง
+   คอลัมน์ชื่อหุ้นไว้ เพื่อให้เลื่อนดูตัวเลขได้โดยไม่หลงว่าเป็นหุ้นตัวไหน */
 @media (max-width: 992px) { .ep-hide-lg { display:none; } }
-@media (max-width: 768px) { .ep-hide-md { display:none; } }
-@media (max-width: 576px) { .ep-hide-sm { display:none; } }
+
+@media (max-width: 768px) {
+  .ep-page { padding-inline:0 !important; }
+  .ep-table { table-layout:auto; min-width:660px; font-size:0.78rem; }
+  .ep-table thead th, .ep-table tbody td { padding:9px 10px; }
+  .ep-table thead th:first-child,
+  .ep-table tbody td:first-child {
+    position:sticky; left:0; z-index:3;
+    box-shadow:1px 0 0 #e2e8f0;
+  }
+  .ep-table tbody td:first-child { background:#fff; }
+  .ep-table tbody tr:nth-child(even) td:first-child { background:#fcfdfe; }
+  .ep-table-wrap { border-radius:12px; }
+  .ep-seg-btn { padding:6px 11px; font-size:0.74rem; }
+}
+
+@media (max-width: 576px) {
+  .ep-controls { gap:8px; }
+  .ep-controls .ep-seg { width:100%; justify-content:center; }
+  .ep-stat-num { font-size:1.7rem; }
+  .ep-table { min-width:600px; }
+  .ep-sym { font-size:0.8rem; }
+}
+
+[data-theme="dark"] .ep-table tbody td:first-child,
+[data-bs-theme="dark"] .ep-table tbody td:first-child { background:#0f172a; }
+[data-theme="dark"] .ep-table tbody tr:nth-child(even) td:first-child,
+[data-bs-theme="dark"] .ep-table tbody tr:nth-child(even) td:first-child { background:#0d1626; }
 
 [data-theme="dark"] .ep-seg, [data-bs-theme="dark"] .ep-seg { background:#1e293b; border-color:#334155; }
 [data-theme="dark"] .ep-seg-btn.is-active, [data-bs-theme="dark"] .ep-seg-btn.is-active { background:#0f172a; color:#f1f5f9; }
@@ -132,7 +174,7 @@
 [data-bs-theme="dark"] .ep-table tbody tr:hover { background:#1e293b; }
 </style>
 
-<div class="container-fluid px-2 px-md-4 py-4" style="max-width:960px;">
+<div class="container-fluid px-2 px-md-4 py-4 ep-page">
 
   <!-- ── PAGE HEADER ────────────────────────────────── -->
   <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
@@ -279,6 +321,12 @@
   <!-- ── TABLE VIEW ─────────────────────────────────── -->
   <div id="exitTableWrap" class="ep-table-wrap" style="display:none;">
     <table class="ep-table">
+      <colgroup>
+        <col class="c-sym"><col class="c-price"><col class="c-pl">
+        <col class="c-sltp ep-hide-sm"><col class="c-dist ep-hide-md">
+        <col class="c-rsi ep-hide-md"><col class="c-rs ep-hide-lg">
+        <col class="c-sell"><col class="c-act">
+      </colgroup>
       <thead>
         <tr>
           <th class="text-start">หุ้น</th>
