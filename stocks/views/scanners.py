@@ -2352,9 +2352,12 @@ def precision_momentum_scanner(request):
                             sma200_s = ta.sma(df['Close'], length=200)
                             if sma200_s is not None:
                                 sma200_clean = sma200_s.dropna()
-                                if len(sma200_clean) >= 20:
+                                # หุ้นที่เพิ่งเข้าตลาดมีข้อมูลแค่ ~200 แท่ง → sma200 เหลือไม่กี่ค่า
+                                # ย่น lookback ตามที่มีจริง แทนที่จะตอบ False ทั้งที่ยังไม่ได้ตรวจ
+                                if len(sma200_clean) >= 5:
+                                    _lb = min(20, len(sma200_clean) - 1)
                                     sma200_cur = float(sma200_clean.iloc[-1])
-                                    sma200_4w  = float(sma200_clean.iloc[-20])
+                                    sma200_4w  = float(sma200_clean.iloc[-1 - _lb])
                                     stage4_flag = (current_price < sma200_cur) and (sma200_cur < sma200_4w)
                         except Exception:
                             pass
@@ -5675,9 +5678,12 @@ def us_precision_scanner(request):
                             sma200_s = ta.sma(df['Close'], length=200)
                             if sma200_s is not None:
                                 sma200_clean = sma200_s.dropna()
-                                if len(sma200_clean) >= 20:
+                                # หุ้นที่เพิ่งเข้าตลาดมีข้อมูลแค่ ~200 แท่ง → sma200 เหลือไม่กี่ค่า
+                                # ย่น lookback ตามที่มีจริง แทนที่จะตอบ False ทั้งที่ยังไม่ได้ตรวจ
+                                if len(sma200_clean) >= 5:
+                                    _lb = min(20, len(sma200_clean) - 1)
                                     sma200_cur = float(sma200_clean.iloc[-1])
-                                    sma200_4w  = float(sma200_clean.iloc[-20])
+                                    sma200_4w  = float(sma200_clean.iloc[-1 - _lb])
                                     stage4_flag = (current_price < sma200_cur) and (sma200_cur < sma200_4w)
                         except Exception:
                             pass
@@ -7534,9 +7540,11 @@ def us_sepa_scanner(request):
                             _s200 = ta.sma(df['Close'], length=200)
                             if _s200 is not None:
                                 _s200c = _s200.dropna()
-                                if len(_s200c) >= 20:
+                                # ย่น lookback ตามข้อมูลที่มี — หุ้นเพิ่งเข้าตลาดมี sma200 ไม่ถึง 20 ค่า
+                                if len(_s200c) >= 5:
+                                    _lb = min(20, len(_s200c) - 1)
                                     stage4_v = bool(curr < float(_s200c.iloc[-1])
-                                                    and float(_s200c.iloc[-1]) < float(_s200c.iloc[-20]))
+                                                    and float(_s200c.iloc[-1]) < float(_s200c.iloc[-1 - _lb]))
                         except Exception:
                             pass
 

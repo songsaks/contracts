@@ -153,7 +153,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <span class="small text-muted fw-bold">History:</span>
                         <select class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.75rem;"
-                                onchange="location.href='?run_idx='+this.value+'&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}&earnings_filter={{ earnings_filter|yesno:'1,0' }}'">
+                                onchange="location.href='?run_idx='+this.value+'&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}&earnings_filter={{ earnings_filter|yesno:'1,0' }}&tt_only={{ tt_only|yesno:'1,0' }}&stage4_hide={{ stage4_hide|yesno:'1,0' }}'">
                             {% for run in all_runs %}
                             <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
                                 {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
@@ -202,7 +202,7 @@
                             <i class="fas fa-info-circle ms-1 text-muted d-none d-md-inline"
                                style="cursor:pointer;font-size:0.65rem;"
                                data-bs-toggle="tooltip"
-                               title="SEPA Score v2: VCP(65)+VDU(20)+RS×0.7+ADX(10)+Proximity(10)+EPS bonus(30)+Rev bonus(10)+ROE(8)+Accel(10)"></i>
+                               title="SEPA Score v3: TrendTemplate(40)+VCP(65)+VDU(20)+RS×0.7+ADX(10)+Proximity(10)+EPS bonus(30)+Rev bonus(10)+ROE(8)+Accel(10)"></i>
                         </th>
                         <th class="pe-4 py-3 text-end">Action</th>
                     </tr>
@@ -264,9 +264,6 @@
                                   title="Passes {{ tt }} of 8 Trend Template criteria — Minervini requires all 8">
                                 {{ tt }}/8{% if tt >= 8 %} ✓{% endif %}
                             </span>
-                            {% if item.eps_accel %}
-                            <div style="margin-top:3px;"><span class="badge rounded-pill" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;font-size:0.58rem;" title="EPS Acceleration — forward EPS estimate above trailing EPS">EPS &uarr;</span></div>
-                            {% endif %}
                             {% endwith %}
                         </td>
 
@@ -379,13 +376,13 @@
                         <!-- SEPA Score -->
                         <td class="py-3 text-center">
                             <div class="fw-bold" style="font-size:1rem;
-                                color:{% if item.sepa_score >= 140 %}#15803d{% elif item.sepa_score >= 100 %}#2563eb{% elif item.sepa_score >= 70 %}#d97706{% else %}#64748b{% endif %};">
+                                color:{% if item.sepa_score >= 190 %}#15803d{% elif item.sepa_score >= 140 %}#2563eb{% elif item.sepa_score >= 100 %}#d97706{% else %}#64748b{% endif %};">
                                 {{ item.sepa_score }}
                             </div>
                             <div class="text-muted" style="font-size:0.6rem;">
-                                {% if item.sepa_score >= 140 %}⭐ Elite
-                                {% elif item.sepa_score >= 100 %}💪 Strong
-                                {% elif item.sepa_score >= 70 %}📈 Developing
+                                {% if item.sepa_score >= 190 %}⭐ Elite
+                                {% elif item.sepa_score >= 140 %}💪 Strong
+                                {% elif item.sepa_score >= 100 %}📈 Developing
                                 {% else %}📉 Weak{% endif %}
                             </div>
                             <div class="val-hint">SEPA Score</div>

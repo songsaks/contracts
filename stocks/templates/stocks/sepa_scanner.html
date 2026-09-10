@@ -160,7 +160,7 @@
                             Score
                             <i class="fas fa-info-circle ms-1 text-muted d-none d-md-inline" style="cursor:pointer;font-size:0.65rem;"
                                data-bs-toggle="tooltip"
-                               title="คะแนนรวม: VCP(65) + VDU(20) + RS×0.7 + ADX(10) + Proximity(10) + EPS bonus(30) + Rev bonus(10)"></i>
+                               title="คะแนนรวม: Trend Template(40) + VCP(65) + VDU(20) + RS×0.7 + ADX(10) + Proximity(10) + EPS bonus(30) + Rev bonus(10) + EPS Accel(10)"></i>
                         </th>
                         <th class="pe-4 py-3 text-end">Action</th>
                     </tr>
@@ -222,9 +222,6 @@
                                   title="ผ่านเกณฑ์ Trend Template {{ tt }} จาก 8 ข้อ — Minervini ต้องการครบ 8/8">
                                 {{ tt }}/8{% if tt >= 8 %} ✓{% endif %}
                             </span>
-                            {% if item.eps_accel %}
-                            <div style="margin-top:3px;"><span class="badge rounded-pill" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;font-size:0.58rem;" title="EPS Acceleration — กำไรคาดการณ์ข้างหน้าโตกว่ากำไรที่ทำได้จริง">EPS ↑</span></div>
-                            {% endif %}
                             {% endwith %}
                         </td>
 
@@ -307,13 +304,13 @@
                         <!-- SEPA Score -->
                         <td class="py-3 text-center">
                             <div class="fw-bold" style="font-size:1rem;
-                                color:{% if item.sepa_score >= 140 %}#15803d{% elif item.sepa_score >= 100 %}#2563eb{% elif item.sepa_score >= 70 %}#d97706{% else %}#64748b{% endif %};">
+                                color:{% if item.sepa_score >= 190 %}#15803d{% elif item.sepa_score >= 140 %}#2563eb{% elif item.sepa_score >= 100 %}#d97706{% else %}#64748b{% endif %};">
                                 {{ item.sepa_score }}
                             </div>
                             <div class="text-muted" style="font-size:0.6rem;">
-                                {% if item.sepa_score >= 140 %}⭐ Elite
-                                {% elif item.sepa_score >= 100 %}💪 Strong
-                                {% elif item.sepa_score >= 70 %}📈 Developing
+                                {% if item.sepa_score >= 190 %}⭐ Elite
+                                {% elif item.sepa_score >= 140 %}💪 Strong
+                                {% elif item.sepa_score >= 100 %}📈 Developing
                                 {% else %}📉 Weak{% endif %}
                             </div>
                             <div class="val-hint">SEPA Score</div>

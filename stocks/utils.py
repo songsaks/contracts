@@ -371,8 +371,7 @@ def check_trend_template(df, rs_rating=0):
             'sma200_trending_up':     sma200_v > sma200_1m_ago,
             'sma50_above_150_200':    sma50_v > sma150_v and sma50_v > sma200_v,
             'price_above_sma50':      price > sma50_v,
-            # Minervini กำหนด 30% เหนือจุดต่ำสุด 52 สัปดาห์ (เดิมโค้ดใช้ 25% ซึ่งผ่อนกว่าตำรา)
-            'price_30pct_above_low':  price >= year_low * 1.30,
+            'price_25pct_above_low':  price >= year_low * 1.25,
             'price_within_25pct_of_high': price >= year_high * 0.75,
             'rs_strong':              rs_rating >= 70,
         }
