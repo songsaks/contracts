@@ -141,13 +141,19 @@ def _fetch_exit_plan_history(pairs, period=EXIT_PLAN_HISTORY_PERIOD):
     pairs: iterable ของ (symbol, market)
     คืน {symbol เดิม: DataFrame} — ตัวที่ดึงไม่ได้จะไม่มี key อยู่ใน dict
     """
+    pairs = list(pairs)              # ใช้ซ้ำหลายรอบด้านล่าง generator จะหมดไปก่อน
     out = {}
-    yf_map = {}                      # yf symbol -> symbol เดิม (ตัวแรกที่เจอ)
+    yf_map = {}                      # yf symbol -> รายชื่อ symbol เดิมทุกตัวที่ map มาลงตัวนี้
     for sym, mkt in pairs:
-        yf_map.setdefault(_exit_plan_yf_symbol(sym, mkt), sym)
+        yf_map.setdefault(_exit_plan_yf_symbol(sym, mkt), []).append(sym)
     yf_symbols = list(yf_map)
     if not yf_symbols:
         return out
+
+    def _store(ys, df):
+        """แจกผลให้ทุก symbol ที่ชี้มาที่ ticker เดียวกัน (เช่น PTT กับ PTT.BK)"""
+        for sym in yf_map[ys]:
+            out[sym] = df
 
     try:
         raw = yf.download(yf_symbols, period=period, interval="1d", progress=False,
@@ -157,28 +163,32 @@ def _fetch_exit_plan_history(pairs, period=EXIT_PLAN_HISTORY_PERIOD):
         raw = None
 
     if raw is not None and not raw.empty:
-        # ยิงตัวเดียว yfinance คืนคอลัมน์แบนมาเลย ไม่ได้ซ้อนชั้น ticker
-        if len(yf_symbols) == 1:
-            df = _clean_ohlc(raw)
-            if df is not None:
-                out[yf_map[yf_symbols[0]]] = df
-        else:
+        # yfinance คืน MultiIndex (Ticker, Price) เสมอเมื่อ multi_level_index=True
+        # ซึ่งเป็นค่า default — รวมถึงตอนยิงตัวเดียว จึงเช็คจากคอลัมน์จริง
+        # ไม่ใช่จากจำนวน symbol ที่ส่งไป
+        lvl0 = set(raw.columns.get_level_values(0)) if isinstance(raw.columns, pd.MultiIndex) else set()
+        if lvl0 & set(yf_symbols):
             for ys in yf_symbols:
-                if ys not in raw.columns.get_level_values(0):
-                    continue
-                df = _clean_ohlc(raw[ys].copy())
-                if df is not None:
-                    out[yf_map[ys]] = df
+                if ys in lvl0:
+                    df = _clean_ohlc(raw[ys].copy())
+                    if df is not None:
+                        _store(ys, df)
+        elif len(yf_symbols) == 1:
+            df = _clean_ohlc(raw.copy())      # คอลัมน์แบน = ผลของ ticker ตัวเดียว
+            if df is not None:
+                _store(yf_symbols[0], df)
 
-    # batch พังทั้งก้อน (Yahoo ล่ม/rate limit) — ถอยไปยิงทีละตัวแบบเดิม
-    # ไม่งั้นความผิดพลาดครั้งเดียวจะทำให้ทั้งพอร์ตกลายเป็นแถว "ดึงข้อมูลไม่ได้"
-    if not out:
-        logger.warning("[ExitPlan] batch ไม่ได้ข้อมูลเลย ถอยไปยิงทีละตัว (%d ตัว)", len(yf_symbols))
-        for ys, sym in yf_map.items():
+    # ตัวที่ batch ไม่ได้ผล — ยิงเดี่ยวเฉพาะตัวที่ขาด (แบบเดียวกับ fetch_live_prices)
+    # ครอบคลุมทั้งกรณี batch พังทั้งก้อน และกรณี Yahoo ตกไปบางตัว
+    missing = [ys for ys in yf_symbols if not any(s in out for s in yf_map[ys])]
+    if missing:
+        logger.warning("[ExitPlan] batch ไม่ได้ %d/%d ตัว ยิงเดี่ยวซ้ำ: %s",
+                       len(missing), len(yf_symbols), ', '.join(missing))
+        for ys in missing:
             try:
                 df = _clean_ohlc(yf.Ticker(ys).history(period=period))
                 if df is not None:
-                    out[sym] = df
+                    _store(ys, df)
             except Exception:
                 logger.debug("[ExitPlan] ยิงเดี่ยว %s ล้มเหลว", ys, exc_info=True)
 

@@ -140,6 +140,11 @@
 .ep-notice i { color:#94a3b8; margin-top:2px; flex-shrink:0; }
 .ep-notice b { color:#334155; }
 
+/* ช่องที่ไม่มีข้อมูล — ขีดกลางแทนการเติมเลข 0 ที่อ่านผิดเป็นราคาจริงได้ */
+.ep-na { color:#cbd5e1; font-weight:700; }
+.ep-card-error { background:#fff; box-shadow:0 1px 6px rgba(0,0,0,0.07);
+                 border:1px solid #e8ecf0; border-left:4px solid #64748b; }
+
 /* ── Responsive ──────────────────────────────────────────────
    แท็บเล็ตลงไป: ยอมให้เลื่อนแนวนอนแทนการซ่อนข้อมูลทิ้ง แล้วตรึง
    คอลัมน์ชื่อหุ้นไว้ เพื่อให้เลื่อนดูตัวเลขได้โดยไม่หลงว่าเป็นหุ้นตัวไหน */
@@ -413,15 +418,19 @@
             </div>
           </td>
           <td>
+            {% if item.data_error %}<span class="ep-na">—</span>{% else %}
             <div class="ep-num ep-t-price" data-sym="{{ item.obj.symbol }}">{{ item.current_price|floatformat:2 }}</div>
             <div class="ep-sub {% if item.day_change >= 0 %}ep-up{% else %}ep-down{% endif %}">
               {% if item.day_change >= 0 %}+{% endif %}{{ item.day_change|floatformat:2 }}%
             </div>
+            {% endif %}
           </td>
           <td>
+            {% if item.data_error %}<span class="ep-na">—</span>{% else %}
             <div class="ep-num ep-t-pl {% if item.gain_loss_pct >= 0 %}ep-up{% else %}ep-down{% endif %}" data-sym="{{ item.obj.symbol }}">
               {% if item.gain_loss_pct >= 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
             </div>
+            {% endif %}
             <div class="ep-sub">ทุน {{ item.entry_price|floatformat:2 }}</div>
           </td>
           <td>
@@ -429,7 +438,9 @@
             <div class="ep-sub"><span class="ep-up">TP {{ item.tp_price|floatformat:2|default:"—" }}</span></div>
           </td>
           <td>
-            {% if item.sl_hit %}
+            {% if item.data_error %}
+              <span class="ep-na">—</span>
+            {% elif item.sl_hit %}
               <span class="ep-chip ep-chip-red">หลุด SL</span>
             {% elif item.near_sl %}
               <span class="ep-chip ep-chip-amber">ใกล้ SL</span>
@@ -438,16 +449,18 @@
             {% endif %}
           </td>
           <td>
-            <span class="ep-num" style="color:{% if item.rsi > 70 %}#dc2626{% elif item.rsi < 40 %}#64748b{% else %}#0f172a{% endif %};">{{ item.rsi|floatformat:0 }}</span>
+            {% if item.data_error %}<span class="ep-na">—</span>{% else %}<span class="ep-num" style="color:{% if item.rsi > 70 %}#dc2626{% elif item.rsi < 40 %}#64748b{% else %}#0f172a{% endif %};">{{ item.rsi|floatformat:0 }}</span>{% endif %}
           </td>
           <td class="ep-hide-lg">
             <span class="ep-num" style="color:{% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#64748b{% endif %};">{{ item.rs_rating|default:"—" }}</span>
           </td>
           <td>
+            {% if item.data_error %}<span class="ep-na">—</span>{% else %}
             <div class="ep-score" style="--v:{{ item.sell_score }};
                  --c:{% if item.sell_score >= 70 %}#dc2626{% elif item.sell_score >= 45 %}#d97706{% else %}#16a34a{% endif %};">
               <span>{{ item.sell_score }}</span>
             </div>
+            {% endif %}
           </td>
           <td class="text-start">
             <span class="ep-action" style="background:{% if item.data_error %}#f1f5f9;color:#475569;border-color:#cbd5e1{% elif sig == 'STRONG EXIT' or item.sl_hit %}#fef2f2;color:#b91c1c;border-color:#fecaca{% elif sig == 'EXIT' %}#fffbeb;color:#b45309;border-color:#fde68a{% elif sig == 'WATCH' %}#fff7ed;color:#c2410c;border-color:#fed7aa{% else %}#f0fdf4;color:#15803d;border-color:#bbf7d0{% endif %};">
@@ -467,6 +480,49 @@
   <!-- ── STOCK CARDS ────────────────────────────────── -->
   <div id="exitCards">
   {% for item in items %}
+
+  {% if item.data_error %}
+  {% comment %}
+    ดึงข้อมูลไม่ได้ = ไม่รู้สถานะ ไม่ใช่ "ปลอดภัย" — จึงไม่ใช้การ์ดปกติที่ทุกส่วน
+    ผูกสีกับ action_style (secondary จะตกไปช่องเขียว) และไม่โชว์ราคา 0.00 / +0.0%
+    ที่ระบบเติมเอง เพราะตัวเลขปลอมอันตรายกว่าการไม่มีตัวเลข
+  {% endcomment %}
+  <div class="mb-3 rounded-4 overflow-hidden exit-card ep-card-error"
+       data-symbol="{{ item.obj.symbol }}"
+       data-market="{{ item.market }}"
+       data-rs="0" data-rs-rank="{{ item.rs_rank|default:0 }}"
+       data-rel3m="0" data-sell="0">
+    <div class="d-flex align-items-center gap-3 px-4 py-3 flex-wrap">
+      <div class="rounded-3 d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0"
+           style="width:44px;height:44px;font-size:0.7rem;letter-spacing:0.5px;background:#64748b;">
+        {{ item.obj.symbol|slice:":3" }}
+      </div>
+      <div class="flex-grow-1">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="fw-bold" style="font-size:1.05rem;color:#0f172a;">{{ item.obj.symbol }}</span>
+          <span class="badge rounded-pill px-2"
+                style="background:#e2e8f0;color:#475569;font-size:0.62rem;font-weight:700;">ไม่มีข้อมูล</span>
+        </div>
+        <div style="font-size:0.72rem;color:#94a3b8;">
+          {% if item.market == 'SET' %}🇹🇭{% elif item.market == 'US' %}🇺🇸{% endif %}
+          {{ item.quantity|floatformat:0 }} หุ้น · ทุน
+          {% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.entry_price|floatformat:2 }}
+        </div>
+      </div>
+      <span class="px-3 py-2 rounded-3 fw-bold d-inline-block flex-shrink-0"
+            style="font-size:0.78rem;color:#fff;white-space:nowrap;background:#64748b;">
+        ⚠ ดึงข้อมูลไม่ได้
+      </span>
+    </div>
+    <div class="px-4 py-2" style="background:#f8fafc;border-top:1px solid #f1f5f9;">
+      <span style="font-size:0.8rem;font-weight:600;color:#475569;">
+        {{ item.error_reason }} — ยังประเมินไม่ได้ว่าควรถือหรือขาย
+        ให้เช็คราคาจากแหล่งอื่นก่อนตัดสินใจ แล้วรีเฟรชหน้านี้อีกครั้ง
+      </span>
+    </div>
+  </div>
+
+  {% else %}
 
   <div class="mb-3 rounded-4 overflow-hidden exit-card"
        data-symbol="{{ item.obj.symbol }}"
@@ -860,6 +916,7 @@
     {% endif %}
 
   </div><!-- /card -->
+  {% endif %}
   {% endfor %}
   </div><!-- /#exitCards -->
 
