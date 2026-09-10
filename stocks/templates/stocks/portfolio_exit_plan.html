@@ -118,9 +118,15 @@
   border:1px solid; font-size:0.72rem; font-weight:800; white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis; vertical-align:middle;
 }
-/* คำอธิบายใต้ป้ายคำแนะนำ: ตัดท้ายด้วย … แทนการถูกเฉือนหายเฉยๆ เวลาคอลัมน์แคบ */
-.ep-table tbody td:last-child .ep-sub {
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+/* คำอธิบายใต้ป้ายคำแนะนำ: ตัดท้ายด้วย … แทนการถูกเฉือนหายเฉยๆ เวลาคอลัมน์แคบ
+   จำกัดไว้เฉพาะช่วงที่ตารางเป็น table-layout:fixed (≥769px) เท่านั้น
+   เพราะที่ ≤768px ตารางเป็น auto — nowrap จะดันความกว้างขั้นต่ำของคอลัมน์
+   ให้เท่ากับข้อความเต็ม 44 ตัวอักษร ตารางเลยกว้างเกิน min-width:660px
+   แล้วต้องเลื่อนแนวนอนไกลขึ้นแทนที่จะได้ … */
+@media (min-width: 769px) {
+  .ep-table tbody td:last-child .ep-sub {
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
 }
 .ep-empty { padding:36px; text-align:center; color:#94a3b8; font-weight:600; font-size:0.85rem; }
 
