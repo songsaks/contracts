@@ -5247,7 +5247,8 @@ function loadTfPresetStatsSET(btn) {
                     + x.symbols_with_signal + '/' + x.symbols_tested + ' หุ้น) &middot; avg '
                     + (x.avg_return_pct >= 0 ? '+' : '') + x.avg_return_pct + '% &middot; maxDD ' + x.max_drawdown_pct + '%</span></div>';
             }).join('');
-            box.innerHTML = '<div class="small text-muted mb-1">ทดสอบจากหุ้น ' + data.universe_size + ' ตัว (top market cap)' + (data.cached ? ' &middot; ผลจาก cache (อัปเดตทุก 24 ชม.)' : '') + '</div>' + rows;
+            box.innerHTML = '<div class="small text-muted mb-1">ทดสอบจากหุ้น ' + data.universe_size + ' ตัว (top market cap)' + (data.partial ? ' &middot; <span class="text-warning">ดึงราคาไม่ทันเวลา ผลนี้ไม่ครบทุกตัว</span>' : '')
+            + (data.cached ? ' &middot; ผลจาก cache' : '') + '</div>' + rows;
         })
         .catch(err => {
             if (box) box.innerHTML = '<span class="text-danger">เกิดข้อผิดพลาด — ' +

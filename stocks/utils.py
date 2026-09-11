@@ -159,15 +159,16 @@ PRESET_DEFINITIONS = {
 }
 
 # ส่วนของกฎที่ backtest ทำซ้ำย้อนหลังไม่ได้ — แสดงคู่กับผลเสมอ ไม่ให้เข้าใจว่าตรงกันเป๊ะ
+_VCP_CAVEAT = ('VCP ที่ใช้เป็นตัวแทนอย่างง่าย (เหนือ EMA200 + ช่วงแกว่งหดตัว) '
+               'ไม่ใช่ตัวนับ contraction เต็มรูปแบบเหมือนที่หน้าสแกนใช้')
+
 PRESET_CAVEATS = {
     'superformance': 'ป้ายบนการ์ดบวกเงื่อนไข CANSLIM ด้วย (RS≥80 + EPS/Rev โต ≥20%) '
                      'ซึ่งย้อนหลังไม่ได้: RS ต้องเทียบทั้งตลาดรายวัน ส่วนงบต้องใช้ตัวเลข '
-                     '"ณ วันนั้น" ถ้าใช้ตัวเลขล่าสุดคือมองอนาคต — backtest จึงหลวมกว่าป้ายจริง',
+                     '"ณ วันนั้น" ถ้าใช้ตัวเลขล่าสุดคือมองอนาคต — backtest จึงหลวมกว่าป้ายจริง · '
+                     + _VCP_CAVEAT,
+    'launcher_breakout': _VCP_CAVEAT,
 }
-
-# VCP ใน backtest เป็นตัวแทนอย่างง่าย (ราคาเหนือ EMA200 + ช่วงแกว่ง 10 วันหดจาก 30 วันก่อน)
-# ไม่ใช่ detect_vcp ตัวเต็มที่นับ contraction เป็นคลื่น เพราะต้องเรียกซ้ำทุกแท่ง ช้าเกินใช้งาน
-VCP_IS_APPROXIMATION = True
 
 
 def _build_preset_indicators(df):
@@ -188,6 +189,10 @@ def _build_preset_indicators(df):
     # ของวันลงเท่าที่มีจริงในหน้าต่าง ตามเจตนาเดิมของกฎ
     down_vol = d['Volume'].where(d['Close'] < d['Close'].shift(1))
     max_down_vol_10 = down_vol.shift(1).rolling(10, min_periods=1).max()
+    # ถ้า 10 วันก่อนหน้าไม่มีวันลงเลย ค่ายังเป็น NaN และ Volume > NaN เป็น False เสมอ
+    # ซึ่งตัดเคสตำราทิ้ง: ขึ้นรวด 10 วันแล้ววันนี้วอลุ่มพุ่ง คือ pocket pivot ที่ชัดที่สุด
+    # ไม่มีวันลงให้เทียบ = ไม่มีแรงขายมาขวาง จึงถือว่าผ่านเกณฑ์
+    max_down_vol_10 = max_down_vol_10.fillna(0.0)
     d['pocket_pivot'] = (d['Close'] > d['Close'].shift(1)) & (d['Volume'] > max_down_vol_10)
 
     # Chaikin Money Flow (20d)
@@ -454,11 +459,12 @@ def compare_exit_rules_universe(symbol_dfs, preset='safety_first', exit_rules=No
             if trades is None:
                 continue
             tested += 1
-            if trades:
+            good = usable_trades(trades)
+            if good:
                 with_signal += 1
-                pooled.extend(trades)
-                for t in usable_trades(trades):
-                    reasons[t['exit_reason']] = reasons.get(t['exit_reason'], 0) + 1
+            pooled.extend(trades)
+            for t in good:
+                reasons[t['exit_reason']] = reasons.get(t['exit_reason'], 0) + 1
         summary = _summarize_trades(preset, pooled)
         summary.update({'exit_rule': r, 'exit_rule_label': EXIT_RULE_DEFINITIONS[r],
                         'symbols_tested': tested, 'symbols_with_signal': with_signal,
@@ -639,9 +645,10 @@ def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, 
         if trades is None:
             continue
         symbols_tested += 1
-        if trades:
+        # นับเฉพาะหุ้นที่มีไม้ใช้ได้จริง ไม่งั้นจะได้แถวแบบ "0 trades (3/40 หุ้น)"
+        if usable_trades(trades):
             symbols_with_signal.append(symbol)
-            all_trades.extend(trades)
+        all_trades.extend(trades)
 
     summary = _summarize_trades(preset, all_trades)
     summary['symbols_tested'] = symbols_tested

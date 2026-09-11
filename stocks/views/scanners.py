@@ -8824,19 +8824,20 @@ def backtest_lab(request):
     })
 
 
-def _cache_backtest(cache, key, payload, fetched, requested):
+def _cache_backtest(cache, key, payload, fetched, requested, timed_out):
     """
-    เก็บผลไว้ 24 ชม. เฉพาะเมื่อดึงหุ้นมาได้เกือบครบ
+    เก็บผลไว้ 24 ชม. เว้นแต่การดึงราคาถูกตัดกลางคันเพราะหมดงบเวลา
 
-    ถ้างบเวลาหมดแล้วได้หุ้นมาแค่ 6 จาก 40 ตัว ผลนั้นคือสถิติของ 6 ตัว
-    การ cache ไว้ทั้งวันเท่ากับตรึงคำตอบที่ผิดไว้ให้ทุกคนเห็น โดยไม่มีทางรีเฟรช
-    ผลไม่ครบจึงเก็บสั้นๆ พอกันกดรัวเท่านั้น แล้วรอบหน้าจะไปดึงใหม่
+    ตัวตัดสินคือ "หมดเวลาไหม" ไม่ใช่ "ได้ครบ 80% ไหม" — หุ้นบางตัว Yahoo
+    ไม่มีข้อมูลให้ถาวร (delist / ประวัติสั้นกว่าเกณฑ์) ถ้าใช้สัดส่วนเป็นตัวตัดสิน
+    ผลจะไม่มีวันถูก cache เลย แล้วทุกคนที่เข้ามาต้องรอดึงใหม่ 45 วิ ซึ่งคือ
+    อาการที่โค้ดนี้ตั้งใจป้องกันตั้งแต่แรก
     """
-    full = requested > 0 and fetched >= requested * 0.8
-    payload['partial'] = not full
-    cache.set(key, payload, timeout=60 * 60 * 24 if full else 120)
-    if not full:
-        logger.warning("[Backtest] ผลไม่ครบ (%d/%d ตัว) เก็บ cache แค่ 2 นาที", fetched, requested)
+    payload['partial'] = bool(timed_out)
+    cache.set(key, payload, timeout=120 if timed_out else 60 * 60 * 24)
+    if timed_out:
+        logger.warning("[Backtest] ดึงราคาไม่ทันเวลา (%d/%d ตัว) เก็บ cache แค่ 2 นาที",
+                       fetched, requested)
 
 
 def _json_safe(obj):
@@ -8890,14 +8891,15 @@ def _json_errors(view):
     return _wrapped
 
 
-def _fetch_universe_history(symbols, period="3y", min_bars=30):
+def _fetch_universe_history(symbols, period="3y", min_bars=30, allow_plain_fallback=False):
     """
     ดึงราคาย้อนหลังของหุ้นทั้งชุดแบบขนาน แทนการยิงทีละตัวเรียงกัน
 
     การยิงเรียงกัน 40 ครั้งใช้เวลาระดับนาที ซึ่งนานพอให้ gateway ตัดสาย
     หน้าเว็บจึงได้ HTML แทน JSON แล้วขึ้นว่า "เกิดข้อผิดพลาด" ทุกครั้งที่ผลไม่อยู่ในแคช
 
-    คืน {symbol: DataFrame} — ตัวที่ดึงไม่ได้หรือแท่งน้อยกว่า min_bars จะไม่มี key
+    คืน ({symbol: DataFrame}, timed_out) — ตัวที่ดึงไม่ได้หรือแท่งน้อยกว่า min_bars จะไม่มี key
+    timed_out บอกว่าถูกตัดกลางคันเพราะหมดงบเวลาหรือไม่ (ใช้ตัดสินว่าจะ cache นานแค่ไหน)
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from concurrent.futures import TimeoutError as FuturesTimeout
@@ -8923,7 +8925,11 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
 
     def _fetch_one(sym):
         sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
-        for ticker in dict.fromkeys([sym_bk, sym]):      # ไม่ยิงซ้ำถ้าชื่อเดียวกัน
+        # ถอย .BK ได้เฉพาะตอนที่ผู้เรียกบอกว่าเป็นชุดหุ้น US เท่านั้น
+        # ไม่งั้น TRUE/TOP/OR ของ SET ที่ดึง .BK ไม่ได้ จะไปได้ราคาหุ้น US ชื่อเดียวกันมาแทน
+        # แล้วปนเข้า pool ของตลาดไทยโดยแยกไม่ออก
+        tickers = dict.fromkeys([sym_bk, sym]) if allow_plain_fallback else [sym_bk]
+        for ticker in tickers:
             df = _try(ticker)
             if df is not None:
                 return sym, df
@@ -8931,11 +8937,12 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
 
     out = {}
     if not symbols:
-        return out
+        return out, False
 
     # งบเวลารวม: ถ้า Yahoo อืด ยอมได้ผลไม่ครบดีกว่าปล่อยให้ทั้ง request ตาย
     # backtest ที่มีหุ้น 30 จาก 40 ตัวยังใช้เทียบเกณฑ์ได้ และ symbols_tested บอกจำนวนจริงอยู่แล้ว
     started = time.time()
+    timed_out = False
     executor = ThreadPoolExecutor(max_workers=10)
     try:
         futures = [executor.submit(_fetch_one, s) for s in symbols]
@@ -8945,6 +8952,7 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
                 if df is not None:
                     out[sym] = df
         except FuturesTimeout:
+            timed_out = True
             logger.warning("[Backtest] ดึงราคาเกินงบเวลา %ds — ใช้เท่าที่ได้ %d/%d ตัว",
                            _UNIVERSE_FETCH_BUDGET_SEC, len(out), len(symbols))
     finally:
@@ -8952,7 +8960,7 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
 
     logger.info("[Backtest] ดึงราคา %d/%d ตัว ใช้เวลา %.1f วิ",
                 len(out), len(symbols), time.time() - started)
-    return out
+    return out, timed_out
 
 
 def _backtest_options(request, symbol_dfs):
@@ -9092,7 +9100,7 @@ def api_backtest_exit_rules(request):
     symbol = (request.GET.get('symbol') or '').strip().upper()
     if symbol:
         # ใช้ตัวดึงร่วม เพราะมันลองทั้ง .BK และชื่อเดิม — ไม่งั้นหุ้น US พิมพ์มาแล้วพัง
-        df = _fetch_universe_history([symbol]).get(symbol)
+        df = _fetch_universe_history([symbol], allow_plain_fallback=True)[0].get(symbol)
         if df is None:
             return _JR({'error': f'no data for {symbol}'}, status=404)
         cost_pct, gates = _backtest_options(request, {symbol: df})
@@ -9110,7 +9118,7 @@ def api_backtest_exit_rules(request):
 
     _c = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _t = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_exit_rules_v4_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
+    cache_key = f'backtest_exit_rules_v5_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9121,7 +9129,7 @@ def api_backtest_exit_rules(request):
     if not symbols:
         return _JR({'error': 'no symbols available to test'}, status=404)
 
-    symbol_dfs = _fetch_universe_history(symbols)
+    symbol_dfs, fetch_timed_out = _fetch_universe_history(symbols)
     if not symbol_dfs:
         return _JR({'error': 'failed to fetch price data for universe symbols'}, status=502)
 
@@ -9132,7 +9140,8 @@ def api_backtest_exit_rules(request):
                'cost_pct': cost_pct, 'market_filtered': bool(gates),
                'rules': EXIT_RULE_DEFINITIONS, 'results': results, 'cached': False,
                'symbols_requested': len(symbols)}
-    _cache_backtest(cache, cache_key, payload, len(symbol_dfs), len(symbols))
+    _cache_backtest(cache, cache_key, payload, len(symbol_dfs), len(symbols),
+                    fetch_timed_out)
     return _JR(payload)
 
 
@@ -9157,7 +9166,7 @@ def api_backtest_presets_universe(request):
 
     _ck_costs = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _ck_timing = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_presets_universe_v5_{limit}_c{_ck_costs}_t{_ck_timing}'
+    cache_key = f'backtest_presets_universe_v6_{limit}_c{_ck_costs}_t{_ck_timing}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9171,7 +9180,7 @@ def api_backtest_presets_universe(request):
     if not symbols:
         return _JR({'error': 'no symbols available to test'}, status=404)
 
-    symbol_dfs = _fetch_universe_history(symbols)
+    symbol_dfs, fetch_timed_out = _fetch_universe_history(symbols)
 
     if not symbol_dfs:
         return _JR({'error': 'failed to fetch price data for universe symbols'}, status=502)
@@ -9181,7 +9190,8 @@ def api_backtest_presets_universe(request):
     payload = {'universe_size': len(symbol_dfs), 'requested_limit': limit, 'results': results,
                'cost_pct': cost_pct, 'market_filtered': bool(gates), 'cached': False,
                'symbols_requested': len(symbols)}
-    _cache_backtest(cache, cache_key, payload, len(symbol_dfs), len(symbols))
+    _cache_backtest(cache, cache_key, payload, len(symbol_dfs), len(symbols),
+                    fetch_timed_out)
     return _JR(payload)
 
 
