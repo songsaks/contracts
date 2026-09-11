@@ -5225,7 +5225,8 @@ function loadTfPresetStatsSET(btn) {
             if (btn) { btn.style.display = 'none'; }
             if (!box) return;
             if (data.error || !data.results) {
-                box.innerHTML = '<span class="text-danger">ไม่สามารถทดสอบได้ (' + (data.error || 'unknown') + ')</span>';
+                box.innerHTML = '<span class="text-danger">ไม่สามารถทดสอบได้ (' +
+                    String(data.error || 'unknown').replace(/[<>&]/g, '') + ')</span>';
                 if (btn) { btn.disabled = false; btn.style.display = ''; btn.innerHTML = '<i class="fas fa-play me-1"></i>โหลดผล'; }
                 return;
             }

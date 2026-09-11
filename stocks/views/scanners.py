@@ -8824,6 +8824,39 @@ def backtest_lab(request):
     })
 
 
+def _cache_backtest(cache, key, payload, fetched, requested):
+    """
+    เก็บผลไว้ 24 ชม. เฉพาะเมื่อดึงหุ้นมาได้เกือบครบ
+
+    ถ้างบเวลาหมดแล้วได้หุ้นมาแค่ 6 จาก 40 ตัว ผลนั้นคือสถิติของ 6 ตัว
+    การ cache ไว้ทั้งวันเท่ากับตรึงคำตอบที่ผิดไว้ให้ทุกคนเห็น โดยไม่มีทางรีเฟรช
+    ผลไม่ครบจึงเก็บสั้นๆ พอกันกดรัวเท่านั้น แล้วรอบหน้าจะไปดึงใหม่
+    """
+    full = requested > 0 and fetched >= requested * 0.8
+    payload['partial'] = not full
+    cache.set(key, payload, timeout=60 * 60 * 24 if full else 120)
+    if not full:
+        logger.warning("[Backtest] ผลไม่ครบ (%d/%d ตัว) เก็บ cache แค่ 2 นาที", fetched, requested)
+
+
+def _json_safe(obj):
+    """
+    แทนค่า float ที่ไม่ใช่จำนวนจริง (NaN/inf) ด้วย None ทั้งโครงสร้าง
+
+    json.dumps เขียน NaN ออกมาเป็น token เปล่าๆ ซึ่งไม่ใช่ JSON ที่ถูกต้อง
+    เบราว์เซอร์จึง parse ไม่ผ่านทั้งที่ได้ HTTP 200 — ด่านนี้กันไว้ที่ทางออก
+    จึงครอบคลุมผลที่ถูก cache ไว้ตั้งแต่ก่อนแก้ด้วย ไม่ต้องรอ 24 ชม. ให้หมดอายุ
+    """
+    import math
+    if isinstance(obj, float):
+        return None if not math.isfinite(obj) else obj
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
 # งบเวลารวมของการดึงราคา universe — ตั้งต่ำกว่า timeout ของ gateway ทั่วไป (60 วิ)
 # เพื่อให้ endpoint ได้ตอบกลับเองเสมอ ไม่ใช่โดนตัดสายกลางคัน
 _UNIVERSE_FETCH_BUDGET_SEC = 45
@@ -8838,12 +8871,19 @@ def _json_errors(view):
     traceback เต็มยังถูกเขียนลง log ตามปกติ
     """
     import functools
+    import json
     from django.http import JsonResponse as _JR
 
     @functools.wraps(view)
     def _wrapped(request, *a, **kw):
         try:
-            return view(request, *a, **kw)
+            resp = view(request, *a, **kw)
+            # ล้าง NaN/inf ที่ทางออก ครอบคลุมทั้งผลสดและผลที่ค้างอยู่ใน cache
+            if isinstance(resp, _JR):
+                payload = json.loads(resp.content.decode('utf-8'),
+                                     parse_constant=lambda _c: None)
+                return _JR(_json_safe(payload), status=resp.status_code)
+            return resp
         except Exception as e:
             logger.exception("[Backtest] %s ล้มเหลว", view.__name__)
             return _JR({'error': f'{type(e).__name__}: {e}'}, status=500)
@@ -8871,18 +8911,22 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
         df = df.dropna(subset=['Close'])
         return df if len(df) >= min_bars else None
 
+    def _try(ticker):
+        """แยก try ต่อความพยายาม — ถ้ารวมไว้ก้อนเดียว ข้อยกเว้นจาก .BK
+        (ticker ไม่มีจริง หรือ timeout) จะข้ามการลองชื่อเดิมไปเลย
+        ซึ่งเป็นเคสหุ้น US ทุกตัวพอดี"""
+        try:
+            return _clean(yf.Ticker(ticker).history(period=period, interval="1d", timeout=10))
+        except Exception:
+            logger.debug("[Backtest] ดึงราคา %s ไม่สำเร็จ", ticker, exc_info=True)
+            return None
+
     def _fetch_one(sym):
         sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
-        try:
-            df = _clean(yf.Ticker(sym_bk).history(period=period, interval="1d", timeout=10))
+        for ticker in dict.fromkeys([sym_bk, sym]):      # ไม่ยิงซ้ำถ้าชื่อเดียวกัน
+            df = _try(ticker)
             if df is not None:
                 return sym, df
-            # หุ้น US ไม่มี .BK — ลองชื่อเดิมอีกครั้ง
-            df2 = _clean(yf.Ticker(sym).history(period=period, interval="1d", timeout=10))
-            if df2 is not None:
-                return sym, df2
-        except Exception:
-            logger.debug("[Backtest] ดึงราคา %s ไม่สำเร็จ", sym, exc_info=True)
         return sym, None
 
     out = {}
@@ -8980,16 +9024,23 @@ def api_backtest_presets(request):
     fetch_error = None
     for sym_try in tickers_to_try:
         try:
-            df = yf.Ticker(sym_try).history(period="3y", interval="1d", timeout=12)
-            if df is not None and not df.empty and len(df) >= 10:
-                break
+            got = yf.Ticker(sym_try).history(period="3y", interval="1d", timeout=12)
         except Exception as e:
             fetch_error = str(e)
             continue
+        # เขียนทับ df ก็ต่อเมื่อได้ข้อมูลที่ใช้ได้จริง ไม่งั้นเฟรมสั้นๆ จากความพยายามก่อนหน้า
+        # จะรอดมาถึงตอนคำนวณ แล้วได้ HTTP 200 พร้อมผลที่อ้างอิงข้อมูลไม่กี่แท่ง
+        if got is not None and not got.empty and 'Close' in got.columns:
+            got = got.dropna(subset=['Close'])
+            if len(got) >= 10:
+                df = got
+                break
 
-    if df is None or df.empty:
-        err_msg = f'no data for {symbol}' if not fetch_error else f'fetch failed: {fetch_error}'
-        return _JR({'error': err_msg}, status=404 if not fetch_error else 502)
+    if df is None:
+        # แยกให้ชัดว่า "ไม่มีข้อมูล" กับ "ดึงไม่สำเร็จ" — ถ้าสุดท้ายหาข้อมูลไม่ได้
+        # ทั้งที่เคยมี exception ระหว่างทาง ให้ถือว่าเป็นปัญหาการดึง
+        err_msg = f'fetch failed: {fetch_error}' if fetch_error else f'no data for {symbol}'
+        return _JR({'error': err_msg}, status=502 if fetch_error else 404)
 
     cost_pct, gate = _backtest_options(request, {symbol: df})
     gate = gate.get(symbol) if gate else None
@@ -9059,7 +9110,7 @@ def api_backtest_exit_rules(request):
 
     _c = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _t = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_exit_rules_v1_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
+    cache_key = f'backtest_exit_rules_v2_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9079,8 +9130,9 @@ def api_backtest_exit_rules(request):
                                           cost_pct=cost_pct, atr_multiplier=atr_mult)
     payload = {'universe_size': len(symbol_dfs), 'preset': preset, 'atr_multiplier': atr_mult,
                'cost_pct': cost_pct, 'market_filtered': bool(gates),
-               'rules': EXIT_RULE_DEFINITIONS, 'results': results, 'cached': False}
-    cache.set(cache_key, payload, timeout=60 * 60 * 24)
+               'rules': EXIT_RULE_DEFINITIONS, 'results': results, 'cached': False,
+               'symbols_requested': len(symbols)}
+    _cache_backtest(cache, cache_key, payload, len(symbol_dfs), len(symbols))
     return _JR(payload)
 
 
@@ -9105,7 +9157,7 @@ def api_backtest_presets_universe(request):
 
     _ck_costs = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _ck_timing = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_presets_universe_v2_{limit}_c{_ck_costs}_t{_ck_timing}'
+    cache_key = f'backtest_presets_universe_v3_{limit}_c{_ck_costs}_t{_ck_timing}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9127,8 +9179,9 @@ def api_backtest_presets_universe(request):
     cost_pct, gates = _backtest_options(request, symbol_dfs)
     results = run_all_presets_backtest_universe(symbol_dfs, cost_pct=cost_pct, market_gates=gates)
     payload = {'universe_size': len(symbol_dfs), 'requested_limit': limit, 'results': results,
-               'cost_pct': cost_pct, 'market_filtered': bool(gates), 'cached': False}
-    cache.set(cache_key, payload, timeout=60 * 60 * 24)
+               'cost_pct': cost_pct, 'market_filtered': bool(gates), 'cached': False,
+               'symbols_requested': len(symbols)}
+    _cache_backtest(cache, cache_key, payload, len(symbol_dfs), len(symbols))
     return _JR(payload)
 
 

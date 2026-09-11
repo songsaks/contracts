@@ -379,7 +379,7 @@ def run_exit_rule_backtest(df, preset='safety_first', exit_rule='combo', **kw):
     summary['exit_rule_label'] = EXIT_RULE_DEFINITIONS[exit_rule]
     summary['blocked_by_market'] = meta['blocked_by_market']
     reasons = {}
-    for t in trades:
+    for t in usable_trades(trades):
         reasons[t['exit_reason']] = reasons.get(t['exit_reason'], 0) + 1
     summary['exit_reasons'] = reasons
     return summary
@@ -422,7 +422,7 @@ def compare_exit_rules_universe(symbol_dfs, preset='safety_first', exit_rules=No
             if trades:
                 with_signal += 1
                 pooled.extend(trades)
-                for t in trades:
+                for t in usable_trades(trades):
                     reasons[t['exit_reason']] = reasons.get(t['exit_reason'], 0) + 1
         summary = _summarize_trades(preset, pooled)
         summary.update({'exit_rule': r, 'exit_rule_label': EXIT_RULE_DEFINITIONS[r],
@@ -498,6 +498,13 @@ def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days
     return trades, {'blocked_by_market': blocked_by_market}
 
 
+def usable_trades(trades):
+    """ไม้ที่ผลตอบแทนคำนวณได้จริง — ใช้เป็นชุดเดียวกันทั้งการสรุปสถิติและการนับเหตุผลที่ออก
+    ไม่งั้น exit_reasons จะนับจากไม้ทั้งหมดแต่ trades_count นับเฉพาะที่ใช้ได้ สัดส่วนจะเกิน 100%"""
+    return [t for t in (trades or [])
+            if t.get('ret_pct') is not None and np.isfinite(t['ret_pct'])]
+
+
 def _summarize_trades(preset, trades):
     """แปลง list ของ trade dict เป็นสรุปสถิติ (win rate, expectancy, drawdown, ฯลฯ)
 
@@ -507,12 +514,9 @@ def _summarize_trades(preset, trades):
       2. ค่าเฉลี่ยที่มี NaN ปนจะกลายเป็น NaN ทั้งก้อน แล้ว json.dumps เขียนออกมาเป็น
          NaN เปล่าๆ ซึ่งไม่ใช่ JSON ที่ถูกต้อง — เบราว์เซอร์ parse ไม่ผ่านทั้งที่ได้ HTTP 200
     """
-    if trades:
-        usable = [t for t in trades if t.get('ret_pct') is not None and np.isfinite(t['ret_pct'])]
-        dropped = len(trades) - len(usable)
-        trades = usable
-    else:
-        dropped = 0
+    usable = usable_trades(trades)
+    dropped = len(trades or []) - len(usable)
+    trades = usable
 
     if not trades:
         return {'preset': preset, 'rule': PRESET_DEFINITIONS.get(preset, ''), 'trades_count': 0,
