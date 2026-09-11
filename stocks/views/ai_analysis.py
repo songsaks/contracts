@@ -2634,7 +2634,7 @@ def api_stock_ai_advisor(request):
     # Backtest reference (best-effort — ไม่ให้ล้มทั้งหมดถ้าดึงราคาไม่สำเร็จ)
     backtest_text = "  (ไม่สามารถดึงข้อมูล backtest ได้)"
     try:
-        from stocks.utils import run_all_presets_backtest
+        from stocks.utils import run_all_presets_backtest, QUICK_PRESET_KEYS
         from stocks.position_sizing import round_trip_cost_pct
         sym_bk = symbol if symbol.endswith('.BK') else f"{symbol}.BK"
         df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=15)
@@ -2644,12 +2644,21 @@ def api_stock_ai_advisor(request):
             results = [r for r in run_all_presets_backtest(df, cost_pct=_cost) if r.get('trades_count')]
             if results:
                 results.sort(key=lambda x: -(x.get('win_rate_pct') or 0))
+                # ต้องพิมพ์กฎกำกับชื่อด้วย ไม่งั้น base_accumulation กับ
+                # qp5_base_accumulation จะมาเป็นสองบรรทัดชื่อคล้ายกันแต่คนละกฎ
+                # แล้ว AI อ้างสลับกันได้โดยไม่มีอะไรบอกว่าต่างกันตรงไหน
                 backtest_text = "\n".join(
-                    "  - {p}: Win {w}% ({n} trades, avg {a}%{low})".format(
-                        p=r['preset'], w=r.get('win_rate_pct'), n=r.get('trades_count'),
-                        a=r.get('avg_return_pct'), low=' — sample น้อย ไม่ควรเชื่อมาก' if r.get('low_sample') else '')
+                    "  - {p} [{rule}]: Win {w}% ({n} trades, avg {a}%{low})".format(
+                        p=r['preset'], rule=r.get('rule', ''), w=r.get('win_rate_pct'),
+                        n=r.get('trades_count'), a=r.get('avg_return_pct'),
+                        low=' — sample น้อย ไม่ควรเชื่อมาก' if r.get('low_sample') else '')
                     for r in results
                 )
+                if any(r['preset'] in QUICK_PRESET_KEYS for r in results):
+                    backtest_text += (
+                        "\n  (หมายเหตุ: preset ที่ขึ้นต้นด้วย qp คือกฎของปุ่มลัดหน้าสแกน "
+                        "เป็นคนละกฎกับ preset ชื่อคล้ายกันในกลุ่มแรก และทดสอบบนทุกแท่งราคา "
+                        "โดยไม่ผ่านตัวกรองหุ้นของหน้าสแกน — ห้ามอ้างสลับกัน)")
             else:
                 backtest_text = "  (ไม่มีสัญญาณ preset ใดในประวัติ 3 ปีของหุ้นนี้)"
     except Exception:

@@ -404,14 +404,16 @@ def _scanner_pocket_pivot(d):
     out = np.zeros(n, dtype=bool)
     for i in range(n):
         m10, m50 = sma10[i], sma50[i]
-        if not (m10 > 0 and m50 > 0 and m10 >= m50 * 0.98):
-            continue
+        struct_ok = m10 > 0 and m50 > 0 and m10 >= m50 * 0.98
         for j in (i, i - 1):
-            if j < 0 or not (vol_ok[j] and upper_half[j]):
-                continue
-            if (closes[j] - m50) / m50 <= 0.25:
+            if j < 0 or not vol_ok[j]:
+                continue                    # ไม่ผ่านเกณฑ์วอลุ่ม = ไปดูแท่งก่อนหน้าต่อ
+            # หน้าสแกน break ตรงนี้ทันทีที่ผ่านเกณฑ์วอลุ่ม ไม่ว่า context filter
+            # จะผ่านหรือไม่ — แท่งเมื่อวานจึงถูกตรวจเฉพาะตอนที่แท่งวันนี้
+            # "ไม่ผ่านเกณฑ์วอลุ่ม" เท่านั้น ถ้าลืม break ตรงนี้จะได้สัญญาณเกินจริง
+            if struct_ok and (closes[j] - m50) / m50 <= 0.25 and upper_half[j]:
                 out[i] = True
-                break
+            break
     return pd.Series(out, index=d.index)
 
 
