@@ -170,8 +170,13 @@ def _build_preset_indicators(df):
     d['rvol'] = d['Volume'] / d['vol_avg50']
 
     # Pocket Pivot: วันขึ้นที่ volume > max(volume วันลง) ใน 10 วันก่อนหน้า
+    # down_vol เป็น NaN ในวันขึ้น — rolling(10) ปริยายต้องการค่าครบ 10 ตัวในหน้าต่าง
+    # แปลว่าต้องมีวันลงติดกัน 10 วันถึงจะได้ค่า ซึ่งแทบไม่เกิดขึ้นเลย ผลคือ
+    # pocket_pivot เป็น False เสมอ และ preset ที่ต้องใช้มัน (superformance,
+    # base_accumulation) ไม่มีทางยิงสัญญาณได้เลย — min_periods=1 ให้เอา max
+    # ของวันลงเท่าที่มีจริงในหน้าต่าง ตามเจตนาเดิมของกฎ
     down_vol = d['Volume'].where(d['Close'] < d['Close'].shift(1))
-    max_down_vol_10 = down_vol.shift(1).rolling(10).max()
+    max_down_vol_10 = down_vol.shift(1).rolling(10, min_periods=1).max()
     d['pocket_pivot'] = (d['Close'] > d['Close'].shift(1)) & (d['Volume'] > max_down_vol_10)
 
     # Chaikin Money Flow (20d)
