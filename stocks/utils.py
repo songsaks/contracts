@@ -156,6 +156,30 @@ PRESET_DEFINITIONS = {
     'base_accumulation': 'Stage2 + Pocket Pivot + CMF≥0.1',
     'high_momentum': 'Stage2 + Vol Surge≥1.5x + CMF≥0.1',
     'safety_first': 'RSI<70 + Stage2',
+    # ── ชุด Quick Preset: กฎเดียวกับปุ่มลัด 8 ปุ่มบนหน้าสแกน (ตัวเลขนำหน้า = เลขปุ่ม) ──
+    # ปุ่ม 1 (หุ้นย่อในโซนซื้อ) และปุ่ม 8 (ABCD) ไม่อยู่ในชุดนี้ — ดู QUICK_PRESET_UNTESTABLE
+    'qp2_htf_power': 'ปุ่ม 2 HTF Power Play — พุ่ง ≥70% ใน 60 แท่ง + ฐานลึก ≤25% + ห่างยอด ≤20%',
+    'qp3_squeeze_fired': 'ปุ่ม 3 Squeeze Fired — BB เพิ่งหลุดออกนอก Keltner ภายใน 1-3 แท่ง',
+    'qp4_episodic_pivot': 'ปุ่ม 4 Episodic Pivot — Gap ≥4.5% + Vol ≥2.5x เฉลี่ย 20 วัน + แท่งเขียว',
+    'qp5_base_accumulation': 'ปุ่ม 5 Base Accumulation — Pocket Pivot + CMF≥0.1 + ACC>DIST (ACC≥4)',
+    'qp6_super_grade_a': 'ปุ่ม 6 หุ้นเกรด A+ — Trend Template ผ่านครบ 7 ข้อฝั่งราคา + CMF≥0.1',
+    'qp7_breakout_today': 'ปุ่ม 7 Breakout วันนี้ — RVOL20 ≥1.5 + ห่าง High 20 วัน ≤0.5%',
+}
+
+# รายชื่อ preset ที่มาจากปุ่มลัด ระบุตรงๆ ไม่ใช่เดาจากคำนำหน้าชื่อ
+# เพราะถ้าวันหลังมีใครตั้งชื่อ preset อื่นขึ้นต้นด้วย qp การจัดกลุ่มจะเพี้ยนเงียบๆ
+QUICK_PRESET_KEYS = ('qp2_htf_power', 'qp3_squeeze_fired', 'qp4_episodic_pivot',
+                     'qp5_base_accumulation', 'qp6_super_grade_a', 'qp7_breakout_today')
+
+# ปุ่มลัดที่ backtest ย้อนหลังแบบซื่อตรงไม่ได้ — บอกเหตุผลไว้ให้หน้าเว็บแสดง
+# ไม่ใช่เงียบไปเฉยๆ จนดูเหมือนลืมทำ
+QUICK_PRESET_UNTESTABLE = {
+    'ปุ่ม 1 หุ้นย่อในโซนซื้อ': 'ใช้ RS Rating ≥70 (ต้องจัดอันดับเทียบทั้งตลาด ณ วันนั้น) '
+                              'และ "โซนซื้อ" ที่มาจากตัวคำนวณ demand zone ของหน้าสแกน '
+                              'ซึ่งเก็บเฉพาะค่าวันล่าสุด ไม่มีค่าย้อนหลังรายแท่งให้ทดสอบ',
+    'ปุ่ม 8 ABCD เทรดสั้น': 'ใช้สถานะ swing A→B→C→D ที่หน้าสแกนคำนวณเฉพาะวันล่าสุด '
+                           'ย้อนหลังรายแท่งต้องเขียนตัวตรวจจับ swing ใหม่ทั้งชุด '
+                           'ซึ่งจะกลายเป็นคนละกฎกับปุ่ม',
 }
 
 # ส่วนของกฎที่ backtest ทำซ้ำย้อนหลังไม่ได้ — แสดงคู่กับผลเสมอ ไม่ให้เข้าใจว่าตรงกันเป๊ะ
@@ -168,6 +192,15 @@ PRESET_CAVEATS = {
                      '"ณ วันนั้น" ถ้าใช้ตัวเลขล่าสุดคือมองอนาคต — backtest จึงหลวมกว่าป้ายจริง · '
                      + _VCP_CAVEAT,
     'launcher_breakout': _VCP_CAVEAT,
+    'base_accumulation': 'ชื่อพ้องกับปุ่ม 5 บนหน้าสแกนแต่คนละกฎ — ปุ่ม 5 ใช้ ACC>DIST '
+                         'ไม่ได้ใช้ Stage 2 ถ้าอยากรู้สถิติของปุ่มจริงให้ดู qp5_base_accumulation',
+    'qp6_super_grade_a': 'ปุ่มจริงนับ Trend Template ครบ 8 ข้อแล้วผ่านที่ ≥7 ข้อ '
+                         'ข้อที่ 8 คือ RS Rating ≥70 ซึ่งย้อนหลังไม่ได้ (ต้องจัดอันดับเทียบทั้งตลาด) '
+                         'ที่นี่จึงบังคับให้ผ่านครบทั้ง 7 ข้อฝั่งราคา — เข้มกว่าปุ่ม ผลคือได้ไม้น้อยกว่า '
+                         'แต่ทุกไม้ที่นับเป็นไม้ที่ปุ่มจะติดแน่นอน (7 ข้อราคา + RS อะไรก็ได้ = คะแนน ≥7)',
+    'qp7_breakout_today': 'คำโปรยบนปุ่มเขียนว่า "Stage 2 + Breakout วันนี้" แต่ตัวกรองจริงที่ปุ่มติ๊ก '
+                          'มีแค่ Buy Now (RVOL≥1.5 + ห่าง High 20 วัน ≤0.5%) ไม่ได้เช็ค Stage 2 '
+                          'backtest นี้วัดตามตัวกรองจริง',
 }
 
 
@@ -227,7 +260,112 @@ def _build_preset_indicators(df):
                          np.where(vol_3d < median_vol_20 * 0.8, 15, 0))
     d['launcher_score'] = launcher
 
+    # ══ ตัวชี้วัดของ Quick Preset (ปุ่มลัด 8 ปุ่มบนหน้าสแกน) ══════════════
+    # ทุกสูตรด้านล่างพอร์ตมาจากตัวที่หน้าสแกนใช้จริง (analyze_technicals_ultra
+    # และ ultra_indicators.py) เพื่อให้ backtest วัด "กฎเดียวกับปุ่ม" ไม่ใช่กฎชื่อพ้อง
+
+    # RVOL ที่ตารางสแกนส่งให้ปุ่มใช้ เทียบค่าเฉลี่ย 20 วัน ไม่ใช่ 50 วันแบบ d['rvol']
+    d['rvol20'] = d['Volume'] / d['Volume'].rolling(20).mean()
+    # ระยะถึง High 20 วัน (รวมแท่งวันนี้) — ตรงกับ turtle_dist_pct ของหน้าสแกน
+    d['turtle_dist'] = turtle_dist
+
+    # Accumulation / Distribution 10 วันล่าสุด
+    # เกณฑ์วอลุ่มคือค่าเฉลี่ย 10 วันของ "หน้าต่างเดียวกัน" ใช้ร่วมกันทั้ง 10 วัน
+    # ไม่ใช่ค่าเฉลี่ยเลื่อนของแต่ละวัน จึงนับทีละ offset แทนการใช้ rolling().sum()
+    avg_vol_10 = d['Volume'].rolling(10).mean()
+    up_day = d['Close'] > d['Close'].shift(1)
+    down_day = d['Close'] < d['Close'].shift(1)
+    acc = np.zeros(len(d), dtype=int)
+    dist = np.zeros(len(d), dtype=int)
+    for k in range(10):
+        heavy = (d['Volume'].shift(k) > avg_vol_10).to_numpy()
+        acc += (up_day.shift(k, fill_value=False).to_numpy() & heavy).astype(int)
+        dist += (down_day.shift(k, fill_value=False).to_numpy() & heavy).astype(int)
+    d['acc_days'] = acc
+    d['dist_days'] = dist
+
+    # TTM Squeeze (John Carter) — BB(20,2.0) หดเข้าไปอยู่ใน Keltner(20,1.5·ATR)
+    # 'fired' = วันที่หลุดออกจาก squeeze โดยที่ 1-2 วันก่อนหน้ายังบีบอยู่
+    sma20 = d['Close'].rolling(20).mean()
+    std20 = d['Close'].rolling(20).std()
+    tr_sq = pd.concat([
+        d['High'] - d['Low'],
+        (d['High'] - d['Close'].shift(1)).abs(),
+        (d['Low'] - d['Close'].shift(1)).abs(),
+    ], axis=1).max(axis=1)
+    atr20 = tr_sq.rolling(20).mean()
+    squeeze_on = ((sma20 + 2.0 * std20) < (sma20 + 1.5 * atr20)) & \
+                 ((sma20 - 2.0 * std20) > (sma20 - 1.5 * atr20))
+    d['ttm_fired'] = (~squeeze_on) & (squeeze_on.shift(1, fill_value=False) |
+                                      squeeze_on.shift(2, fill_value=False))
+
+    # Episodic Pivot (Qullamaggie) — Gap ≥4.5% + Vol ≥2.5x เฉลี่ย 20 วันก่อนหน้า + แท่งเขียว
+    prev_close = d['Close'].shift(1)
+    avg_vol_20_prior = d['Volume'].shift(1).rolling(20).mean()
+    gap_pct = (d['Open'] - prev_close) / prev_close * 100
+    d['episodic_pivot'] = ((gap_pct >= 4.5) &
+                           (d['Volume'] >= avg_vol_20_prior * 2.5) &
+                           (d['Close'] >= d['Open']) &
+                           (prev_close > 0) & (avg_vol_20_prior > 0))
+
+    # High Tight Flag — ต้องหา argmax/argmin ในหน้าต่าง 60 แท่ง จึงวนทีละแท่ง
+    d['htf_setup'] = _htf_flag_series(d)
+
+    # Trend Template ฝั่งราคา 7 ข้อ (ข้อที่ 8 คือ RS Rating ซึ่งย้อนหลังไม่ได้)
+    sma50_tt = d['Close'].rolling(50).mean()
+    sma200_tt = d['Close'].rolling(200).mean()
+    # ต้นฉบับใช้ sma200_clean.iloc[-22] = ค่า SMA200 ย้อนไป 21 ตำแหน่ง (หลัง dropna)
+    sma200_1m_ago = sma200_tt.shift(21)
+    year_high = d['High'].rolling(252, min_periods=1).max()
+    year_low = d['Low'].rolling(252, min_periods=1).min()
+    tt_score = (
+        ((d['Close'] > d['SMA150']) & (d['Close'] > sma200_tt)).astype(int)
+        + (d['SMA150'] > sma200_tt).astype(int)
+        + (sma200_tt > sma200_1m_ago).astype(int)
+        + ((sma50_tt > d['SMA150']) & (sma50_tt > sma200_tt)).astype(int)
+        + (d['Close'] > sma50_tt).astype(int)
+        + (d['Close'] >= year_low * 1.25).astype(int)
+        + (d['Close'] >= year_high * 0.75).astype(int)
+    )
+    # ต้นฉบับคืน score 0 เมื่อข้อมูลไม่พอ: ต้องมี ≥210 แท่ง *และ* SMA200 ที่ไม่ใช่ NaN ≥22 ค่า
+    # เงื่อนไขหลังเข้มกว่า — SMA200 เริ่มมีค่าที่แท่งที่ 200 จึงต้องถึงแท่งที่ 221 (index 220)
+    d['tt_price_score'] = tt_score.where(np.arange(len(d)) >= 220, 0)
+
     return d
+
+
+def _htf_flag_series(d):
+    """High Tight Flag รายแท่ง — พอร์ตจาก ultra_indicators.calculate_htf_setup
+
+    ต้นฉบับดูเฉพาะแท่งล่าสุดและต้องรู้ตำแหน่งยอด/ก้นในหน้าต่าง 60 แท่ง
+    ซึ่งไม่มี rolling สำเร็จรูปให้ใช้ จึงวนทีละแท่ง (~750 รอบต่อหุ้น)
+    """
+    n = len(d)
+    highs = d['High'].to_numpy(dtype=float)
+    lows = d['Low'].to_numpy(dtype=float)
+    closes = d['Close'].to_numpy(dtype=float)
+    out = np.zeros(n, dtype=bool)
+    for i in range(34, n):                      # ต้นฉบับต้องมีอย่างน้อย 35 แท่ง
+        lookback = min(60, i + 1)
+        start = i + 1 - lookback
+        w_high = highs[start:i + 1]
+        w_low = lows[start:i + 1]
+        if not (np.isfinite(w_high).all() and np.isfinite(w_low).all()):
+            continue
+        max_idx = int(np.argmax(w_high))
+        min_idx = int(np.argmin(w_low[:max_idx + 1])) if max_idx > 0 else 0
+        min_p = w_low[min_idx]
+        max_p = w_high[max_idx]
+        if min_p <= 0 or max_p <= 0:
+            continue
+        surge_pct = (max_p - min_p) / min_p * 100.0
+        if max_idx < lookback - 1:
+            base_depth = (max_p - float(np.min(w_low[max_idx:]))) / max_p * 100.0
+        else:
+            base_depth = 0.0                    # ยอดอยู่ที่แท่งล่าสุด = ยังไม่มีฐาน
+        dist_from_peak = (max_p - closes[i]) / max_p * 100.0
+        out[i] = surge_pct >= 70.0 and base_depth <= 25.0 and dist_from_peak <= 20.0
+    return pd.Series(out, index=d.index)
 
 
 def _preset_signal(d, preset):
@@ -242,6 +380,25 @@ def _preset_signal(d, preset):
         return d['stage2'] & (d['rvol'] >= 1.5) & (d['cmf'] >= 0.1)
     if preset == 'safety_first':
         return d['stage2'] & (d['RSI'] < 70)
+
+    # ── Quick Preset: เงื่อนไขเดียวกับที่ _updatePresetCountsSET ใช้นับเลขบนปุ่ม ──
+    # อ้างอิงตัวนับบนปุ่ม ไม่ใช่คำโปรย tooltip เพราะตัวนับคือสิ่งที่ตรงกับแถวที่โผล่จริง
+    if preset == 'qp2_htf_power':
+        return d['htf_setup']
+    if preset == 'qp3_squeeze_fired':
+        return d['ttm_fired']
+    if preset == 'qp4_episodic_pivot':
+        return d['episodic_pivot']
+    if preset == 'qp5_base_accumulation':
+        # accPos = accDays > distDays && accDays >= 4
+        return (d['pocket_pivot'] & (d['cmf'] >= 0.1) &
+                (d['acc_days'] > d['dist_days']) & (d['acc_days'] >= 4))
+    if preset == 'qp6_super_grade_a':
+        # ปุ่มใช้ ttScore >= 7 จาก 8 ข้อ — ครบ 7 ข้อฝั่งราคาแปลว่าคะแนนรวม ≥7 เสมอ
+        # ไม่ว่า RS จะผ่านหรือไม่ จึงเป็นชุดย่อยที่แน่ใจได้ว่าปุ่มติดจริง
+        return (d['tt_price_score'] >= 7) & (d['cmf'] >= 0.1)
+    if preset == 'qp7_breakout_today':
+        return (d['rvol20'] >= 1.5) & (d['turtle_dist'] <= 0.5)
     raise ValueError(f"Unknown preset: {preset}")
 
 
@@ -583,8 +740,18 @@ def compare_exit_rules_universe(symbol_dfs, preset='safety_first', exit_rules=No
     return out
 
 
+def _prepare_preset_frame(df, period_days=750):
+    """สร้าง indicator ทั้งชุดแล้วตัดเหลือช่วงที่ทดสอบ (+200 แท่ง warm-up)
+
+    แยกออกมาเป็นฟังก์ชันของตัวเองเพื่อให้การรันหลาย preset บนหุ้นตัวเดียวกัน
+    คำนวณครั้งเดียวแล้วใช้ซ้ำได้ — ตอนนี้มี preset 11 ตัว ถ้าสร้างใหม่ทุกครั้ง
+    จะเสียเวลาไปกับการคำนวณซ้ำ 11 รอบต่อหุ้นโดยไม่ได้อะไรเพิ่ม
+    """
+    return _build_preset_indicators(df).tail(period_days + 200)
+
+
 def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20,
-                            period_days=750, cost_pct=0.0, market_gate=None):
+                            period_days=750, cost_pct=0.0, market_gate=None, prepared=None):
     """สร้างรายการเทรดจากสัญญาณ preset หนึ่งตัวบน df เดียว (ไม่สรุปผล)
 
     cost_pct    : ค่าธรรมเนียมไป-กลับเป็น % ของมูลค่าซื้อขาย หักออกจากผลตอบแทนทุกไม้
@@ -592,14 +759,17 @@ def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days
     market_gate : bool array ยาวเท่า df — False = ห้ามเปิดไม้ใหม่วันนั้น (จาก build_market_gate)
                   ไม่กระทบไม้ที่ถืออยู่แล้ว เพราะกฎออกเป็นคนละเรื่องกับกฎเข้า
 
+    prepared    : ผลของ _prepare_preset_frame(df, period_days) ที่คำนวณไว้แล้ว — ส่งมาเพื่อ
+                  ไม่ต้องสร้าง indicator ซ้ำเมื่อรันหลาย preset บนหุ้นตัวเดียวกัน
+                  ต้องมาจาก period_days เดียวกัน ไม่งั้นช่วงข้อมูลจะไม่ตรงกับที่ขอ
+
     คืน (trades, meta) โดย meta มี blocked_by_market = จำนวนสัญญาณที่ถูกตลาดกรองทิ้ง
     หรือ (None, meta) เมื่อข้อมูลไม่พอ
     """
     if df is None or len(df) < 200:
         return None, {'blocked_by_market': 0}
 
-    keep = period_days + 200
-    d_full = _build_preset_indicators(df).tail(keep)
+    d_full = prepared if prepared is not None else _prepare_preset_frame(df, period_days)
     gate = None
     if market_gate is not None:
         g = np.asarray(market_gate, dtype=bool)
@@ -706,15 +876,16 @@ def _summarize_trades(preset, trades):
 
 
 def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, max_hold_days=20,
-                        period_days=750, cost_pct=0.0, market_gate=None):
+                        period_days=750, cost_pct=0.0, market_gate=None, prepared=None):
     """
     รัน backtest ของเกณฑ์ preset หนึ่งตัวย้อนหลัง period_days วัน สำหรับหุ้นตัวเดียว
     Entry: ที่ราคาปิดของวันที่สัญญาณเป็นจริง (ซื้อ MOC ได้จริง ไม่ใช่ look-ahead)
     Exit: SL/TP (คำนวณแบบเดียวกับที่ Trade Flow แสดง) หรือหมดเวลาถือ max_hold_days
-    cost_pct/market_gate: ดู _generate_preset_trades
+    cost_pct/market_gate/prepared: ดู _generate_preset_trades
     """
     trades, meta = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days,
-                                           period_days, cost_pct, market_gate)
+                                           period_days, cost_pct, market_gate,
+                                           prepared=prepared)
     if trades is None:
         return {'preset': preset, 'error': 'Insufficient data'}
     summary = _summarize_trades(preset, trades)
@@ -727,21 +898,26 @@ def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, ma
 def run_all_presets_backtest(df, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750,
                              cost_pct=0.0, market_gate=None):
     """รัน run_preset_backtest กับทุก preset ใน PRESET_DEFINITIONS แล้วคืนเป็น list (หุ้นตัวเดียว)"""
+    # indicator ชุดเดียวใช้ได้กับทุก preset — สร้างครั้งเดียวแทนที่จะสร้างใหม่ 11 รอบ
+    prepared = (_prepare_preset_frame(df, period_days)
+                if df is not None and len(df) >= 200 else None)
     return [
         run_preset_backtest(df, preset=p, sl_pct=sl_pct, rr_target=rr_target,
                              max_hold_days=max_hold_days, period_days=period_days,
-                             cost_pct=cost_pct, market_gate=market_gate)
+                             cost_pct=cost_pct, market_gate=market_gate, prepared=prepared)
         for p in PRESET_DEFINITIONS
     ]
 
 
 def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20,
-                                 period_days=750, cost_pct=0.0, market_gates=None):
+                                 period_days=750, cost_pct=0.0, market_gates=None,
+                                 prepared=None):
     """
     รัน backtest ของ preset หนึ่งตัว รวมสัญญาณจากหุ้นหลายตัวเป็น trade pool เดียว
     เพื่อให้ได้ sample size ที่มากพอสรุปผลได้ (ต่างจาก run_preset_backtest ที่ดูทีละตัว)
     symbol_dfs  : dict {symbol: dataframe ราคาย้อนหลัง}
     market_gates: dict {symbol: bool array} — ตัวกรองภาวะตลาดต่อหุ้น (None = ไม่กรอง)
+    prepared    : dict {symbol: frame จาก _prepare_preset_frame} ที่คำนวณไว้แล้ว
     """
     all_trades = []
     symbols_with_signal = []
@@ -750,7 +926,8 @@ def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, 
     for symbol, df in symbol_dfs.items():
         gate = (market_gates or {}).get(symbol)
         trades, meta = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days,
-                                               period_days, cost_pct, gate)
+                                               period_days, cost_pct, gate,
+                                               prepared=(prepared or {}).get(symbol))
         blocked_total += meta['blocked_by_market']
         if trades is None:
             continue
@@ -772,10 +949,17 @@ def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, 
 def run_all_presets_backtest_universe(symbol_dfs, sl_pct=3.0, rr_target=1.5, max_hold_days=20,
                                       period_days=750, cost_pct=0.0, market_gates=None):
     """รัน run_preset_backtest_universe กับทุก preset ใน PRESET_DEFINITIONS"""
+    # สร้าง indicator ครั้งเดียวต่อหุ้นแล้วให้ทุก preset ใช้ร่วมกัน ไม่งั้นจะคำนวณซ้ำ
+    # 11 รอบต่อหุ้น (11 preset x 40 หุ้น) ซึ่งเป็นงานหนักที่สุดของ request นี้
+    prepared = {}
+    for symbol, df in symbol_dfs.items():
+        if df is not None and len(df) >= 200:
+            prepared[symbol] = _prepare_preset_frame(df, period_days)
     return [
         run_preset_backtest_universe(symbol_dfs, preset=p, sl_pct=sl_pct, rr_target=rr_target,
                                       max_hold_days=max_hold_days, period_days=period_days,
-                                      cost_pct=cost_pct, market_gates=market_gates)
+                                      cost_pct=cost_pct, market_gates=market_gates,
+                                      prepared=prepared)
         for p in PRESET_DEFINITIONS
     ]
 

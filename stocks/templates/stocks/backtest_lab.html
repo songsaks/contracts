@@ -113,8 +113,12 @@
         <div class="col-6 col-md-3" id="btPresetWrap">
           <label class="bt-label mb-1">เกณฑ์เข้า</label>
           <select id="btPreset" class="bt-select">
-            {% for key, rule in presets.items %}
-            <option value="{{ key }}" {% if key == default_preset %}selected{% endif %}>{{ key }}</option>
+            {% for group_name, group_presets in preset_groups %}
+            <optgroup label="{{ group_name }}">
+              {% for key, rule in group_presets.items %}
+              <option value="{{ key }}" {% if key == default_preset %}selected{% endif %}>{{ key }}</option>
+              {% endfor %}
+            </optgroup>
             {% endfor %}
           </select>
         </div>
@@ -158,6 +162,22 @@
       <b>อ่านผลอย่างระวัง</b> — ชุดหุ้นที่ทดสอบมาจากหุ้นที่ยังซื้อขายอยู่ในปัจจุบัน
       หุ้นที่ถูกถอนออกจากตลาดไปแล้วไม่อยู่ในชุดนี้ (survivorship bias)
       <b>ผลจริงจะแย่กว่าตัวเลขที่เห็นเสมอ</b> ใช้เทียบว่ากฎไหนดีกว่ากันได้ แต่อย่าใช้เป็นคำมั่นว่าจะได้ผลตอบแทนเท่านี้
+    </span>
+  </div>
+
+  <div class="bt-note">
+    <i class="fa-solid fa-bookmark" style="color:#94a3b8;margin-top:2px;"></i>
+    <span>
+      <b>ปุ่มลัดหน้าสแกน 6 จาก 8 ปุ่มทดสอบได้ที่นี่</b> — ชื่อขึ้นต้นด้วย <code>qp</code> ตามด้วยเลขปุ่ม
+      กฎที่ใช้พอร์ตมาจากตัวนับเลขบนปุ่มโดยตรง ไม่ใช่จากคำโปรยบนปุ่ม
+      {% if untestable %}
+      <br>อีก 2 ปุ่มยังทดสอบย้อนหลังแบบซื่อตรงไม่ได้:
+      <ul class="mb-0 mt-1" style="padding-left:1.1rem;">
+        {% for name, why in untestable.items %}
+        <li><b>{{ name }}</b> — {{ why }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
     </span>
   </div>
 

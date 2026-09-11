@@ -8813,9 +8813,20 @@ def backtest_lab(request):
     หน้าเทียบผล backtest — เปลือกหน้าเว็บอย่างเดียว ตัวเลขดึงผ่าน API ด้วย fetch
     เพราะโหมด universe ต้องดึงราคา 40 ตัว x 3 ปี ถ้า render ฝั่ง server จะค้างยาว
     """
-    from stocks.utils import PRESET_DEFINITIONS, EXIT_RULE_DEFINITIONS
+    from stocks.utils import (PRESET_DEFINITIONS, EXIT_RULE_DEFINITIONS,
+                              QUICK_PRESET_UNTESTABLE, QUICK_PRESET_KEYS)
+    # แยกสองกลุ่มให้ dropdown อ่านง่าย — เกณฑ์ของ Trade Flow กับปุ่มลัดหน้าสแกน
+    # เป็นคนละชุดกฎกัน ถ้าปนกันในรายการเดียวจะเข้าใจผิดว่าเป็นชุดเดียว
+    groups = [
+        ('เกณฑ์ Trade Flow', {k: v for k, v in PRESET_DEFINITIONS.items()
+                              if k not in QUICK_PRESET_KEYS}),
+        ('Quick Presets (ปุ่มลัดหน้าสแกน)', {k: v for k, v in PRESET_DEFINITIONS.items()
+                                             if k in QUICK_PRESET_KEYS}),
+    ]
     return render(request, 'stocks/backtest_lab.html', {
         'presets': PRESET_DEFINITIONS,
+        'preset_groups': groups,
+        'untestable': QUICK_PRESET_UNTESTABLE,
         'exit_rules': EXIT_RULE_DEFINITIONS,
         # ส่งเป็น dict ให้ json_script ฝั่งเทมเพลต escape ให้เอง
         # ({{ dict|safe }} จะได้ repr ของ Python ซึ่งพังทันทีถ้าข้อความมี ' ปน)
@@ -9132,7 +9143,7 @@ def api_backtest_exit_rules(request):
 
     _c = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _t = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_exit_rules_v6_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
+    cache_key = f'backtest_exit_rules_v7_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9179,7 +9190,7 @@ def api_preset_overlap(request):
         limit = 40
     market = 'US' if (request.GET.get('market') or '').strip().upper() == 'US' else 'SET'
 
-    cache_key = f'preset_overlap_v2_{market}_{limit}'
+    cache_key = f'preset_overlap_v3_{market}_{limit}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9224,7 +9235,7 @@ def api_backtest_presets_universe(request):
 
     _ck_costs = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _ck_timing = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_presets_universe_v7_{limit}_c{_ck_costs}_t{_ck_timing}'
+    cache_key = f'backtest_presets_universe_v8_{limit}_c{_ck_costs}_t{_ck_timing}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
