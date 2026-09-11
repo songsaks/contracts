@@ -212,9 +212,34 @@ def dashboard(request):
     top_gainers = sorted_items[:3]
     top_losers = sorted_items[-3:][::-1] if len(sorted_items) > 3 else []
 
+    # ── รายได้รายเดือน: กำไรจากการขาย + เงินปันผล (ใช้โมดูลกลางร่วมกับหน้าทศางค์) ──
+    from stocks.portfolio_income import monthly_income
+    income = monthly_income(request.user, usd_thb,
+                            us_symbol_set=us_set, is_us_symbol=_is_us_symbol)
+    recent_months = income['months'][-12:]          # กราฟแสดง 12 เดือนล่าสุด
+
+    # เส้นสะสม: รายได้ที่ "บันทึกแล้ว" (ขายจริง + ปันผลที่เข้าบัญชี) สะสมตามเวลา
+    # ไม่ใช่มูลค่าพอร์ตย้อนหลัง ซึ่งต้องมี snapshot รายวันถึงจะทำได้ — ระบบยังไม่เก็บไว้
+    _running = 0.0
+    cumulative = []
+    for m in income['months']:
+        _running += m['total']
+        cumulative.append(round(_running, 2))
+
+    income_chart = json.dumps({
+        'labels': [m['label'] for m in recent_months],
+        'realized': [m['realized'] for m in recent_months],
+        'dividend': [m['dividend'] for m in recent_months],
+        'cum_labels': [m['label'] for m in income['months']],
+        'cumulative': cumulative,
+    }, ensure_ascii=False)
+
     context = {
         'items': items[:6], 
         'total_items': len(items),
+        'income': income,
+        'income_chart_json': income_chart,
+        'dividend_top': income['by_symbol'][:6],
         'categories': AssetCategory.choices,
         'market_types': MarketType.choices,
         'summary': {
