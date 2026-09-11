@@ -5236,8 +5236,13 @@ function loadTfPresetStatsSET(btn) {
                     return '<div id="tfPresetRow_' + x.preset + '" class="d-flex justify-content-between py-1 border-bottom" style="border-radius:4px;"><span>' + x.preset + '</span><span class="text-muted">ไม่มีสัญญาณในช่วงทดสอบ</span></div>';
                 }
                 const lowTag = x.low_sample ? ' <span class="badge bg-warning text-dark" style="font-size:0.56rem;padding:1px 4px;">sample น้อย</span>' : '';
+                // กฎบางข้อย้อนหลังไม่ได้ครบ — บอกให้เห็น ไม่ให้เข้าใจว่าตรงกับป้ายบนการ์ดเป๊ะ
+                const caveatTag = x.caveat
+                    ? ' <span class="badge bg-secondary bg-opacity-10 text-secondary" role="button" style="font-size:0.56rem;padding:1px 4px;cursor:help;" title="'
+                      + String(x.caveat).replace(/["<>&]/g, '') + '">≠ ป้ายบนการ์ด</span>'
+                    : '';
                 return '<div id="tfPresetRow_' + x.preset + '" class="d-flex justify-content-between py-1 border-bottom" style="border-radius:4px;">'
-                    + '<span>' + x.preset + lowTag + '</span>'
+                    + '<span>' + x.preset + lowTag + caveatTag + '</span>'
                     + '<span>Win <b>' + x.win_rate_pct + '%</b> &middot; ' + x.trades_count + ' trades ('
                     + x.symbols_with_signal + '/' + x.symbols_tested + ' หุ้น) &middot; avg '
                     + (x.avg_return_pct >= 0 ? '+' : '') + x.avg_return_pct + '% &middot; maxDD ' + x.max_drawdown_pct + '%</span></div>';

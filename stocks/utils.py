@@ -151,12 +151,23 @@ def auto_backtest_strategy(df, strategy_type='momentum_rsi', period_days=250):
 # ใช้สำหรับตอบคำถาม "เกณฑ์นี้ win rate จริงเท่าไหร่" ไม่ใช่การยืนยัน order
 # ----------------------------------------------------------------------
 PRESET_DEFINITIONS = {
-    'superformance': 'Stage2 + Pocket Pivot + CMF≥0.1 + VCP',
-    'launcher_breakout': 'Stage2 + Breakout 20 วัน + RVOL≥1.5',
+    'superformance': 'Stage2 + Pocket Pivot + CMF≥0.1 + VCP (ไม่รวม RS≥80 และ EPS/Rev ≥20%)',
+    'launcher_breakout': 'Stage2 + Launcher≥70 + VCP + Inside Bar',
     'base_accumulation': 'Stage2 + Pocket Pivot + CMF≥0.1',
     'high_momentum': 'Stage2 + Vol Surge≥1.5x + CMF≥0.1',
     'safety_first': 'RSI<70 + Stage2',
 }
+
+# ส่วนของกฎที่ backtest ทำซ้ำย้อนหลังไม่ได้ — แสดงคู่กับผลเสมอ ไม่ให้เข้าใจว่าตรงกันเป๊ะ
+PRESET_CAVEATS = {
+    'superformance': 'ป้ายบนการ์ดบวกเงื่อนไข CANSLIM ด้วย (RS≥80 + EPS/Rev โต ≥20%) '
+                     'ซึ่งย้อนหลังไม่ได้: RS ต้องเทียบทั้งตลาดรายวัน ส่วนงบต้องใช้ตัวเลข '
+                     '"ณ วันนั้น" ถ้าใช้ตัวเลขล่าสุดคือมองอนาคต — backtest จึงหลวมกว่าป้ายจริง',
+}
+
+# VCP ใน backtest เป็นตัวแทนอย่างง่าย (ราคาเหนือ EMA200 + ช่วงแกว่ง 10 วันหดจาก 30 วันก่อน)
+# ไม่ใช่ detect_vcp ตัวเต็มที่นับ contraction เป็นคลื่น เพราะต้องเรียกซ้ำทุกแท่ง ช้าเกินใช้งาน
+VCP_IS_APPROXIMATION = True
 
 
 def _build_preset_indicators(df):
@@ -193,6 +204,24 @@ def _build_preset_indicators(df):
     high20_prior = d['High'].shift(1).rolling(20).max()
     d['breakout20'] = d['Close'] > high20_prior
 
+    # Inside Bar — แท่งที่ High ต่ำกว่าและ Low สูงกว่าแท่งก่อน (บีบตัวก่อนเบรก)
+    d['inside_bar'] = (d['High'] < d['High'].shift(1)) & (d['Low'] > d['Low'].shift(1))
+
+    # Launcher Score (0-100) — คัดลอกสูตรจากตัวคำนวณที่หน้าสแกนใช้จริง
+    # เพื่อให้ backtest วัดกฎเดียวกับที่ป้ายบนการ์ด Trade Flow ใช้ตัดสิน
+    #   A. ความแคบของราคา 5 วัน  B. ระยะถึง High 20 วัน  C. Volume Dry-Up
+    tightness = (d['Close'].rolling(5).std() / d['Close'] * 100)
+    turtle_dist = (d['High'].rolling(20).max() - d['Close']) / d['Close'] * 100
+    vol_3d = d['Volume'].rolling(3).mean()
+    median_vol_20 = d['Volume'].rolling(20).median()
+
+    launcher = np.zeros(len(d))
+    launcher += np.where(tightness < 1.0, 40, np.where(tightness < 2.0, 25, 0))
+    launcher += np.where(turtle_dist < 1.0, 30, np.where(turtle_dist < 3.0, 15, 0))
+    launcher += np.where(vol_3d < median_vol_20 * 0.6, 30,
+                         np.where(vol_3d < median_vol_20 * 0.8, 15, 0))
+    d['launcher_score'] = launcher
+
     return d
 
 
@@ -200,7 +229,8 @@ def _preset_signal(d, preset):
     if preset == 'superformance':
         return d['stage2'] & d['pocket_pivot'] & (d['cmf'] >= 0.1) & d['vcp']
     if preset == 'launcher_breakout':
-        return d['stage2'] & d['breakout20'] & (d['rvol'] >= 1.5)
+        # ตรงกับเงื่อนไขที่ป้ายบนการ์ด Trade Flow ใช้ (s2 + launcher>=70 + vcp + inside bar)
+        return d['stage2'] & (d['launcher_score'] >= 70) & d['vcp'] & d['inside_bar']
     if preset == 'base_accumulation':
         return d['stage2'] & d['pocket_pivot'] & (d['cmf'] >= 0.1)
     if preset == 'high_momentum':
@@ -524,7 +554,8 @@ def _summarize_trades(preset, trades):
     trades = usable
 
     if not trades:
-        return {'preset': preset, 'rule': PRESET_DEFINITIONS.get(preset, ''), 'trades_count': 0,
+        return {'preset': preset, 'rule': PRESET_DEFINITIONS.get(preset, ''),
+                'caveat': PRESET_CAVEATS.get(preset, ''), 'trades_count': 0,
                 'win_rate_pct': None, 'avg_return_pct': None, 'expectancy_pct': None,
                 'max_drawdown_pct': None, 'avg_hold_days': None, 'low_sample': True,
                 'dropped_invalid': dropped}
@@ -542,6 +573,7 @@ def _summarize_trades(preset, trades):
     return {
         'preset': preset,
         'rule': PRESET_DEFINITIONS.get(preset, ''),
+        'caveat': PRESET_CAVEATS.get(preset, ''),
         'trades_count': len(rets),
         'win_rate_pct': round(win_rate, 1),
         'avg_return_pct': round(float(np.mean(rets)), 2),

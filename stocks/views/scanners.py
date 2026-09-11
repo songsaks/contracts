@@ -9110,7 +9110,7 @@ def api_backtest_exit_rules(request):
 
     _c = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _t = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_exit_rules_v3_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
+    cache_key = f'backtest_exit_rules_v4_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9157,7 +9157,7 @@ def api_backtest_presets_universe(request):
 
     _ck_costs = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _ck_timing = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_presets_universe_v4_{limit}_c{_ck_costs}_t{_ck_timing}'
+    cache_key = f'backtest_presets_universe_v5_{limit}_c{_ck_costs}_t{_ck_timing}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
