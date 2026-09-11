@@ -1685,7 +1685,8 @@ def manual_update_trade_exit(request):
 # Quant Position Size — คำนวณขนาดไม้จากความเสี่ยง + Portfolio Heat
 # ==============================================================================
 def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
-                             risk_pct=None, max_weight_pct=None, max_heat_pct=None):
+                             risk_pct=None, max_weight_pct=None, max_heat_pct=None,
+                             entry_belongs_to=None):
     """
     รวบรวม equity / เงินสด / heat ปัจจุบัน แล้วคำนวณขนาดไม้
     แยกออกมาเป็นฟังก์ชันเพื่อให้ทั้งหน้าเว็บและ API ใช้ตรรกะชุดเดียวกัน
@@ -1742,7 +1743,14 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
 
     heat = calculate_portfolio_heat(heat_rows, equity, max_heat_pct=max_heat_pct)
 
-    # เติมราคา/stop ให้อัตโนมัติจากผลสแกนล่าสุด ถ้าผู้ใช้ยังไม่ได้กรอกมา
+    # ฟอร์มเป็น GET ช่องราคา/stop จึงส่งค่าเดิมกลับมาด้วยทุกครั้งที่กดคำนวณ
+    # ถ้าเชื่อค่าที่ส่งมาโดยไม่ดูว่ามันเป็นของหุ้นตัวไหน พอผู้ใช้เปลี่ยนชื่อหุ้น
+    # ราคาจะค้างอยู่ที่ตัวเดิม แล้วคำนวณขนาดไม้ผิดทั้งหมดโดยไม่มีอะไรเตือน
+    # entry_belongs_to บอกว่าเลขที่ส่งมาเป็นของหุ้นตัวไหน ถ้าไม่ตรงกับที่ขอ ให้ทิ้งแล้วดึงใหม่
+    stale = bool(symbol) and (entry_belongs_to or '').strip().upper() != symbol.upper()
+    if stale:
+        entry = stop = None
+
     market = MarketType.SET
     prefill = None
     if symbol:
@@ -1773,6 +1781,7 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
         'total_cash': round(total_cash, 2), 'usd_thb': usd_thb,
         'heat': heat, 'result': result,
         'prefill_found': prefill is not None,
+        'prefill_stale': stale,
         'priced_count': len(heat_rows), 'holdings_count': len(holdings),
     }
 
@@ -1792,6 +1801,7 @@ def position_size_calculator(request):
         symbol=(request.GET.get('symbol') or '').strip().upper() or None,
         entry=_num('entry'), stop=_num('stop'), risk_pct=_num('risk'),
         max_weight_pct=_num('max_weight'), max_heat_pct=_num('max_heat'),
+        entry_belongs_to=request.GET.get('for_symbol'),
     )
     return render(request, 'stocks/position_size.html', ctx)
 
@@ -1813,6 +1823,7 @@ def api_position_size(request):
         symbol=(request.GET.get('symbol') or '').strip().upper() or None,
         entry=_num('entry'), stop=_num('stop'), risk_pct=_num('risk'),
         max_weight_pct=_num('max_weight'), max_heat_pct=_num('max_heat'),
+        entry_belongs_to=request.GET.get('for_symbol'),
     )
     return JsonResponse({
         'equity': ctx['equity'], 'total_cash': ctx['total_cash'],

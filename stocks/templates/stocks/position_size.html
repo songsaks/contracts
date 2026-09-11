@@ -82,6 +82,12 @@
     <div class="ps-card-head">ข้อมูลไม้ที่จะเข้า</div>
     <div class="ps-card-body">
       <form method="get" class="row g-3 align-items-end">
+        {% comment %}
+          บอก server ว่าเลขในช่องราคา/stop เป็นของหุ้นตัวไหน
+          ฟอร์ม GET ส่งค่าเดิมกลับมาเสมอ ถ้าไม่มีตัวนี้ พอเปลี่ยนชื่อหุ้นแล้วกดคำนวณ
+          ราคาจะค้างอยู่ที่หุ้นตัวก่อน แล้วได้ขนาดไม้ที่ผิดโดยไม่มีอะไรเตือน
+        {% endcomment %}
+        <input type="hidden" name="for_symbol" value="{{ symbol }}">
         <div class="col-6 col-md-2">
           <label class="ps-label mb-1">หุ้น</label>
           <input class="ps-input" name="symbol" value="{{ symbol }}" placeholder="BA" autocomplete="off">
@@ -106,6 +112,13 @@
           <button type="submit" class="ps-btn w-100">คำนวณ</button>
         </div>
       </form>
+      {% if prefill_stale and prefill_found %}
+      <div class="ps-note mt-3">
+        <i class="fa-solid fa-rotate" style="color:#2563eb;"></i>
+        <span>เปลี่ยนหุ้นเป็น <b>{{ symbol }}</b> — ดึงราคาเข้าและ Stop Loss ล่าสุดของตัวนี้มาให้ใหม่แล้ว
+          (แก้เองได้ถ้าต้องการใช้ราคาอื่น)</span>
+      </div>
+      {% endif %}
       {% if symbol and not prefill_found %}
       <div class="ps-note mt-3">
         <i class="fa-solid fa-circle-info" style="color:#94a3b8;"></i>
