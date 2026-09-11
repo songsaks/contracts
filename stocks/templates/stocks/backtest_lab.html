@@ -60,6 +60,13 @@
 .bt-val-pos { color:#15803d; font-weight:800; }
 .bt-val-neg { color:#b91c1c; font-weight:800; }
 
+/* ข้อจำกัดของกฎที่ backtest ทำซ้ำได้ไม่ตรงเป๊ะ — ต้องอ่านคู่กับตัวเลขเสมอ
+   ไม่ใช่ซ่อนไว้ใน API แล้วปล่อยให้ตัวเลขดูเหมือนวัดกฎจริงทั้งดุ้น */
+.bt-caveat {
+  font-size:0.68rem; color:#92400e; background:#fffbeb; border-left:3px solid #f59e0b;
+  border-radius:0 6px 6px 0; padding:5px 9px; margin-top:6px; line-height:1.55;
+  max-width:430px; white-space:normal; font-weight:500;
+}
 .bt-chip { display:inline-block; padding:2px 9px; border-radius:999px; font-size:0.66rem; font-weight:800; }
 .bt-chip-best { background:#dbeafe; color:#1e40af; }
 .bt-chip-warn { background:#fffbeb; color:#b45309; }
@@ -383,7 +390,9 @@
         '<td><div class="bt-rule">' + esc(key) +
           (isBest ? ' <span class="bt-chip bt-chip-best">ดีที่สุด</span>' : '') +
           (r.low_sample ? ' <span class="bt-chip bt-chip-warn">sample น้อย</span>' : '') +
-        '</div><div class="bt-rule-sub">' + esc(sub) + '</div></td>' +
+        '</div><div class="bt-rule-sub">' + esc(sub) + '</div>' +
+        (r.caveat ? '<div class="bt-caveat"><b>อ่านคู่กัน:</b> ' + esc(r.caveat) + '</div>' : '') +
+        '</td>' +
         '<td class="num">' + (r.trades_count || 0) + '</td>' +
         '<td class="num">' + num(r.win_rate_pct, 1) + '</td>' +
         '<td class="num ' + cls + '">' + glyph + (v === null || v === undefined ? '—' : (v >= 0 ? '+' : '') + num(v)) + '%</td>' +

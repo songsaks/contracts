@@ -186,6 +186,15 @@ QUICK_PRESET_UNTESTABLE = {
 _VCP_CAVEAT = ('VCP ที่ใช้เป็นตัวแทนอย่างง่าย (เหนือ EMA200 + ช่วงแกว่งหดตัว) '
                'ไม่ใช่ตัวนับ contraction เต็มรูปแบบเหมือนที่หน้าสแกนใช้')
 
+# ข้อจำกัดที่ใช้กับปุ่มลัดทุกปุ่ม — ติดไปกับผลทุกแถวของชุด qp*
+_QP_POPULATION_CAVEAT = (
+    'ชุดหุ้นที่ทดสอบไม่เท่ากับชุดที่ปุ่มเห็น — หน้าสแกนคัดหุ้นออกก่อนขึ้นตารางด้วย '
+    'มูลค่าซื้อขายเฉลี่ย ≥10 ล้านบาท, ราคา ≥฿1, ADX ≥15 และราคา ≥65% ของ High 52 สัปดาห์ '
+    '(สองข้อหลังยกเว้นให้หุ้นที่เข้าเกณฑ์ Early Accumulation) ส่วน backtest ทดสอบทุกแท่งของหุ้นใน pool '
+    'จึงนับสัญญาณจากแท่งที่หน้าสแกนไม่เคยแสดง — ใช้เทียบกันเองระหว่างปุ่มได้ '
+    'แต่ตัวเลขไม่ใช่ผลของ "หุ้นที่โผล่บนปุ่ม" เป๊ะๆ'
+)
+
 PRESET_CAVEATS = {
     'superformance': 'ป้ายบนการ์ดบวกเงื่อนไข CANSLIM ด้วย (RS≥80 + EPS/Rev โต ≥20%) '
                      'ซึ่งย้อนหลังไม่ได้: RS ต้องเทียบทั้งตลาดรายวัน ส่วนงบต้องใช้ตัวเลข '
@@ -202,6 +211,12 @@ PRESET_CAVEATS = {
                           'มีแค่ Buy Now (RVOL≥1.5 + ห่าง High 20 วัน ≤0.5%) ไม่ได้เช็ค Stage 2 '
                           'backtest นี้วัดตามตัวกรองจริง',
 }
+
+# ปุ่มลัดทุกปุ่มเจอข้อจำกัดเรื่องชุดหุ้นเหมือนกัน — ต่อท้ายให้อัตโนมัติ
+# จะได้ไม่ต้องจำไปเขียนซ้ำทุกครั้งที่เพิ่ม preset ใหม่แล้วลืม
+for _k in QUICK_PRESET_KEYS:
+    PRESET_CAVEATS[_k] = ((PRESET_CAVEATS[_k] + ' · ') if PRESET_CAVEATS.get(_k) else '') \
+                         + _QP_POPULATION_CAVEAT
 
 
 def _build_preset_indicators(df):
@@ -231,7 +246,11 @@ def _build_preset_indicators(df):
     # Chaikin Money Flow (20d)
     mf_mult = ((d['Close'] - d['Low']) - (d['High'] - d['Close'])) / (d['High'] - d['Low']).replace(0, np.nan)
     mf_vol = mf_mult * d['Volume']
-    d['cmf'] = mf_vol.rolling(20).sum() / d['Volume'].rolling(20).sum()
+    # แท่งที่ High == Low (ติดเพดาน/ฟลอร์) ทำให้ mf_mult เป็น NaN และ rolling().sum()
+    # ปริยายจะคืน NaN ทั้งหน้าต่าง = CMF หายไป 20 แท่ง ทั้งที่หน้าสแกนใช้ _mfv.sum()
+    # ซึ่งข้าม NaN แล้วได้ตัวเลขปกติ — เติม 0 ให้ตรงกับพฤติกรรมนั้น
+    # (ตัวหารยังเป็น Volume ดิบเหมือนหน้าสแกน)
+    d['cmf'] = mf_vol.fillna(0.0).rolling(20).sum() / d['Volume'].rolling(20).sum()
 
     # VCP แบบง่าย: อยู่เหนือ EMA200 และ range 10 วันหดตัวเทียบ 30 วันก่อนหน้า
     range10 = (d['High'].rolling(10).max() - d['Low'].rolling(10).min())
@@ -311,6 +330,9 @@ def _build_preset_indicators(df):
     # High Tight Flag — ต้องหา argmax/argmin ในหน้าต่าง 60 แท่ง จึงวนทีละแท่ง
     d['htf_setup'] = _htf_flag_series(d)
 
+    # Pocket Pivot รุ่นเดียวกับที่หน้าสแกนติดป้าย (เข้มกว่า d['pocket_pivot'] มาก)
+    d['pp_scanner'] = _scanner_pocket_pivot(d)
+
     # Trend Template ฝั่งราคา 7 ข้อ (ข้อที่ 8 คือ RS Rating ซึ่งย้อนหลังไม่ได้)
     sma50_tt = d['Close'].rolling(50).mean()
     sma200_tt = d['Close'].rolling(200).mean()
@@ -332,6 +354,65 @@ def _build_preset_indicators(df):
     d['tt_price_score'] = tt_score.where(np.arange(len(d)) >= 220, 0)
 
     return d
+
+
+def _scanner_pocket_pivot(d):
+    """Pocket Pivot รุ่นที่หน้าสแกนใช้ติดป้าย 'PP' (Morales & Kacher + context filter)
+
+    ต่างจาก d['pocket_pivot'] ซึ่งเป็นรุ่นย่อฝั่ง Trade Flow อยู่ 3 จุด:
+      1. ต้องมีวันลงใน 10 วันก่อนหน้าให้เทียบจริง ถ้าไม่มีจะขยายเป็น 20 วัน
+         ไม่มีอีกคือไม่ผ่าน — ส่วนรุ่นย่อใช้ fillna(0) ซึ่งทำให้เคส "ไม่มีวันลงเลย"
+         *ผ่าน* สวนทางกับหน้าสแกนที่ตัดทิ้ง
+      2. ต้องผ่าน context filter: SMA10 ≥ SMA50×0.98 (โครงสร้างขาขึ้น),
+         ปิดเหนือ SMA50 ไม่เกิน 25% (ไม่ยืด), แท่งปิดครึ่งบนของช่วงราคา
+      3. ติดได้จากแท่งวันนี้หรือเมื่อวาน (หน้าสแกนวน _i ใน [-1, -2]) โดย SMA
+         ที่ใช้เช็ค context เป็นค่าของแท่งล่าสุดเสมอ ไม่ใช่ของแท่งที่กำลังตรวจ
+    """
+    n = len(d)
+    closes = d['Close'].to_numpy(dtype=float)
+    highs = d['High'].to_numpy(dtype=float)
+    lows = d['Low'].to_numpy(dtype=float)
+    vols = d['Volume'].to_numpy(dtype=float)
+    sma10 = d['Close'].rolling(10).mean().to_numpy(dtype=float)
+    sma50 = d['Close'].rolling(50).mean().to_numpy(dtype=float)
+
+    # รอบแรก: เกณฑ์วอลุ่ม + รูปแท่ง ซึ่งขึ้นกับแท่งที่ตรวจเท่านั้น
+    vol_ok = np.zeros(n, dtype=bool)
+    upper_half = np.zeros(n, dtype=bool)
+    for j in range(1, n):
+        if not (closes[j] > closes[j - 1]):
+            continue
+        start = j - 10
+        if start < 1:
+            continue
+        mask = closes[start:j] < closes[start - 1:j - 1]
+        if not mask.any():
+            start = j - 20                  # fallback 20 วันของ Morales & Kacher
+            if start < 1:
+                continue
+            mask = closes[start:j] < closes[start - 1:j - 1]
+            if not mask.any():
+                continue
+        max_down_vol = float(vols[start:j][mask].max())
+        if not (max_down_vol > 0 and vols[j] > max_down_vol):
+            continue
+        rng = highs[j] - lows[j]
+        vol_ok[j] = True
+        upper_half[j] = rng <= 0 or (closes[j] - lows[j]) / rng >= 0.5
+
+    # รอบสอง: context filter ใช้ SMA ของแท่งปัจจุบันกับทั้งแท่งวันนี้และเมื่อวาน
+    out = np.zeros(n, dtype=bool)
+    for i in range(n):
+        m10, m50 = sma10[i], sma50[i]
+        if not (m10 > 0 and m50 > 0 and m10 >= m50 * 0.98):
+            continue
+        for j in (i, i - 1):
+            if j < 0 or not (vol_ok[j] and upper_half[j]):
+                continue
+            if (closes[j] - m50) / m50 <= 0.25:
+                out[i] = True
+                break
+    return pd.Series(out, index=d.index)
 
 
 def _htf_flag_series(d):
@@ -391,7 +472,8 @@ def _preset_signal(d, preset):
         return d['episodic_pivot']
     if preset == 'qp5_base_accumulation':
         # accPos = accDays > distDays && accDays >= 4
-        return (d['pocket_pivot'] & (d['cmf'] >= 0.1) &
+        # ใช้ pp_scanner ไม่ใช่ pocket_pivot เพราะป้าย PP ที่ปุ่มอ่านมาจากรุ่นเข้ม
+        return (d['pp_scanner'] & (d['cmf'] >= 0.1) &
                 (d['acc_days'] > d['dist_days']) & (d['acc_days'] >= 4))
     if preset == 'qp6_super_grade_a':
         # ปุ่มใช้ ttScore >= 7 จาก 8 ข้อ — ครบ 7 ข้อฝั่งราคาแปลว่าคะแนนรวม ≥7 เสมอ
@@ -516,7 +598,7 @@ def _simulate_exit(arrays, entry_idx, *, exit_rule, sl_pct, rr_target, max_hold_
 
 def generate_exit_rule_trades(df, preset, *, exit_rule='combo', sl_pct=3.0, rr_target=1.5,
                               max_hold_days=0, period_days=750, cost_pct=0.0,
-                              market_gate=None, atr_multiplier=2.5):
+                              market_gate=None, atr_multiplier=2.5, prepared=None):
     """
     เหมือน _generate_preset_trades แต่ออกด้วยกฎที่ระบบใช้จริง (ATR trail / Turtle)
     แทน SL คงที่ + เป้า R:R
@@ -529,8 +611,7 @@ def generate_exit_rule_trades(df, preset, *, exit_rule='combo', sl_pct=3.0, rr_t
     if exit_rule not in EXIT_RULE_DEFINITIONS:
         raise ValueError(f"Unknown exit_rule: {exit_rule}")
 
-    keep = period_days + 200
-    d_full = _build_preset_indicators(df).tail(keep)
+    d_full = prepared if prepared is not None else _prepare_preset_frame(df, period_days)
     gate = None
     if market_gate is not None:
         g = np.asarray(market_gate, dtype=bool)
@@ -588,13 +669,17 @@ def compare_exit_rules(df, preset='safety_first', exit_rules=None, **kw):
     ตัวแปรเดียวที่ต่างกันคือกฎออก — สัญญาณเข้า ค่าธรรมเนียม และตัวกรองตลาดเหมือนกันหมด
     """
     rules = exit_rules or list(EXIT_RULE_DEFINITIONS)
+    # indicator ชุดเดียวใช้ได้กับทุกกฎออก เพราะกฎออกไม่ได้เปลี่ยนสัญญาณเข้า
+    prepared = (_prepare_preset_frame(df, kw.get('period_days', 750))
+                if df is not None and len(df) >= 200 else None)
     out = []
     for r in rules:
         # 'fixed' ต้องมีเพดานวันถือ ไม่งั้นไม้ที่ไม่โดน SL/TP จะถือยาวผิดเจตนาของกฎ
         kw_r = dict(kw)
         if r == 'fixed' and not kw_r.get('max_hold_days'):
             kw_r['max_hold_days'] = 20
-        out.append(run_exit_rule_backtest(df, preset=preset, exit_rule=r, **kw_r))
+        out.append(run_exit_rule_backtest(df, preset=preset, exit_rule=r,
+                                          prepared=prepared, **kw_r))
     return out
 
 
@@ -712,6 +797,11 @@ def compare_exit_rules_universe(symbol_dfs, preset='safety_first', exit_rules=No
                                 market_gates=None, **kw):
     """เทียบกฎออกโดยรวมสัญญาณจากหุ้นหลายตัวเป็น pool เดียว ให้ sample ใหญ่พอสรุปได้"""
     rules = exit_rules or list(EXIT_RULE_DEFINITIONS)
+    # สร้าง indicator ครั้งเดียวต่อหุ้น ไม่ใช่ครั้งเดียวต่อ (กฎออก x หุ้น)
+    # ซึ่งกับ 5 กฎ x 40 หุ้น คือคำนวณซ้ำ 200 รอบโดยได้ผลเหมือนเดิมทุกรอบ
+    _pd_days = kw.get('period_days', 750)
+    prepared = {sym: _prepare_preset_frame(df, _pd_days)
+                for sym, df in symbol_dfs.items() if df is not None and len(df) >= 200}
     out = []
     for r in rules:
         kw_r = dict(kw)
@@ -721,7 +811,8 @@ def compare_exit_rules_universe(symbol_dfs, preset='safety_first', exit_rules=No
         reasons = {}
         for sym, df in symbol_dfs.items():
             trades, meta = generate_exit_rule_trades(
-                df, preset, exit_rule=r, market_gate=(market_gates or {}).get(sym), **kw_r)
+                df, preset, exit_rule=r, market_gate=(market_gates or {}).get(sym),
+                prepared=prepared.get(sym), **kw_r)
             blocked += meta['blocked_by_market']
             if trades is None:
                 continue
