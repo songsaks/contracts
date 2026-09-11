@@ -441,7 +441,8 @@ def compare_exit_rules(df, preset='safety_first', exit_rules=None, **kw):
     return out
 
 
-def preset_overlap_stats(symbol_dfs, period_days=750, min_combo_days=1, top_combos=12):
+def preset_overlap_stats(symbol_dfs, period_days=750, min_combo_days=1, top_combos=12,
+                         min_subset_support=20):
     """
     วัดว่าแต่ละ preset ยิงสัญญาณบ่อยแค่ไหน และซ้อนทับกันอย่างไร บนข้อมูลจริง
 
@@ -495,14 +496,25 @@ def preset_overlap_stats(symbol_dfs, period_days=750, min_combo_days=1, top_comb
         return round(x / base * 100, 2) if base else 0.0
 
     # A ⊆ B เมื่อทุกวันที่ A ยิง B ยิงด้วย — ดูจากข้อมูลจริง ไม่ใช่จากนิยาม
+    # ต้องมีจำนวนครั้งถึงขั้นต่ำก่อน ไม่งั้น preset ที่ยิงแค่ 2-3 ครั้งทั้งชุด
+    # จะถูกสรุปว่าซ้อนกันโดยบังเอิญ แล้วหน้าเว็บจะประกาศเป็นข้อเท็จจริง
     subsets = {}
     for a in presets:
-        if not fires[a]:
+        if fires[a] < min_subset_support:
             continue
         inside = [b for b in presets
                   if b != a and fires[b] and pair_both.get((a, b), 0) == fires[a]]
         if inside:
             subsets[a] = inside
+
+    # ถ้าซ้อนกันทั้งสองทาง (ยิงวันเดียวกันเป๊ะ) ให้เหลือทิศเดียว ไม่งั้น _effective
+    # จะตัดทิ้งทั้งคู่แล้วรายงานว่า "แกนจริง 0" ทั้งที่วันนั้นมีสัญญาณ
+    for a in list(subsets):
+        for b in list(subsets.get(a, [])):
+            if a in subsets.get(b, []) and presets.index(a) > presets.index(b):
+                subsets[a].remove(b)
+        if not subsets[a]:
+            del subsets[a]
 
     def _effective(tags):
         """เหลือเฉพาะ tag ที่ให้ข้อมูลเพิ่ม — ตัดตัวที่ถูก tag อื่นในชุดเดียวกันบังคับให้ติดอยู่แล้ว

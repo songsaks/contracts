@@ -8833,11 +8833,16 @@ def _cache_backtest(cache, key, payload, fetched, requested, timed_out):
     ผลจะไม่มีวันถูก cache เลย แล้วทุกคนที่เข้ามาต้องรอดึงใหม่ 45 วิ ซึ่งคือ
     อาการที่โค้ดนี้ตั้งใจป้องกันตั้งแต่แรก
     """
-    payload['partial'] = bool(timed_out)
-    cache.set(key, payload, timeout=120 if timed_out else 60 * 60 * 24)
-    if timed_out:
-        logger.warning("[Backtest] ดึงราคาไม่ทันเวลา (%d/%d ตัว) เก็บ cache แค่ 2 นาที",
-                       fetched, requested)
+    # หมดเวลา = ผลถูกตัดกลางคัน / ได้ไม่ถึงครึ่ง = น่าจะโดน rate limit ทั้งชุด
+    # เกณฑ์ครึ่งหนึ่งต่ำกว่าเดิม (80%) เพราะหุ้นบางตัว Yahoo ไม่มีข้อมูลให้ถาวร
+    # ถ้าตั้งสูงผลจะไม่มีวันถูก cache แล้วทุกคนต้องรอดึงใหม่ทุกครั้ง
+    too_few = requested > 0 and fetched < requested * 0.5
+    partial = bool(timed_out or too_few)
+    payload['partial'] = partial
+    cache.set(key, payload, timeout=120 if partial else 60 * 60 * 24)
+    if partial:
+        logger.warning("[Backtest] ผลไม่น่าเชื่อถือ (%d/%d ตัว, timeout=%s) เก็บ cache แค่ 2 นาที",
+                       fetched, requested, timed_out)
 
 
 def _json_safe(obj):
@@ -8891,7 +8896,7 @@ def _json_errors(view):
     return _wrapped
 
 
-def _fetch_universe_history(symbols, period="3y", min_bars=30, allow_plain_fallback=False):
+def _fetch_universe_history(symbols, period="3y", min_bars=30, market="SET"):
     """
     ดึงราคาย้อนหลังของหุ้นทั้งชุดแบบขนาน แทนการยิงทีละตัวเรียงกัน
 
@@ -8923,13 +8928,22 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30, allow_plain_fallb
             logger.debug("[Backtest] ดึงราคา %s ไม่สำเร็จ", ticker, exc_info=True)
             return None
 
-    def _fetch_one(sym):
+    def _candidates(sym):
+        """ลำดับ ticker ที่จะลอง — ผูกกับตลาด ไม่ใช่เดาเอา
+
+        ชื่อหุ้นชนกันข้ามตลาดจริง (M = MK ของไทย กับ Macy's ของ US, TU = ไทยยูเนี่ยน)
+        ถ้าลองผิดลำดับหรือปล่อยให้ถอยข้ามตลาดได้ ราคาของอีกตลาดจะปนเข้า pool
+        โดยแยกไม่ออก — จึงล็อกให้ SET ใช้ .BK เท่านั้น และ US ใช้ชื่อเปล่าเท่านั้น
+        """
         sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
-        # ถอย .BK ได้เฉพาะตอนที่ผู้เรียกบอกว่าเป็นชุดหุ้น US เท่านั้น
-        # ไม่งั้น TRUE/TOP/OR ของ SET ที่ดึง .BK ไม่ได้ จะไปได้ราคาหุ้น US ชื่อเดียวกันมาแทน
-        # แล้วปนเข้า pool ของตลาดไทยโดยแยกไม่ออก
-        tickers = dict.fromkeys([sym_bk, sym]) if allow_plain_fallback else [sym_bk]
-        for ticker in tickers:
+        if market == 'US':
+            return [sym]
+        if market == 'SET':
+            return [sym_bk]
+        return list(dict.fromkeys([sym_bk, sym]))   # ANY = ผู้ใช้พิมพ์เอง ยังไม่รู้ตลาด
+
+    def _fetch_one(sym):
+        for ticker in _candidates(sym):
             df = _try(ticker)
             if df is not None:
                 return sym, df
@@ -9100,7 +9114,7 @@ def api_backtest_exit_rules(request):
     symbol = (request.GET.get('symbol') or '').strip().upper()
     if symbol:
         # ใช้ตัวดึงร่วม เพราะมันลองทั้ง .BK และชื่อเดิม — ไม่งั้นหุ้น US พิมพ์มาแล้วพัง
-        df = _fetch_universe_history([symbol], allow_plain_fallback=True)[0].get(symbol)
+        df = _fetch_universe_history([symbol], market="ANY")[0].get(symbol)
         if df is None:
             return _JR({'error': f'no data for {symbol}'}, status=404)
         cost_pct, gates = _backtest_options(request, {symbol: df})
@@ -9112,13 +9126,13 @@ def api_backtest_exit_rules(request):
                     'rules': EXIT_RULE_DEFINITIONS, 'results': results})
 
     try:
-        limit = min(int(request.GET.get('limit', 40)), 80)
+        limit = max(1, min(int(request.GET.get('limit', 40)), 80))
     except (TypeError, ValueError):
         limit = 40
 
     _c = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _t = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_exit_rules_v5_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
+    cache_key = f'backtest_exit_rules_v6_{preset}_{limit}_c{_c}_t{_t}_m{atr_mult}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9160,12 +9174,12 @@ def api_preset_overlap(request):
     from stocks.utils import preset_overlap_stats, PRESET_DEFINITIONS
 
     try:
-        limit = min(int(request.GET.get('limit', 40)), 80)
+        limit = max(1, min(int(request.GET.get('limit', 40)), 80))
     except (TypeError, ValueError):
         limit = 40
     market = 'US' if (request.GET.get('market') or '').strip().upper() == 'US' else 'SET'
 
-    cache_key = f'preset_overlap_v1_{market}_{limit}'
+    cache_key = f'preset_overlap_v2_{market}_{limit}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
@@ -9176,8 +9190,7 @@ def api_preset_overlap(request):
     if not symbols:
         return _JR({'error': f'no {market} symbols available'}, status=404)
 
-    symbol_dfs, timed_out = _fetch_universe_history(
-        symbols, allow_plain_fallback=(market == 'US'))
+    symbol_dfs, timed_out = _fetch_universe_history(symbols, market=market)
     if not symbol_dfs:
         return _JR({'error': 'failed to fetch price data'}, status=502)
 
@@ -9205,13 +9218,13 @@ def api_backtest_presets_universe(request):
     from stocks.utils import run_all_presets_backtest_universe
 
     try:
-        limit = min(int(request.GET.get('limit', 40)), 80)
+        limit = max(1, min(int(request.GET.get('limit', 40)), 80))
     except (TypeError, ValueError):
         limit = 40
 
     _ck_costs = '0' if (request.GET.get('costs') or '').strip() == '0' else '1'
     _ck_timing = '1' if (request.GET.get('timing') or '').strip() == '1' else '0'
-    cache_key = f'backtest_presets_universe_v6_{limit}_c{_ck_costs}_t{_ck_timing}'
+    cache_key = f'backtest_presets_universe_v7_{limit}_c{_ck_costs}_t{_ck_timing}'
     cached = cache.get(cache_key)
     if cached is not None:
         cached['cached'] = True
