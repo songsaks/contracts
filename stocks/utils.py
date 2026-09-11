@@ -441,6 +441,104 @@ def compare_exit_rules(df, preset='safety_first', exit_rules=None, **kw):
     return out
 
 
+def preset_overlap_stats(symbol_dfs, period_days=750, min_combo_days=1, top_combos=12):
+    """
+    วัดว่าแต่ละ preset ยิงสัญญาณบ่อยแค่ไหน และซ้อนทับกันอย่างไร บนข้อมูลจริง
+
+    ตอบคำถามที่ตารางผล backtest ตอบไม่ได้: หุ้นที่ติดหลาย tag พร้อมกันคือ
+    "ยืนยันหลายชั้น" หรือแค่ tag ที่นิยามซ้อนกันอยู่แล้ว
+    (เช่น superformance = base_accumulation + VCP จึงติดคู่กันเสมอโดยนิยาม)
+
+    คืน dict ที่มี:
+      tags     - ความถี่ต่อ preset และจำนวนวันที่ติดตัวเดียวโดดๆ
+      by_count - แจกแจงว่าวันที่มีสัญญาณ ติดพร้อมกันกี่ tag
+      combos   - ชุด tag ที่พบบ่อย พร้อม effective_tags (ตัดตัวที่เป็นส่วนย่อยออกแล้ว)
+      subsets  - ความสัมพันธ์ A ⊆ B ที่พบจากข้อมูลจริง
+    """
+    presets = list(PRESET_DEFINITIONS)
+    fires = {p: 0 for p in presets}          # จำนวนวันที่ยิง
+    alone = {p: 0 for p in presets}          # ยิงคนเดียว
+    pair_both = {}                           # (a,b) -> วันที่ยิงพร้อมกัน
+    combos = {}
+    by_count = {}
+    total_bars = 0
+    symbols_used = 0
+
+    for df in symbol_dfs.values():
+        if df is None or len(df) < 200:
+            continue
+        d = _build_preset_indicators(df).tail(period_days + 200).iloc[200:]
+        if d.empty:
+            continue
+        symbols_used += 1
+        total_bars += len(d)
+        sig = {p: _preset_signal(d, p).fillna(False).to_numpy() for p in presets}
+        for i in range(len(d)):
+            tags = tuple(p for p in presets if sig[p][i])
+            if not tags:
+                continue
+            by_count[len(tags)] = by_count.get(len(tags), 0) + 1
+            combos[tags] = combos.get(tags, 0) + 1
+            for t in tags:
+                fires[t] += 1
+            if len(tags) == 1:
+                alone[tags[0]] += 1
+            for a in tags:
+                for b in tags:
+                    if a != b:
+                        pair_both[(a, b)] = pair_both.get((a, b), 0) + 1
+
+    if not total_bars:
+        return {'error': 'ข้อมูลไม่พอสำหรับวิเคราะห์'}
+
+    def _pct(x, base):
+        return round(x / base * 100, 2) if base else 0.0
+
+    # A ⊆ B เมื่อทุกวันที่ A ยิง B ยิงด้วย — ดูจากข้อมูลจริง ไม่ใช่จากนิยาม
+    subsets = {}
+    for a in presets:
+        if not fires[a]:
+            continue
+        inside = [b for b in presets
+                  if b != a and fires[b] and pair_both.get((a, b), 0) == fires[a]]
+        if inside:
+            subsets[a] = inside
+
+    def _effective(tags):
+        """เหลือเฉพาะ tag ที่ให้ข้อมูลเพิ่ม — ตัดตัวที่ถูก tag อื่นในชุดเดียวกันบังคับให้ติดอยู่แล้ว
+
+        ทิศทางสำคัญ: superformance ⊆ base_accumulation แปลว่า superformance เข้มกว่า
+        พอติดคู่กัน ตัวที่ควรเหลือคือ superformance ส่วน base_accumulation ไม่ได้บอกอะไรใหม่
+        (ติดเพราะนิยามบังคับ ไม่ใช่เพราะมีหลักฐานเพิ่ม)
+        """
+        return [t for t in tags
+                if not any(t in subsets.get(other, []) for other in tags if other != t)]
+
+    combo_rows = [{
+        'tags': list(t),
+        'days': v,
+        'pct_of_signal_days': _pct(v, sum(by_count.values())),
+        'effective_tags': _effective(t),
+    } for t, v in sorted(combos.items(), key=lambda x: -x[1]) if v >= min_combo_days]
+
+    return {
+        'symbols_used': symbols_used,
+        'total_bars': total_bars,
+        'signal_days': sum(by_count.values()),
+        'tags': sorted([{
+            'preset': p,
+            'rule': PRESET_DEFINITIONS[p],
+            'days': fires[p],
+            'pct_of_bars': _pct(fires[p], total_bars),
+            'alone_days': alone[p],
+            'alone_pct': _pct(alone[p], fires[p]) if fires[p] else 0.0,
+        } for p in presets], key=lambda x: -x['days']),
+        'by_count': {str(k): by_count[k] for k in sorted(by_count)},
+        'combos': combo_rows[:top_combos],
+        'subsets': subsets,
+    }
+
+
 def compare_exit_rules_universe(symbol_dfs, preset='safety_first', exit_rules=None,
                                 market_gates=None, **kw):
     """เทียบกฎออกโดยรวมสัญญาณจากหุ้นหลายตัวเป็น pool เดียว ให้ sample ใหญ่พอสรุปได้"""

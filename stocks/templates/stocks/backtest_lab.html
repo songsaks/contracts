@@ -74,6 +74,15 @@
            border-radius:50%; animation:btspin .8s linear infinite; margin:0 auto 12px; }
 @keyframes btspin { to { transform:rotate(360deg); } }
 .bt-scroll { overflow-x:auto; }
+
+/* แท่งความถี่ — ค่าบวกล้วน จึงชิดซ้ายและใช้สีเดียว ต่างจากแท่งผลตอบแทนที่มีบวก/ลบ */
+.bt-freq { position:relative; height:18px; min-width:130px; background:#f1f5f9; border-radius:4px; }
+.bt-freq-fill { position:absolute; left:0; top:0; bottom:0; background:#2563eb; border-radius:4px; }
+.bt-tagname { font-weight:800; color:#0f172a; }
+.bt-sub-list { font-size:0.76rem; color:#475569; line-height:1.9; }
+.bt-eff { display:inline-block; padding:1px 8px; border-radius:999px; background:#eef2ff;
+          color:#3730a3; font-size:0.66rem; font-weight:800; margin-right:4px; }
+.bt-eff-muted { background:#f1f5f9; color:#94a3b8; text-decoration:line-through; }
 @media (max-width: 768px) { .bt-table { min-width:720px; } }
 </style>
 
@@ -92,6 +101,7 @@
       <div class="bt-seg mb-3" role="tablist">
         <button class="bt-seg-btn is-active" data-mode="exit" type="button">เทียบกฎออก</button>
         <button class="bt-seg-btn" data-mode="preset" type="button">เทียบเกณฑ์เข้า</button>
+        <button class="bt-seg-btn" data-mode="overlap" type="button">สัดส่วน tag</button>
       </div>
 
       <div class="row g-3 align-items-end">
@@ -171,6 +181,7 @@
   var API_EXIT = "{% url 'stocks:api_backtest_exit_rules' %}";
   var API_PRESET = "{% url 'stocks:api_backtest_presets' %}";
   var API_PRESET_UNI = "{% url 'stocks:api_backtest_presets_universe' %}";
+  var API_OVERLAP = "{% url 'stocks:api_preset_overlap' %}";
 
   var mode = 'exit';
   var box = document.getElementById('btResult');
@@ -190,6 +201,13 @@
     document.getElementById('btLimitWrap').style.display = sym ? 'none' : '';
     document.getElementById('btAtrWrap').style.display = (mode === 'exit') ? '' : 'none';
     document.getElementById('btPresetWrap').style.display = (mode === 'exit') ? '' : 'none';
+    // โหมดสัดส่วน tag วัดทั้ง pool เสมอ ไม่มีหุ้นตัวเดียว และไม่เกี่ยวกับค่าธรรมเนียม/กฎออก
+    var isOverlap = (mode === 'overlap');
+    document.getElementById('btSymbol').parentElement.style.display = isOverlap ? 'none' : '';
+    document.getElementById('btLimitWrap').style.display = (isOverlap || !sym) ? '' : 'none';
+    document.querySelectorAll('.bt-toggle').forEach(function (t) {
+      t.style.display = isOverlap ? 'none' : '';
+    });
   }
 
   document.querySelectorAll('[data-mode]').forEach(function (b) {
@@ -210,6 +228,11 @@
     if (!document.getElementById('btCosts').checked) p.set('costs', '0');
     if (document.getElementById('btTiming').checked) p.set('timing', '1');
 
+    if (mode === 'overlap') {
+      var q = new URLSearchParams();
+      q.set('limit', document.getElementById('btLimit').value || '40');
+      return API_OVERLAP + '?' + q.toString();
+    }
     if (mode === 'exit') {
       p.set('preset', document.getElementById('btPreset').value);
       p.set('atr_mult', document.getElementById('btAtr').value || '2.5');
@@ -230,7 +253,74 @@
     return '<div class="bt-bar"><div class="bt-bar-axis"></div>' + side + '</div>';
   }
 
+  function renderOverlap(data) {
+    var tags = data.tags || [];
+    var maxPct = Math.max.apply(null, tags.map(function (t) { return t.pct_of_bars || 0; })) || 1;
+
+    var html = '<div class="bt-scroll"><table class="bt-table"><thead><tr>' +
+      '<th>Tag</th><th class="num">วันที่ติด</th><th class="num">% ของวันทั้งหมด</th>' +
+      '<th>ความถี่</th><th class="num">ติดคนเดียว</th></tr></thead><tbody>';
+    tags.forEach(function (t) {
+      var w = (t.pct_of_bars || 0) / maxPct * 100;
+      html += '<tr>' +
+        '<td><div class="bt-tagname">' + esc(t.preset) + '</div>' +
+          '<div class="bt-rule-sub">' + esc(t.rule || '') + '</div></td>' +
+        '<td class="num">' + (t.days || 0).toLocaleString() + '</td>' +
+        '<td class="num">' + num(t.pct_of_bars) + '%</td>' +
+        '<td><div class="bt-freq"><div class="bt-freq-fill" style="width:' + w + '%;"></div></div></td>' +
+        '<td class="num">' + num(t.alone_pct, 0) + '%</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // ความสัมพันธ์แบบส่วนย่อย — เป็นเหตุผลว่าทำไมบาง tag ติดคู่กันเสมอ
+    var subs = data.subsets || {};
+    var subKeys = Object.keys(subs);
+    html += '<div class="bt-body" style="border-top:1px solid #f1f5f9;">' +
+      '<div class="bt-label mb-2">tag ที่ซ้อนกันโดยนิยาม</div><div class="bt-sub-list">';
+    if (subKeys.length) {
+      subKeys.forEach(function (k) {
+        html += '<div><b>' + esc(k) + '</b> ติดเมื่อไร <b>' + esc(subs[k].join(', ')) +
+                '</b> ติดด้วยเสมอ — นับเป็นหลักฐานชุดเดียว ไม่ใช่สองชั้น</div>';
+      });
+    } else {
+      html += '<div class="text-muted">ไม่พบคู่ที่ติดพร้อมกันทุกครั้งในชุดข้อมูลนี้</div>';
+    }
+    html += '</div></div>';
+
+    // ชุดที่พบบ่อย + แกนจริงหลังตัดตัวซ้อน
+    html += '<div class="bt-body" style="border-top:1px solid #f1f5f9;">' +
+      '<div class="bt-label mb-2">ชุด tag ที่พบบ่อย — “แกนจริง” คือหลังตัดตัวที่ซ้อนออกแล้ว</div>' +
+      '<div class="bt-scroll"><table class="bt-table"><thead><tr>' +
+      '<th>ชุด tag ที่ติดพร้อมกัน</th><th class="num">วัน</th>' +
+      '<th class="num">% ของวันที่มีสัญญาณ</th><th class="num">แกนจริง</th></tr></thead><tbody>';
+    (data.combos || []).forEach(function (c) {
+      var eff = c.effective_tags || [];
+      var pills = (c.tags || []).map(function (t) {
+        var kept = eff.indexOf(t) >= 0;
+        return '<span class="bt-eff' + (kept ? '' : ' bt-eff-muted') + '">' + esc(t) + '</span>';
+      }).join('');
+      html += '<tr><td>' + pills + '</td>' +
+        '<td class="num">' + (c.days || 0).toLocaleString() + '</td>' +
+        '<td class="num">' + num(c.pct_of_signal_days) + '%</td>' +
+        '<td class="num"><b>' + eff.length + '</b></td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+
+    var meta = ['หุ้น ' + data.symbols_used + ' ตัว',
+                (data.total_bars || 0).toLocaleString() + ' วัน-หุ้น',
+                'มีสัญญาณ ' + (data.signal_days || 0).toLocaleString() + ' วัน'];
+    if (data.partial) meta.push('ดึงราคาไม่ทันเวลา ผลไม่ครบทุกตัว');
+    if (data.cached) meta.push('ผลจากแคช');
+    html += '<div class="bt-body" style="border-top:1px solid #f1f5f9;padding-top:14px;">' +
+            '<div class="bt-rule-sub">' + esc(meta.join(' · ')) + '</div></div>';
+
+    box.innerHTML = html;
+    head.textContent = 'สัดส่วนการเกิดของแต่ละ tag และการซ้อนทับ';
+  }
+
   function render(data) {
+    if (mode === 'overlap') { renderOverlap(data); return; }
     var rows = data.results || [];
     if (data.result) rows = [data.result];
     rows = rows.filter(function (r) { return !r.error; });

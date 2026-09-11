@@ -124,6 +124,7 @@ urlpatterns = [
     path('api/backtest-presets/universe/', views.api_backtest_presets_universe, name='api_backtest_presets_universe'),
     path('backtest/', views.backtest_lab, name='backtest_lab'),
     path('api/backtest-exit-rules/', views.api_backtest_exit_rules, name='api_backtest_exit_rules'),
+    path('api/preset-overlap/', views.api_preset_overlap, name='api_preset_overlap'),
 
     # AI Daily Agent Reports
     path('daily-reports/', views.daily_agent_reports, name='daily_agent_reports'),

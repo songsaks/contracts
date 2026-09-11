@@ -9147,6 +9147,51 @@ def api_backtest_exit_rules(request):
 
 @login_required
 @_json_errors
+def api_preset_overlap(request):
+    """
+    สัดส่วนการเกิดของแต่ละ preset และการซ้อนทับกัน บนหุ้นจริงในตลาด
+
+    ตอบว่า "หุ้นติด 3 tag" หมายถึงยืนยัน 3 ชั้นจริง หรือแค่ tag ที่นิยามซ้อนกันอยู่แล้ว
+    GET params: limit (จำนวนหุ้น top market cap, default 40 สูงสุด 80), market ('SET'/'US')
+    """
+    from django.core.cache import cache
+    from django.http import JsonResponse as _JR
+    from stocks.models import ScannableSymbol
+    from stocks.utils import preset_overlap_stats, PRESET_DEFINITIONS
+
+    try:
+        limit = min(int(request.GET.get('limit', 40)), 80)
+    except (TypeError, ValueError):
+        limit = 40
+    market = 'US' if (request.GET.get('market') or '').strip().upper() == 'US' else 'SET'
+
+    cache_key = f'preset_overlap_v1_{market}_{limit}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        cached['cached'] = True
+        return _JR(cached)
+
+    symbols = list(ScannableSymbol.objects.filter(is_active=True, market=market, market_cap__gt=0)
+                   .order_by('-market_cap')[:limit].values_list('symbol', flat=True))
+    if not symbols:
+        return _JR({'error': f'no {market} symbols available'}, status=404)
+
+    symbol_dfs, timed_out = _fetch_universe_history(
+        symbols, allow_plain_fallback=(market == 'US'))
+    if not symbol_dfs:
+        return _JR({'error': 'failed to fetch price data'}, status=502)
+
+    payload = preset_overlap_stats(symbol_dfs)
+    if payload.get('error'):
+        return _JR(payload, status=502)
+    payload.update({'market': market, 'requested_limit': limit,
+                    'rules': PRESET_DEFINITIONS, 'cached': False})
+    _cache_backtest(cache, cache_key, payload, len(symbol_dfs), len(symbols), timed_out)
+    return _JR(payload)
+
+
+@login_required
+@_json_errors
 def api_backtest_presets_universe(request):
     """
     Backtest ย้อนหลังของเกณฑ์ preset รวมสัญญาณจากหุ้นหลายตัว (universe) เป็น trade pool เดียว
