@@ -1,5 +1,6 @@
 from .base import *
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -8823,6 +8824,32 @@ def backtest_lab(request):
     })
 
 
+# งบเวลารวมของการดึงราคา universe — ตั้งต่ำกว่า timeout ของ gateway ทั่วไป (60 วิ)
+# เพื่อให้ endpoint ได้ตอบกลับเองเสมอ ไม่ใช่โดนตัดสายกลางคัน
+_UNIVERSE_FETCH_BUDGET_SEC = 45
+
+
+def _json_errors(view):
+    """
+    ให้ view ที่เป็น API ตอบเป็น JSON เสมอแม้เกิด exception
+
+    ถ้าปล่อยให้หลุดออกไป Django จะส่งหน้า HTML 500 กลับมา ฝั่งหน้าเว็บเรียก r.json()
+    แล้วพัง เห็นเป็นแค่ "เกิดข้อผิดพลาด" ลอยๆ ซึ่งวินิจฉัยอะไรไม่ได้เลย
+    traceback เต็มยังถูกเขียนลง log ตามปกติ
+    """
+    import functools
+    from django.http import JsonResponse as _JR
+
+    @functools.wraps(view)
+    def _wrapped(request, *a, **kw):
+        try:
+            return view(request, *a, **kw)
+        except Exception as e:
+            logger.exception("[Backtest] %s ล้มเหลว", view.__name__)
+            return _JR({'error': f'{type(e).__name__}: {e}'}, status=500)
+    return _wrapped
+
+
 def _fetch_universe_history(symbols, period="3y", min_bars=30):
     """
     ดึงราคาย้อนหลังของหุ้นทั้งชุดแบบขนาน แทนการยิงทีละตัวเรียงกัน
@@ -8833,6 +8860,7 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
     คืน {symbol: DataFrame} — ตัวที่ดึงไม่ได้หรือแท่งน้อยกว่า min_bars จะไม่มี key
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import TimeoutError as FuturesTimeout
 
     def _fetch_one(sym):
         sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
@@ -8851,12 +8879,26 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
     out = {}
     if not symbols:
         return out
-    with ThreadPoolExecutor(max_workers=10) as executor:
+
+    # งบเวลารวม: ถ้า Yahoo อืด ยอมได้ผลไม่ครบดีกว่าปล่อยให้ทั้ง request ตาย
+    # backtest ที่มีหุ้น 30 จาก 40 ตัวยังใช้เทียบเกณฑ์ได้ และ symbols_tested บอกจำนวนจริงอยู่แล้ว
+    started = time.time()
+    executor = ThreadPoolExecutor(max_workers=10)
+    try:
         futures = [executor.submit(_fetch_one, s) for s in symbols]
-        for future in as_completed(futures):
-            sym, df = future.result()
-            if df is not None:
-                out[sym] = df
+        try:
+            for future in as_completed(futures, timeout=_UNIVERSE_FETCH_BUDGET_SEC):
+                sym, df = future.result()
+                if df is not None:
+                    out[sym] = df
+        except FuturesTimeout:
+            logger.warning("[Backtest] ดึงราคาเกินงบเวลา %ds — ใช้เท่าที่ได้ %d/%d ตัว",
+                           _UNIVERSE_FETCH_BUDGET_SEC, len(out), len(symbols))
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    logger.info("[Backtest] ดึงราคา %d/%d ตัว ใช้เวลา %.1f วิ",
+                len(out), len(symbols), time.time() - started)
     return out
 
 
@@ -8895,6 +8937,7 @@ def _backtest_options(request, symbol_dfs):
 
 
 @login_required
+@_json_errors
 def api_backtest_presets(request):
     """
     Backtest ย้อนหลังของเกณฑ์ Trade Flow / Precision Filter presets สำหรับหุ้นตัวเดียว
@@ -8953,6 +8996,7 @@ def api_backtest_presets(request):
 
 
 @login_required
+@_json_errors
 def api_backtest_exit_rules(request):
     """
     เทียบว่ากฎ "ออก" แบบไหนให้ผลดีกว่า บนสัญญาณเข้าชุดเดียวกัน
@@ -9028,6 +9072,7 @@ def api_backtest_exit_rules(request):
 
 
 @login_required
+@_json_errors
 def api_backtest_presets_universe(request):
     """
     Backtest ย้อนหลังของเกณฑ์ preset รวมสัญญาณจากหุ้นหลายตัว (universe) เป็น trade pool เดียว

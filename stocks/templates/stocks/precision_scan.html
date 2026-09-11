@@ -5218,7 +5218,9 @@ function loadTfPresetStatsSET(btn) {
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังรัน (อาจใช้เวลา 30-60 วิ)...'; }
     if (box) box.innerHTML = '<span class="text-muted">กำลังทดสอบย้อนหลังกับหุ้นตัวอย่างในตลาด...</span>';
     fetch("{% url 'stocks:api_backtest_presets_universe' %}")
-        .then(r => r.json())
+        // ถ้า gateway ตัดสาย จะได้ HTML ไม่ใช่ JSON แล้ว r.json() จะโยน
+        // ข้อความเดิม "เกิดข้อผิดพลาด" ลอยๆ วินิจฉัยไม่ได้ — แนบสถานะมาด้วย
+        .then(r => r.json().catch(() => { throw new Error('HTTP ' + r.status + ' (เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON — น่าจะโดนตัดเพราะใช้เวลานานเกิน)'); }))
         .then(data => {
             if (btn) { btn.style.display = 'none'; }
             if (!box) return;
@@ -5242,7 +5244,8 @@ function loadTfPresetStatsSET(btn) {
             box.innerHTML = '<div class="small text-muted mb-1">ทดสอบจากหุ้น ' + data.universe_size + ' ตัว (top market cap)' + (data.cached ? ' &middot; ผลจาก cache (อัปเดตทุก 24 ชม.)' : '') + '</div>' + rows;
         })
         .catch(err => {
-            if (box) box.innerHTML = '<span class="text-danger">เกิดข้อผิดพลาด</span>';
+            if (box) box.innerHTML = '<span class="text-danger">เกิดข้อผิดพลาด — ' +
+                String(err && err.message ? err.message : err).replace(/[<>&]/g, '') + '</span>';
             if (btn) { btn.disabled = false; btn.style.display = ''; btn.innerHTML = '<i class="fas fa-play me-1"></i>โหลดผล'; }
         });
 }
