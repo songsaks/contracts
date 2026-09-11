@@ -8862,15 +8862,24 @@ def _fetch_universe_history(symbols, period="3y", min_bars=30):
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from concurrent.futures import TimeoutError as FuturesTimeout
 
+    def _clean(df):
+        """ตัดแท่งที่ไม่มีราคาปิดทิ้ง — yfinance ส่งแถวว่างมาได้ (วันหยุด/ข้อมูลขาด)
+        ถ้าปล่อยไว้ ไม้ที่ออกตรงแท่งนั้นจะได้ผลตอบแทนเป็น NaN แล้วลาม
+        ไปทั้งค่าเฉลี่ย จนคำตอบกลายเป็น JSON ที่ parse ไม่ได้"""
+        if df is None or df.empty or 'Close' not in df.columns:
+            return None
+        df = df.dropna(subset=['Close'])
+        return df if len(df) >= min_bars else None
+
     def _fetch_one(sym):
         sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
         try:
-            df = yf.Ticker(sym_bk).history(period=period, interval="1d", timeout=10)
-            if df is not None and not df.empty and len(df) >= min_bars:
+            df = _clean(yf.Ticker(sym_bk).history(period=period, interval="1d", timeout=10))
+            if df is not None:
                 return sym, df
             # หุ้น US ไม่มี .BK — ลองชื่อเดิมอีกครั้ง
-            df2 = yf.Ticker(sym).history(period=period, interval="1d", timeout=10)
-            if df2 is not None and not df2.empty and len(df2) >= min_bars:
+            df2 = _clean(yf.Ticker(sym).history(period=period, interval="1d", timeout=10))
+            if df2 is not None:
                 return sym, df2
         except Exception:
             logger.debug("[Backtest] ดึงราคา %s ไม่สำเร็จ", sym, exc_info=True)
@@ -9021,7 +9030,11 @@ def api_backtest_exit_rules(request):
     if preset not in PRESET_DEFINITIONS:
         return _JR({'error': f'unknown preset: {preset}', 'valid': list(PRESET_DEFINITIONS)}, status=400)
     try:
+        # float('nan') และ float('inf') ผ่าน ValueError ไปได้ แล้วจะไหลลง JSON
+        # กลายเป็น NaN เปล่าๆ ซึ่งไม่ใช่ JSON ที่ถูกต้อง จึงต้องเช็ค isfinite ด้วย
         atr_mult = float(request.GET.get('atr_mult') or 2.5)
+        if not (0 < atr_mult <= 20):
+            atr_mult = 2.5
     except (TypeError, ValueError):
         atr_mult = 2.5
 

@@ -499,11 +499,26 @@ def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days
 
 
 def _summarize_trades(preset, trades):
-    """แปลง list ของ trade dict เป็นสรุปสถิติ (win rate, expectancy, drawdown, ฯลฯ)"""
+    """แปลง list ของ trade dict เป็นสรุปสถิติ (win rate, expectancy, drawdown, ฯลฯ)
+
+    ไม้ที่คำนวณผลตอบแทนไม่ได้ (NaN/inf — เกิดจากแท่งราคาที่ yfinance ส่งมาเป็นช่องว่าง)
+    ถูกตัดทิ้งก่อนสรุป ไม่ใช่ปล่อยผ่าน เพราะ:
+      1. NaN นับเป็น "แพ้" โดยปริยาย (nan > 0 เป็น False) ทำให้ win rate ต่ำกว่าความจริง
+      2. ค่าเฉลี่ยที่มี NaN ปนจะกลายเป็น NaN ทั้งก้อน แล้ว json.dumps เขียนออกมาเป็น
+         NaN เปล่าๆ ซึ่งไม่ใช่ JSON ที่ถูกต้อง — เบราว์เซอร์ parse ไม่ผ่านทั้งที่ได้ HTTP 200
+    """
+    if trades:
+        usable = [t for t in trades if t.get('ret_pct') is not None and np.isfinite(t['ret_pct'])]
+        dropped = len(trades) - len(usable)
+        trades = usable
+    else:
+        dropped = 0
+
     if not trades:
         return {'preset': preset, 'rule': PRESET_DEFINITIONS.get(preset, ''), 'trades_count': 0,
                 'win_rate_pct': None, 'avg_return_pct': None, 'expectancy_pct': None,
-                'max_drawdown_pct': None, 'avg_hold_days': None, 'low_sample': True}
+                'max_drawdown_pct': None, 'avg_hold_days': None, 'low_sample': True,
+                'dropped_invalid': dropped}
 
     rets = [t['ret_pct'] for t in trades]
     wins = [r for r in rets if r > 0]
@@ -528,6 +543,8 @@ def _summarize_trades(preset, trades):
         'avg_hold_days': round(float(np.mean([t['hold_days'] for t in trades])), 1),
         # sample size ต่ำกว่า 10 เทรด ถือว่าสถิติยังไม่นิ่งพอให้เชื่อถือ
         'low_sample': len(rets) < 10,
+        # จำนวนไม้ที่ตัดทิ้งเพราะคำนวณผลตอบแทนไม่ได้ — ถ้าไม่เป็น 0 แปลว่าข้อมูลราคามีช่องว่าง
+        'dropped_invalid': dropped,
     }
 
 
