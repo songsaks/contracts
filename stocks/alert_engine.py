@@ -842,42 +842,78 @@ def evaluate_user_alerts(user, config):
                 ))
                 cache.set(_k, True, timeout=24 * 60 * 60)
 
-    for w in watchlists:
-        price = live_prices.get(w.symbol)
-        if not price:
-            continue
-        latest_scan = _latest_scan(w.symbol)
-        if not latest_scan or not latest_scan.demand_zone_start:
-            continue
-        in_zone = price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end
-        now = dj_timezone.now()
-        if in_zone:
-            from stocks.views.base import _compute_signals
-            _sig = _compute_signals(latest_scan, current_price=price)
-            is_qualified = _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3 and _passes_inzone_gate(latest_scan)
+    if config.alert_watchlist_entry or config.alert_breakout_add:
+        for w in watchlists:
+            price = live_prices.get(w.symbol)
+            if not price:
+                continue
+            latest_scan = _latest_scan(w.symbol)
+            if not latest_scan:
+                continue
 
-            # แจ้งครั้งแรกที่เข้าโซนทันที แล้วถ้ายังแช่อยู่ในโซนต่อ ให้เตือนซ้ำได้เป็นรอบ (ทุก _WATCHLIST_REALERT_COOLDOWN)
-            # ไม่ใช่แจ้งทุกครั้งที่เช็ค (สแปม) แต่ก็ไม่เงียบไปตลอดจนลืมว่ายังมีโอกาสซื้ออยู่
-            due = w.last_alerted_at is None or (now - w.last_alerted_at) >= _WATCHLIST_REALERT_COOLDOWN
-            if due and is_qualified:
-                reasons_txt = ", ".join(_sig.get('buy_reasons', []))
-                reasons_msg = f" (ปัจจัยหนุน: {reasons_txt})" if reasons_txt else ""
+            now = dj_timezone.now()
 
-                new_events.append(StockAlertEvent(
-                    user=user, symbol=w.symbol, market=latest_scan.market, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
-                    strategy='', price=price, reference_level=latest_scan.demand_zone_start,
-                    message=(
-                        f"หุ้น {w.symbol} ราคาย่อลงมาถึงโซนเข้าซื้อ "
-                        f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
-                        f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){reasons_msg}{_poc_note(latest_scan)}"
-                    ),
-                ))
-                w.last_alerted_at = now
-                w.save(update_fields=['last_alerted_at'])
-        elif w.last_alerted_at is not None:
-            # ราคาหลุดออกจากโซนแล้ว (วิ่งขึ้นเกินหรือหลุดลงต่ำกว่า) — รีเซ็ตให้แจ้งทันทีรอบหน้าที่กลับเข้าโซนใหม่
-            w.last_alerted_at = None
-            w.save(update_fields=['last_alerted_at'])
+            # ── 1. ตรวจจับสัญญาณ Breakout วันนี้ (BUY NOW / Preset 7) สำหรับหุ้นใน Watchlist ──
+            if config.alert_breakout_add:
+                _is_ext = bool(getattr(latest_scan, 'is_extended', False))
+                _rvol = float(getattr(latest_scan, 'rvol', 0) or 0)
+                _st2 = bool(getattr(latest_scan, 'stage2', False))
+                _b52 = bool(getattr(latest_scan, 'is_52w_breakout', False))
+                _pk = bool(getattr(latest_scan, 'pocket_pivot', False))
+                _wy = bool(getattr(latest_scan, 'wyckoff_spring', False))
+
+                # สัญญาณ Breakout หรือ BUY NOW (Preset 7: Stage 2 + RVOL >= 1.5)
+                is_breakout_signal = _b52 or _pk or _wy or (_st2 and _rvol >= 1.5)
+                if is_breakout_signal and not _is_ext:
+                    cache_key = f"stockalert_wl_breakout_{user.id}_{w.symbol}"
+                    if not cache.get(cache_key):
+                        if _b52:
+                            sig_title = "เบรค 52w High 🔥"
+                        elif _wy:
+                            sig_title = "Wyckoff Spring 🌀"
+                        elif _pk:
+                            sig_title = "Pocket Pivot ⚡"
+                        else:
+                            sig_title = "Breakout วันนี้ (BUY NOW / Preset 7) 🔥"
+
+                        new_events.append(StockAlertEvent(
+                            user=user, symbol=w.symbol, market=latest_scan.market,
+                            alert_type=StockAlertEvent.AlertType.BREAKOUT,
+                            strategy='Watchlist Breakout', price=price, reference_level=getattr(latest_scan, 'demand_zone_start', None),
+                            message=(
+                                f"🔥 [BREAKOUT วันนี้] หุ้น {w.symbol} ใน Watchlist เกิดสัญญาณ {sig_title} "
+                                f"ที่ราคา {price:.2f} (RVOL {_rvol:.1f}x) — สัญญาณเบรคแนวต้านพร้อมวอลุ่มระเบิด!{_poc_note(latest_scan)}"
+                            ),
+                        ))
+                        cache.set(cache_key, True, timeout=12 * 60 * 60)
+
+            # ── 2. ตรวจจับการย่อเข้าโซนซื้อ (Buy Zone Entry) สำหรับหุ้นใน Watchlist ──
+            if config.alert_watchlist_entry and latest_scan.demand_zone_start:
+                in_zone = price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end
+                if in_zone:
+                    from stocks.views.base import _compute_signals
+                    _sig = _compute_signals(latest_scan, current_price=price)
+                    is_qualified = _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3 and _passes_inzone_gate(latest_scan)
+
+                    due = w.last_alerted_at is None or (now - w.last_alerted_at) >= _WATCHLIST_REALERT_COOLDOWN
+                    if due and is_qualified:
+                        reasons_txt = ", ".join(_sig.get('buy_reasons', []))
+                        reasons_msg = f" (ปัจจัยหนุน: {reasons_txt})" if reasons_txt else ""
+
+                        new_events.append(StockAlertEvent(
+                            user=user, symbol=w.symbol, market=latest_scan.market, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
+                            strategy='', price=price, reference_level=latest_scan.demand_zone_start,
+                            message=(
+                                f"หุ้น {w.symbol} ราคาย่อลงมาถึงโซนเข้าซื้อ "
+                                f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
+                                f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){reasons_msg}{_poc_note(latest_scan)}"
+                            ),
+                        ))
+                        w.last_alerted_at = now
+                        w.save(update_fields=['last_alerted_at'])
+                elif w.last_alerted_at is not None:
+                    w.last_alerted_at = None
+                    w.save(update_fields=['last_alerted_at'])
 
     if new_events:
         StockAlertEvent.objects.bulk_create(new_events)
