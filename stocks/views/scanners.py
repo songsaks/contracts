@@ -8823,6 +8823,43 @@ def backtest_lab(request):
     })
 
 
+def _fetch_universe_history(symbols, period="3y", min_bars=30):
+    """
+    ดึงราคาย้อนหลังของหุ้นทั้งชุดแบบขนาน แทนการยิงทีละตัวเรียงกัน
+
+    การยิงเรียงกัน 40 ครั้งใช้เวลาระดับนาที ซึ่งนานพอให้ gateway ตัดสาย
+    หน้าเว็บจึงได้ HTML แทน JSON แล้วขึ้นว่า "เกิดข้อผิดพลาด" ทุกครั้งที่ผลไม่อยู่ในแคช
+
+    คืน {symbol: DataFrame} — ตัวที่ดึงไม่ได้หรือแท่งน้อยกว่า min_bars จะไม่มี key
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _fetch_one(sym):
+        sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
+        try:
+            df = yf.Ticker(sym_bk).history(period=period, interval="1d", timeout=10)
+            if df is not None and not df.empty and len(df) >= min_bars:
+                return sym, df
+            # หุ้น US ไม่มี .BK — ลองชื่อเดิมอีกครั้ง
+            df2 = yf.Ticker(sym).history(period=period, interval="1d", timeout=10)
+            if df2 is not None and not df2.empty and len(df2) >= min_bars:
+                return sym, df2
+        except Exception:
+            logger.debug("[Backtest] ดึงราคา %s ไม่สำเร็จ", sym, exc_info=True)
+        return sym, None
+
+    out = {}
+    if not symbols:
+        return out
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(_fetch_one, s) for s in symbols]
+        for future in as_completed(futures):
+            sym, df = future.result()
+            if df is not None:
+                out[sym] = df
+    return out
+
+
 def _backtest_options(request, symbol_dfs):
     """
     อ่านตัวเลือก costs / timing จาก query string แล้วคืน (cost_pct, gates)
@@ -8946,12 +8983,9 @@ def api_backtest_exit_rules(request):
 
     symbol = (request.GET.get('symbol') or '').strip().upper()
     if symbol:
-        sym_bk = symbol if (symbol.endswith('.BK') or '.' in symbol) else f"{symbol}.BK"
-        try:
-            df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=20)
-        except Exception as e:
-            return _JR({'error': f'fetch failed: {e}'}, status=502)
-        if df is None or df.empty:
+        # ใช้ตัวดึงร่วม เพราะมันลองทั้ง .BK และชื่อเดิม — ไม่งั้นหุ้น US พิมพ์มาแล้วพัง
+        df = _fetch_universe_history([symbol]).get(symbol)
+        if df is None:
             return _JR({'error': f'no data for {symbol}'}, status=404)
         cost_pct, gates = _backtest_options(request, {symbol: df})
         results = compare_exit_rules(df, preset=preset, cost_pct=cost_pct,
@@ -8979,15 +9013,7 @@ def api_backtest_exit_rules(request):
     if not symbols:
         return _JR({'error': 'no symbols available to test'}, status=404)
 
-    symbol_dfs = {}
-    for sym in symbols:
-        sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
-        try:
-            df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=20)
-            if df is not None and not df.empty:
-                symbol_dfs[sym] = df
-        except Exception:
-            continue
+    symbol_dfs = _fetch_universe_history(symbols)
     if not symbol_dfs:
         return _JR({'error': 'failed to fetch price data for universe symbols'}, status=502)
 
@@ -9009,7 +9035,6 @@ def api_backtest_presets_universe(request):
     GET params: limit (จำนวนหุ้น top market cap ที่จะทดสอบ, default 40, max 80)
     ผลลัพธ์ cache ไว้ 24 ชม. ต่อ limit เพราะดึงข้อมูลราคาหลายสิบตัวจาก yfinance
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
     from django.core.cache import cache
     from django.http import JsonResponse as _JR
     from stocks.models import ScannableSymbol
@@ -9036,27 +9061,7 @@ def api_backtest_presets_universe(request):
     if not symbols:
         return _JR({'error': 'no symbols available to test'}, status=404)
 
-    def _fetch_one_symbol(sym):
-        sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
-        try:
-            df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=10)
-            if df is not None and not df.empty and len(df) >= 30:
-                return sym, df
-            # Fallback try without .BK
-            df2 = yf.Ticker(sym).history(period="3y", interval="1d", timeout=10)
-            if df2 is not None and not df2.empty and len(df2) >= 30:
-                return sym, df2
-        except Exception:
-            pass
-        return sym, None
-
-    symbol_dfs = {}
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(_fetch_one_symbol, s) for s in symbols]
-        for future in as_completed(futures):
-            sym, df = future.result()
-            if df is not None:
-                symbol_dfs[sym] = df
+    symbol_dfs = _fetch_universe_history(symbols)
 
     if not symbol_dfs:
         return _JR({'error': 'failed to fetch price data for universe symbols'}, status=502)
