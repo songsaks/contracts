@@ -37,23 +37,30 @@ def monthly_income(user, usd_thb, us_symbol_set=None, is_us_symbol=None):
     thai_daily_trades = defaultdict(Decimal)
 
     for s in SoldStock.objects.filter(user=user).order_by('sold_at'):
-        if s.market and s.market != MarketType.SET:
-            is_us = s.market == MarketType.US
+        # แยก 2 คำถามออกจากกัน: "เป็นหุ้นไทยไหม" (ใช้คิดค่าคอมฯ) กับ
+        # "ต้องแปลงค่าเงินไหม" (ใช้กับ fallback) — เดิมใช้ is_us ตอบทั้งสองข้อ
+        # ทำให้ crypto/กองทุน ถูกคิดค่าคอมฯ หุ้นไทย และ crypto ถูกนับ USD เป็นบาท 1:1
+        market = s.market or ''
+        if market:
+            is_thai = market == MarketType.SET
+            needs_fx = market in (MarketType.US, MarketType.CRYPTO)
         elif is_us_symbol and us_symbol_set is not None:
-            is_us = is_us_symbol(s.symbol, us_symbol_set)
+            needs_fx = is_us_symbol(s.symbol, us_symbol_set)
+            is_thai = not needs_fx
         else:
-            is_us = False
+            is_thai, needs_fx = True, False
 
         # ยอดบาทที่บันทึกไว้ ณ วันขายแม่นกว่าการแปลงด้วยเรตวันนี้ — ใช้ก่อนเสมอ
         if getattr(s, 'profit_loss_thb', None):
             pl_thb = Decimal(str(s.profit_loss_thb))
         else:
             pl_raw = Decimal(str(s.profit_loss or 0))
-            pl_thb = pl_raw * usd_thb_d if is_us else pl_raw
+            pl_thb = pl_raw * usd_thb_d if needs_fx else pl_raw
 
         realized[(s.sold_at.year, s.sold_at.month)] += pl_thb
 
-        if not is_us:
+        # ค่าคอมฯ ชุดนี้เป็นของโบรกเกอร์หุ้นไทยเท่านั้น
+        if is_thai:
             trade_val = Decimal(str(s.quantity)) * (Decimal(str(s.buy_price)) + Decimal(str(s.sell_price)))
             thai_daily_trades[s.sold_at.date()] += trade_val
 
@@ -97,6 +104,10 @@ def monthly_income(user, usd_thb, us_symbol_set=None, is_us_symbol=None):
             'best_month': max(months, key=lambda m: m['total']) if months else None,
             'worst_month': min(months, key=lambda m: m['total']) if months else None,
             'avg_month': round((total_realized + total_dividend) / len(months), 2) if months else 0.0,
+            # สัดส่วนปันผลเทียบ "รายได้ฝั่งบวก" ไม่ใช่ยอดสุทธิ — ถ้าหารด้วยยอดสุทธิ
+            # เดือนที่ขายขาดทุนหนักจะทำให้ตัวหารเล็กลงจนสัดส่วนพุ่งเกิน 100%
+            'dividend_share': (round(total_dividend / (max(total_realized, 0.0) + total_dividend) * 100, 1)
+                               if (max(total_realized, 0.0) + total_dividend) > 0 else None),
         },
         'by_symbol': [{'symbol': k, 'amount': float(v)}
                       for k, v in sorted(by_symbol.items(), key=lambda x: -x[1])],

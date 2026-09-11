@@ -1411,57 +1411,17 @@ def tithe_report(request):
 
     # ── Exchange rate ──
     usd_thb = _get_usd_thb()
-    usd_thb_d = Decimal(str(round(usd_thb, 4)))
 
-    # ── Aggregate per month with USD→THB conversion ──
-    sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
+    # ── รายได้รายเดือน — ใช้โมดูลกลางร่วมกับหน้า Dashboard ──
+    # เดิมคำนวณซ้ำที่นี่ ทำให้แก้ที่เดียวแล้วอีกหน้าไม่ตาม จนทศางค์ไม่ตรงกับที่หน้าแรกโชว์
+    from stocks.portfolio_income import monthly_income
     us_set = _build_us_symbol_set(request.user)
-    monthly_raw = defaultdict(Decimal)
-    
-    # Track daily trade values for Thai stocks to calculate commissions
-    thai_daily_trades = defaultdict(Decimal)
-    
-    for s in sold_stocks:
-        if s.market and s.market != MarketType.SET:
-            is_us = s.market == MarketType.US
-        else:
-            is_us = _is_us_symbol(s.symbol, us_set)
-        
-        # ลอจิกใหม่: ใช้ profit_loss_thb ที่บันทึกไว้ ณ วันที่ขาย (ถ้ามี)
-        if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb != 0:
-            pl_thb = Decimal(str(s.profit_loss_thb))
-        else:
-            pl_raw = Decimal(str(s.profit_loss or 0))
-            pl_thb = pl_raw * usd_thb_d if is_us else pl_raw
-            
-        key = (s.sold_at.year, s.sold_at.month)
-        monthly_raw[key] += pl_thb
+    income = monthly_income(request.user, usd_thb,
+                            us_symbol_set=us_set, is_us_symbol=_is_us_symbol)
+    monthly_raw = {(m['year'], m['month']): Decimal(str(m['total'])) for m in income['months']}
+    monthly_dividend = {(m['year'], m['month']): Decimal(str(m['dividend'])) for m in income['months']}
 
-        # Calculate daily trade value for Thai stocks
-        if not is_us:
-            trade_val = Decimal(str(s.quantity * (s.buy_price + s.sell_price)))
-            date_key = s.sold_at.date()
-            thai_daily_trades[date_key] += trade_val
-
-    # Calculate daily commission details and subtract from monthly totals
-    for date_key, trade_val in thai_daily_trades.items():
-        raw_comm = trade_val * Decimal('0.00157')
-        comm = max(raw_comm, Decimal('50.0')) if trade_val > 0 else Decimal('0.0')
-        vat = comm * Decimal('0.07')
-        fee_total = comm + vat
-
-        key = (date_key.year, date_key.month)
-        if key in monthly_raw:
-            monthly_raw[key] -= fee_total
-
-    # ── รวมเงินปันผลสุทธิ (หลังหักภาษี) เข้ากับรายได้รายเดือน (แปลง USD→THB ถ้าเป็นหุ้น US) ──
     dividends = DividendRecord.objects.filter(user=request.user).order_by('-dividend_date', '-created_at')
-    monthly_dividend = defaultdict(Decimal)
-    for d in dividends:
-        key = (d.dividend_date.year, d.dividend_date.month)
-        net_thb = d.net_amount * usd_thb_d if d.market == MarketType.US else d.net_amount
-        monthly_dividend[key] += net_thb
-        monthly_raw[key] += net_thb
 
     tithe_map = {
         (t.year, t.month): t

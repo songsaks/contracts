@@ -157,17 +157,15 @@ def dashboard(request):
     total_val_thb = 0
     total_cost_thb = 0
     
-    # คำนวณ Realized P/L (กำไรที่ขายไปแล้ว) ตาม Logic เดียวกับหน้า Report
+    # Realized P/L อ่านจากโมดูลเดียวกับแผงรายได้รายเดือนด้านล่าง
+    # เดิมคำนวณแยกตรงนี้แล้วได้คนละเลขกับแผงข้างล่าง เพราะตัวนี้เชื่อค่า 0 ใน
+    # profit_loss_thb (ฟิลด์ default=0 ไม่ใช่ null) ส่วนอีกตัวถือว่า 0 = ยังไม่บันทึก
+    # เลขนี้หักค่าคอมฯ แล้ว จึงต่ำกว่าที่เคยแสดงเล็กน้อย แต่เป็นกำไรที่ได้รับจริง
     us_set = _build_us_symbol_set(request.user)
-    total_realized_pl = 0
-    for s in sold_assets:
-        is_us = (s.market == MarketType.US) if s.market else _is_us_symbol(s.symbol, us_set)
-        
-        if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb is not None:
-            pl_thb = float(s.profit_loss_thb)
-        else:
-            pl_thb = float(s.profit_loss or 0) * usd_thb if is_us else float(s.profit_loss or 0)
-        total_realized_pl += pl_thb
+    from stocks.portfolio_income import monthly_income
+    income = monthly_income(request.user, usd_thb,
+                            us_symbol_set=us_set, is_us_symbol=_is_us_symbol)
+    total_realized_pl = income['totals']['realized']
     
     set_val = 0
     us_val = 0
@@ -212,10 +210,6 @@ def dashboard(request):
     top_gainers = sorted_items[:3]
     top_losers = sorted_items[-3:][::-1] if len(sorted_items) > 3 else []
 
-    # ── รายได้รายเดือน: กำไรจากการขาย + เงินปันผล (ใช้โมดูลกลางร่วมกับหน้าทศางค์) ──
-    from stocks.portfolio_income import monthly_income
-    income = monthly_income(request.user, usd_thb,
-                            us_symbol_set=us_set, is_us_symbol=_is_us_symbol)
     recent_months = income['months'][-12:]          # กราฟแสดง 12 เดือนล่าสุด
 
     # เส้นสะสม: รายได้ที่ "บันทึกแล้ว" (ขายจริง + ปันผลที่เข้าบัญชี) สะสมตามเวลา

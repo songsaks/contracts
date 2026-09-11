@@ -106,7 +106,7 @@
             </div>
             <div class="inc-stat">
               <div class="inc-stat-label">เดือนที่ดีที่สุด</div>
-              <div class="inc-stat-num inc-pos">฿{{ income.totals.best_month.total|floatformat:0|intcomma }}</div>
+              <div class="inc-stat-num {% if income.totals.best_month.total >= 0 %}inc-pos{% else %}inc-neg{% endif %}">฿{{ income.totals.best_month.total|floatformat:0|intcomma }}</div>
               <div class="inc-stat-hint">{{ income.totals.best_month.label }}</div>
             </div>
           </div>
@@ -127,8 +127,8 @@
 
           <div class="inc-div-total">฿{{ income.totals.dividend|floatformat:0|intcomma }}</div>
           <div class="inc-stat-hint mb-3">
-            คิดเป็น {% widthratio income.totals.dividend income.totals.net 100 as div_share %}
-            {% if income.totals.net > 0 %}{{ div_share }}%{% else %}—{% endif %} ของรายได้สุทธิทั้งหมด
+            {% if income.totals.dividend_share %}คิดเป็น {{ income.totals.dividend_share }}% ของรายได้ฝั่งบวกทั้งหมด
+            {% else %}ยังไม่มีรายได้ฝั่งบวกให้เทียบสัดส่วน{% endif %}
           </div>
 
           {% if dividend_top %}
@@ -460,6 +460,21 @@ body { font-family: var(--font); background-color: var(--slate-50); }
 .inc-empty { padding:28px 10px; text-align:center; color:#94a3b8;
              font-size:0.82rem; font-weight:600; }
 @media (max-width: 576px) { .inc-div-total { font-size:1.6rem; } }
+
+/* โหมดมืด — .db-panel เป็นพื้นเข้ม ถ้าไม่ override ตัวอักษร #0f172a จะจมหายไปเลย
+   และไทล์พื้นขาวจะเป็นแผ่นสว่างโพล่งกลางการ์ด */
+[data-bs-theme="dark"] .inc-stat-row { background:rgba(148,163,184,0.18); }
+[data-bs-theme="dark"] .inc-stat { background:rgba(15,23,42,0.85); }
+[data-bs-theme="dark"] .inc-stat-num,
+[data-bs-theme="dark"] .inc-div-sym,
+[data-bs-theme="dark"] .inc-tagname { color:#e2e8f0; }
+[data-bs-theme="dark"] .inc-stat-of { color:#475569; }
+/* เฉดอ่อนลงเพื่อให้ contrast พอบนพื้นเข้ม — เฉดเข้มของโหมดสว่างจะมืดเกินไป */
+[data-bs-theme="dark"] .inc-pos { color:#4ade80; }
+[data-bs-theme="dark"] .inc-neg { color:#f87171; }
+[data-bs-theme="dark"] .inc-div-total,
+[data-bs-theme="dark"] .inc-div-amt { color:#93c5fd; }
+[data-bs-theme="dark"] .inc-div-row { border-bottom-color:rgba(148,163,184,0.18); }
 </style>
 
 <!-- ═══════ SCRIPTS ═══════ -->
