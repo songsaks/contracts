@@ -50,7 +50,7 @@ def get_gold_positions_ajax(request):
     """
     ดึงรายการออเดอร์ทองที่เปิดอยู่
     """
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     bridge = RobotBridge(user=request.user)
     try:
         positions = bridge.get_open_positions()
@@ -64,7 +64,7 @@ def close_all_gold_positions_ajax(request):
     """
     สั่งปิดออเดอร์ทองทั้งหมด
     """
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     bridge = RobotBridge(user=request.user)
     try:
         success = bridge.close_all_positions()
@@ -80,7 +80,7 @@ def modify_gold_position_ajax(request):
         return JsonResponse({'error': 'POST required'}, status=400)
     import json
 
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     try:
         data = json.loads(request.body)
         position_id = data.get('position_id')
@@ -113,7 +113,7 @@ def execute_gold_trade_ajax(request):
         return JsonResponse({'success': False, 'error': 'Rate limit: max 10 trades/minute'}, status=429)
     import json
 
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     
     try:
         data = json.loads(request.body)
@@ -226,7 +226,7 @@ def get_crypto_positions_ajax(request):
     """
     ดึงรายการออเดอร์คริปโตที่เปิดอยู่
     """
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     bridge = RobotBridge(user=request.user)
     try:
         positions = bridge.get_open_positions()
@@ -243,7 +243,7 @@ def close_all_crypto_positions_ajax(request):
     """
     สั่งปิดออเดอร์คริปโตทั้งหมด
     """
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     bridge = RobotBridge(user=request.user)
     try:
         # ปิดเฉพาะออเดอร์ BTC-USD / BTCUSD
@@ -261,7 +261,7 @@ def modify_crypto_position_ajax(request):
         return JsonResponse({'error': 'POST required'}, status=400)
     import json
 
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     try:
         data = json.loads(request.body)
         position_id = data.get('position_id')
@@ -294,7 +294,7 @@ def execute_crypto_trade_ajax(request):
         return JsonResponse({'success': False, 'error': 'Rate limit: max 10 trades/minute'}, status=429)
     import json
 
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
     
     try:
         data = json.loads(request.body)
@@ -545,7 +545,7 @@ def get_crypto_trade_history_ajax(request):
     from django.utils import timezone
 
     from stocks.models import TradeOrder, TradingAccount
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
 
     # 1. Auto-Sync สถานะออเดอร์ก่อนแสดงผล
     sync_errors = []
@@ -847,7 +847,7 @@ def get_gold_trade_history_ajax(request):
     from django.utils import timezone
 
     from stocks.models import TradeOrder, TradingAccount
-    from .trading_bridge import RobotBridge
+    from stocks.trading_bridge import RobotBridge
 
     # 1. Auto-Sync สถานะออเดอร์ก่อนแสดงผล
     sync_errors = []

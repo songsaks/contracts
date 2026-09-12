@@ -1,5 +1,6 @@
 from .base import *
 import logging
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -967,6 +968,7 @@ def add_to_portfolio(request):
     return redirect('stocks:portfolio_list')
 
 @login_required
+@require_POST
 def delete_from_portfolio(request, pk):
     """ลบรายการจากพอร์ต (เฉพาะ object ของ user ปัจจุบันเท่านั้น)"""
     item = get_object_or_404(Portfolio, pk=pk, user=request.user)
@@ -976,11 +978,14 @@ def delete_from_portfolio(request, pk):
     return redirect('stocks:portfolio_list')
 
 @login_required
+@transaction.atomic
 def sell_stock(request, pk):
     """
     จัดการการขายหุ้นพร้อมคำนวณกำไร/ขาดทุน
     """
-    portfolio_item = get_object_or_404(Portfolio, pk=pk, user=request.user)
+    portfolio_item = get_object_or_404(
+        Portfolio.objects.select_for_update(), pk=pk, user=request.user
+    )
     
     if request.method == 'POST':
         form = SellStockForm(request.POST)

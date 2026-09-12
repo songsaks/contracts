@@ -30,6 +30,7 @@ def add_to_watchlist(request):
     return redirect('stocks:dashboard')
 
 @login_required
+@require_POST
 def delete_from_watchlist(request, pk):
     """ลบรายการ Watchlist ตาม pk (เฉพาะของ user ปัจจุบันเท่านั้น)"""
     item = get_object_or_404(Watchlist, pk=pk, user=request.user)
