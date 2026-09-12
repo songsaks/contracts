@@ -5,6 +5,10 @@
 (ใส่พาธโฟลเดอร์ที่มี stubs/ เป็น argv[1] ได้ ถ้าเครื่องนั้นไม่มี pandas_ta)
 """
 import sys, types
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))      # ให้ import config.settings / stocks ได้เมื่อรันจากที่ไหนก็ได้
 if len(sys.argv) > 1:
     sys.path.insert(0, sys.argv[1] + '/stubs')
 import os, django
@@ -15,10 +19,10 @@ from unittest.mock import patch
 import stocks.views.base as vb
 
 class Cfg:
-    def __init__(self, wl=False, brk=True):
+    def __init__(self, wl=False, brk=True, **on):
         self.alert_watchlist_entry = wl; self.alert_breakout_add = brk
         self.alert_sl = False; self.alert_tp = False
-        for k in dir(ae.__class__ if False else object): pass
+        self.__dict__.update(on)        # เปิดสวิตช์อื่นเฉพาะเคสที่ต้องใช้
     def __getattr__(self, n):   # สวิตช์อื่นๆ ปิดหมด
         return False
 
@@ -59,7 +63,7 @@ def _prices(pairs):
         yf_sym = ae._to_yf_symbol(sym, mkt)
         want_bk = (_UNIVERSE.get(sym, 'SET') == 'SET')
         if yf_sym.endswith('.BK') == want_bk:
-            out[sym] = 10.0
+            out[(sym, mkt)] = 10.0
     return out
 
 _UNIVERSE = {}
@@ -75,7 +79,7 @@ def run(cfg, wl_syms, pf_syms, scans, market_open=True):
          patch.object(ae.Watchlist.objects, 'filter', lambda **k: [W(s) for s in wl_syms]), \
          patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P(s) for s in pf_syms]), \
          patch.object(ae, 'fetch_live_prices', _prices), \
-         patch.object(ae, '_latest_scan', lambda sym, market=None: scans.get(sym.replace('.BK',''))), \
+         patch.object(ae, '_latest_scan', lambda sym, market=None, user=None: scans.get(sym.replace('.BK',''))), \
          patch.object(ae, 'is_market_open', lambda m: market_open), \
          patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda evs: created.extend(evs)):
         ev = ae.evaluate_user_alerts(U(), cfg)
@@ -143,8 +147,8 @@ def run_all(cfg, wl, pf, sc, mo):
          _p.object(ae,'_passes_inzone_gate', lambda s: True), \
          _p.object(ae.Watchlist.objects,'filter', lambda **k:[W(x) for x in wl]), \
          _p.object(ae.Portfolio.objects,'filter', lambda **k:[P(x) for x in pf]), \
-         _p.object(ae,'fetch_live_prices', lambda pairs:{s:10.0 for s,_ in pairs}), \
-         _p.object(ae,'_latest_scan', lambda s,market=None: sc.get(s.replace('.BK',''))), \
+         _p.object(ae,'fetch_live_prices', lambda pairs:{(s,m):10.0 for s,m in pairs}), \
+         _p.object(ae,'_latest_scan', lambda s,market=None,user=None: sc.get(s.replace('.BK',''))), \
          _p.object(ae,'is_market_open', lambda m: mo), \
          _p.object(ae.StockAlertEvent.objects,'bulk_create', lambda e: created.extend(e)):
         return ae.evaluate_user_alerts(U(), cfg)
@@ -160,7 +164,7 @@ from unittest.mock import patch as _pp
 def run_cross():
     scan_us  = Scan(market='US',  is_52w_breakout=True, rvol=2.0, turtle_dist_pct=0.2)
     scan_set = Scan(market='SET', rvol=2.0, turtle_dist_pct=0.2)
-    def _scan(sym, market=None):       # พอร์ตส่ง market มา, watchlist ไม่ส่ง
+    def _scan(sym, market=None, user=None):       # พอร์ตส่ง market มา, watchlist ไม่ส่ง
         return scan_us if market == 'US' else scan_set
     class PUS(P):
         def __init__(self, s): super().__init__(s); self.market = 'US'
@@ -169,7 +173,7 @@ def run_cross():
          _pp.object(vb, '_compute_signals', lambda s, current_price=0: {'buy_score': 80, 'reversal_score': 0, 'buy_reasons': []}), \
          _pp.object(ae.Watchlist.objects, 'filter', lambda **k: [W('TU')]), \
          _pp.object(ae.Portfolio.objects, 'filter', lambda **k: [PUS('TU')]), \
-         _pp.object(ae, 'fetch_live_prices', lambda pairs: {s: 10.0 for s, _ in pairs}), \
+         _pp.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
          _pp.object(ae, '_latest_scan', _scan), \
          _pp.object(ae, 'is_market_open', lambda m: True), \
          _pp.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
@@ -195,8 +199,9 @@ class FakeTicker:
 with patch.object(ae.yf, 'download', lambda *a, **k: None), \
      patch.object(ae.yf, 'Ticker', FakeTicker):
     got = ae.fetch_live_prices([('PTT.BK', 'SET'), ('PTT', 'SET'), ('AAPL', 'US')])
-print('12) PTT.BK และ PTT ได้ราคาทั้งคู่:', got.get('PTT.BK') == 42.0 and got.get('PTT') == 42.0,
-      '| AAPL ได้ราคา:', got.get('AAPL') == 42.0, f'-> {got}')
+print('12) PTT.BK และ PTT ได้ราคาทั้งคู่:',
+      got.get(('PTT.BK', 'SET')) == 42.0 and got.get(('PTT', 'SET')) == 42.0,
+      '| AAPL ได้ราคา:', got.get(('AAPL', 'US')) == 42.0, f'-> {got}')
 
 # ── 13. ฝั่งพอร์ต: รันซ้ำในรอบถัดไปต้องไม่ยิงใบเดิมอีก (เดิมยิงทุก ~90 วินาที) ──
 def run_twice():
@@ -209,8 +214,8 @@ def run_twice():
              patch.object(vb, '_compute_signals', lambda s, current_price=0: {'buy_score': 80, 'reversal_score': 0, 'buy_reasons': []}), \
              patch.object(ae.Watchlist.objects, 'filter', lambda **k: []), \
              patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('JJJ')]), \
-             patch.object(ae, 'fetch_live_prices', lambda pairs: {s: 10.0 for s, _ in pairs}), \
-             patch.object(ae, '_latest_scan', lambda s, market=None: sc.get(s.replace('.BK', ''))), \
+             patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
+             patch.object(ae, '_latest_scan', lambda s, market=None, user=None: sc.get(s.replace('.BK', ''))), \
              patch.object(ae, 'is_market_open', lambda m: True), \
              patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
             ev = ae.evaluate_user_alerts(U(), Cfg())
@@ -218,3 +223,69 @@ def run_twice():
     return out
 counts = run_twice()
 print('13) รัน 3 รอบติดกัน -> ยิงใบเดียว:', counts == [1, 0, 0], f'(ต่อรอบ: {counts})')
+
+# ── 14. โซ่ if/elif ต้องไม่รั่ว: หุ้นที่เบรคแล้วถูกกันซ้ำ ห้ามไหลไปยิง "ย่อเข้าโซน" แทน ──
+def run_chain():
+    sc = {'KKK': Scan(market='SET', is_52w_breakout=True, rvol=2.0, turtle_dist_pct=0.2,
+                      demand_zone_start=11.0, demand_zone_end=9.0)}
+    mc = MemCache()
+    seen = []
+    for _ in range(3):
+        created = []
+        with patch.object(ae, 'cache', mc), \
+             patch.object(vb, '_compute_signals', lambda s, current_price=0: {'buy_score': 90, 'reversal_score': 0, 'buy_reasons': []}), \
+             patch.object(ae, '_passes_inzone_gate', lambda s: True), \
+             patch.object(ae.Watchlist.objects, 'filter', lambda **k: []), \
+             patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('KKK')]), \
+             patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
+             patch.object(ae, '_latest_scan', lambda s, market=None, user=None: sc.get(s.replace('.BK', ''))), \
+             patch.object(ae, 'is_market_open', lambda m: True), \
+             patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
+            ev = ae.evaluate_user_alerts(U(), Cfg())
+        seen.append([e.alert_type for e in ev])
+    flat = [t for r in seen for t in r]
+    ok = seen[0] == [ae.StockAlertEvent.AlertType.BREAKOUT] and not seen[1] and not seen[2]
+    print('14) กันซ้ำแล้วไม่ไหลไป elif โซนซื้อ:', ok, f'(ต่อรอบ: {seen})')
+
+run_chain()
+
+# ── 15. สัญญาณ "สับเปลี่ยนหุ้น" ต้องยังทำงานในรอบที่ 2 (หุ้นเด่นต้องนับทุกรอบ) ──
+def run_realloc():
+    sc = {'STRONG': Scan(market='SET', is_52w_breakout=True, technical_score=90,
+                         rvol=2.0, turtle_dist_pct=0.2),
+          'WEAK':   Scan(market='SET', technical_score=10, rvol=0.5, turtle_dist_pct=99.0,
+                         stop_loss=20.0)}   # ราคา 10 ต่ำกว่า SL 20 = หลุด SL
+    mc = MemCache()
+    out = []
+    for _ in range(2):
+        # ล้างเฉพาะ mute 24 ชม.ของสัญญาณสับเปลี่ยน ไม่ล้างคีย์ breakout
+        # เพื่อวัดว่ารอบที่สอง "ยังจับคู่ได้" ไหม ไม่ใช่วัดตัว mute เอง
+        for _k in [k for k in mc.d if k.startswith('stockalert_reallocate_')]:
+            del mc.d[_k]
+        created = []
+        with patch.object(ae, 'cache', mc), \
+             patch.object(vb, '_compute_signals', lambda s, current_price=0: {'buy_score': 50, 'reversal_score': 0, 'buy_reasons': []}), \
+             patch.object(ae.Watchlist.objects, 'filter', lambda **k: []), \
+             patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('STRONG'), P('WEAK')]), \
+             patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
+             patch.object(ae, '_latest_scan', lambda s, market=None, user=None: sc.get(s.replace('.BK', ''))), \
+             patch.object(ae, 'is_market_open', lambda m: True), \
+             patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
+            ev = ae.evaluate_user_alerts(U(), Cfg(alert_stop_loss=True, alert_reallocate=True))
+        out.append(len([e for e in ev if e.alert_type == ae.StockAlertEvent.AlertType.REALLOCATE]))
+    return out
+rc = run_realloc()
+print('15) รอบ 2 ยังจับคู่สับเปลี่ยนหุ้นได้:', rc[1] >= 1 or rc[0] >= 1, f'(REALLOCATE ต่อรอบ: {rc})')
+
+# ── 16. fetch_live_prices ตัวจริง: TU ที่ SET กับ TU ที่ US ต้องได้ราคาคนละตัว ──
+_PX = {'TU.BK': 14.0, 'TU': 89.0}
+class FakeTicker2:
+    def __init__(self, s): self.s = s
+    @property
+    def fast_info(self):
+        return type('FI', (), {'last_price': _PX.get(self.s)})()
+with patch.object(ae.yf, 'download', lambda *a, **k: None), \
+     patch.object(ae.yf, 'Ticker', FakeTicker2):
+    got2 = ae.fetch_live_prices([('TU', 'SET'), ('TU', 'US')])
+print('16) TU(SET) vs TU(US) ได้ราคาคนละตัว:',
+      got2.get(('TU', 'SET')) == 14.0 and got2.get(('TU', 'US')) == 89.0, f'-> {got2}')

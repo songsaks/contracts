@@ -94,20 +94,25 @@ def fetch_live_prices(symbol_market_pairs):
     """
     ดึงราคาปัจจุบันแบบ batch
     symbol_market_pairs: iterable ของ (symbol, market) — market ใช้ตัดสินว่าต้องเติม .BK หรือไม่
-    คืนค่าเป็น {original_symbol: price}
+
+    คืนค่าเป็น {(symbol, market): price} ไม่ใช่ {symbol: price}
+    เพราะ ticker ซ้ำกันข้ามตลาดได้จริง (TU / CPF / SCB มีทั้ง SET และ US) ถ้าคีย์ด้วย
+    symbol เปล่า ราคาของตลาดหนึ่งจะทับอีกตลาดหนึ่ง แล้วโพซิชันฝั่งที่ถูกทับจะถูก
+    ประเมิน SL/TP ด้วยราคาของหุ้นคนละตัว ซึ่งอันตรายกว่าการไม่มีราคาเสียอีก
+    ใช้ค้นด้วย prices.get((p.symbol, p.market))
     """
     pairs = list(dict.fromkeys(symbol_market_pairs))  # unique, คงลำดับ
     if not pairs:
         return {}
 
     yf_symbols = list(dict.fromkeys(_to_yf_symbol(sym, mkt) for sym, mkt in pairs))
-    # yf_sym -> รายชื่อ symbol ต้นทาง *ทุกตัว* ที่แปลงมาลงตัวเดียวกัน
+    # yf_sym -> คู่ (symbol, market) ต้นทาง *ทุกคู่* ที่แปลงมาลงตัวเดียวกัน
     # ต้องเก็บเป็นลิสต์ ไม่ใช่ทับกันเหลือตัวเดียว: พอร์ตเก็บ 'PTT.BK' ส่วน watchlist เก็บ 'PTT'
     # ทั้งคู่แปลงเป็น 'PTT.BK' เหมือนกัน ถ้าเหลือคีย์เดียวอีกฝั่งจะไม่มีราคาให้ใช้
     # แล้วหายไปเงียบๆ (พอร์ตหลุด alert SL/TP หรือ watchlist หลุด alert breakout สลับกันไป)
     sym_map = {}
     for (orig, mkt) in pairs:
-        sym_map.setdefault(_to_yf_symbol(orig, mkt), []).append(orig)
+        sym_map.setdefault(_to_yf_symbol(orig, mkt), []).append((orig, mkt))
     live_prices = {}
 
     # ── หลัก: ยิง batch เดียวด้วย yf.download 1m — เร็วกว่า t.info ทีละตัวมาก ──
@@ -119,15 +124,15 @@ def fetch_live_prices(symbol_market_pairs):
                 ys = yf_symbols[0]
                 _close = df["Close"].dropna() if "Close" in df.columns else df.get(ys, df).get("Close")
                 if _close is not None and len(_close):
-                    for orig in sym_map[ys]:
-                        live_prices[orig] = float(_close.iloc[-1])
+                    for key in sym_map[ys]:
+                        live_prices[key] = float(_close.iloc[-1])
             else:
                 for ys in yf_symbols:
                     try:
                         _close = df[ys]["Close"].dropna()
                         if len(_close):
-                            for orig in sym_map[ys]:
-                                live_prices[orig] = float(_close.iloc[-1])
+                            for key in sym_map[ys]:
+                                live_prices[key] = float(_close.iloc[-1])
                     except Exception:
                         continue
     except Exception:
@@ -135,13 +140,13 @@ def fetch_live_prices(symbol_market_pairs):
 
     # ── fallback: ตัวที่ batch ไม่ได้ราคา ให้ลอง fast_info ทีละตัว ──
     missing = [ys for ys in yf_symbols
-               if any(orig not in live_prices for orig in sym_map[ys])]
+               if any(key not in live_prices for key in sym_map[ys])]
     for ys in missing:
         try:
             p = yf.Ticker(ys).fast_info.last_price
             if p:
-                for orig in sym_map[ys]:
-                    live_prices[orig] = float(p)
+                for key in sym_map[ys]:
+                    live_prices[key] = float(p)
         except Exception:
             continue
 
@@ -165,12 +170,26 @@ def _breakout_cache_key(user_id, symbol, market):
     return f"stockalert_breakout_{user_id}_{_symbol_key(symbol)}_{market or ''}"
 
 
-def _latest_scan(symbol, market=None):
+def _latest_scan(symbol, market=None, user=None):
     clean_symbol = symbol.replace('.BK', '')
     qs = PrecisionScanCandidate.objects.filter(symbol=clean_symbol)
     if market:
         qs = qs.filter(market=market)
+    if user is not None:
+        qs = qs.filter(user=user)
     return qs.order_by('-scan_run').first()
+
+
+def _watchlist_market(symbol):
+    """เดา market ของรายการใน watchlist จากรูปสัญลักษณ์ — โมเดล Watchlist ไม่มีฟิลด์ market
+
+    'PTT.BK' บอกตลาดไว้ในชื่ออยู่แล้ว (help_text ของฟิลด์ระบุรูปแบบนี้) ส่วนชื่อเปล่า
+    อย่าง 'TU' บอกไม่ได้ว่าหมายถึงหุ้นไทยหรือหุ้น US — คืน None ให้ผู้เรียกไปหยิบผลสแกน
+    ล่าสุดของ user คนนั้นมาตัดสินแทน (ยังกำกวมอยู่ถ้า user สแกนทั้งสองตลาด แต่
+    อย่างน้อยไม่ไปหยิบผลสแกนของคนอื่นมาใช้)
+    """
+    sym = str(symbol or '').strip().upper()
+    return MarketType.SET if sym.endswith('.BK') else None
 
 
 def _is_turtle_strategy(strategy):
@@ -392,7 +411,8 @@ def evaluate_user_alerts(user, config):
     # ถ้าส่ง market=None ให้ heuristic ตัดสิน _to_yf_symbol จะเติม .BK ให้ทุกตัวที่ไม่ใช่
     # _NON_SET_MARKETS ซึ่งรวม None ด้วย หุ้น US ใน watchlist จึงถูกถามราคาเป็น 'AAPL.BK'
     # = ไม่มีราคา = ถูก continue ทิ้งทุกรอบ ไม่เคยได้ alert เลย แถมเสีย request เปล่าทุก ~90 วิ
-    watchlist_scans = {w.symbol: _latest_scan(w.symbol) for w in watchlists}
+    watchlist_scans = {w.symbol: _latest_scan(w.symbol, _watchlist_market(w.symbol), user=user)
+                       for w in watchlists}
 
     symbol_market_pairs = (
         {(p.symbol, p.market) for p in portfolios}
@@ -402,7 +422,7 @@ def evaluate_user_alerts(user, config):
 
     # มูลค่าพอร์ตหุ้นไทย (SET) รวม — ใช้เป็นฐานคำนวณ "ซื้อเพิ่มกี่บาท" ในสัญญาณ Breakout (เสี่ยง 1% ของพอร์ตนี้ต่อการเพิ่มโพซิชันหนึ่งครั้ง)
     total_set_value = sum(
-        float(pf.quantity) * float(live_prices.get(pf.symbol) or pf.entry_price or 0)
+        float(pf.quantity) * float(live_prices.get((pf.symbol, pf.market)) or pf.entry_price or 0)
         for pf in portfolios if pf.market == MarketType.SET
     )
 
@@ -456,7 +476,7 @@ def evaluate_user_alerts(user, config):
                     cache.set(_k, True, timeout=12 * 60 * 60)
 
     for p in portfolios:
-        price = live_prices.get(p.symbol)
+        price = live_prices.get((p.symbol, p.market))
         if not price:
             continue
 
@@ -633,12 +653,12 @@ def evaluate_user_alerts(user, config):
             except Exception:
                 pass
 
-        # บล็อกนี้เป็นบล็อกเดียวในไฟล์ที่ไม่มีตัวกันแจ้งเตือนซ้ำ ผลคือยิงใบเดิมทุกรอบเช็ค
-        # (~90 วินาทีตอนตลาดเปิด = หลายร้อยแถวต่อวันต่อหุ้นหนึ่งตัว) — ใช้คีย์ร่วมกับฝั่ง
-        # watchlist ด้วย หุ้นที่ถืออยู่และอยู่ใน watchlist จะได้ใบเดียว ไม่ว่าทางไหนยิงก่อน
+        # ตัวกันแจ้งเตือนซ้ำต้องอยู่ *ในตัวบล็อก* ไม่ใช่ในเงื่อนไข if — โซ่ if/elif นี้ออกแบบให้
+        # แต่ละสถานะเป็นทางแยกที่ไม่ทับกัน ถ้าเอา cache มาไว้ในเงื่อนไข พอถูกกันซ้ำสำเร็จ
+        # มันจะไหลลง elif แล้วยิง "ย่อเข้าโซนสะสม" / VDU ต่อจากใบ breakout ทันที
+        # ซึ่งขัดกันเองในสายตาผู้ใช้ (เพิ่งบอกว่าเบรคขึ้น 90 วินาทีต่อมาบอกว่าย่อลงโซน)
         _brk_key = _breakout_cache_key(user.id, p.symbol, p.market)
-        if (config.alert_breakout_add and not cache.get(_brk_key)
-                and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring)):
+        if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring):
             # ── ระบุชนิด/ความแรงของสัญญาณให้ตรงกับ Precision scanner ──
             #   PK ⭐ (pp_at_ma50) = เด้งจาก SMA50 ในฐาน + CMF ≥ 0 → มั่นใจสูง (เทียบ badge PK★)
             #   PK ธรรมดา (pocket_pivot อย่างเดียว) = up-day + volume trigger → มั่นใจต่ำกว่า (เทียบ badge PK⚡)
@@ -720,17 +740,23 @@ def evaluate_user_alerts(user, config):
                     knife_warning += "RSI oversold "
                 knife_warning += "— ไม่แนะนำซื้อเพิ่มตอนนี้ รอให้มั่นใจก่อน"
 
-            new_events.append(StockAlertEvent(
-                user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.BREAKOUT,
-                strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
-                message=(
-                    f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
-                    f"{_sig_label} "
-                    f"ที่ราคา {price:.2f} — "
-                    + ("✅ ควรพิจารณาซื้อเพิ่ม" if is_safe_add else "⚠️ HOLD ก่อน") + f"{add_amount_txt}{knife_warning}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
-                ),
-            ))
-            cache.set(_brk_key, True, timeout=12 * 60 * 60)
+            # กันซ้ำเฉพาะ "การยิงใบแจ้งเตือน" ไม่ใช่การเข้าบล็อก — คีย์ร่วมกับฝั่ง watchlist
+            # หุ้นที่ถืออยู่และอยู่ใน watchlist จึงได้ใบเดียว ไม่ว่าทางไหนยิงก่อน
+            if not cache.get(_brk_key):
+                new_events.append(StockAlertEvent(
+                    user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.BREAKOUT,
+                    strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
+                    message=(
+                        f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
+                        f"{_sig_label} "
+                        f"ที่ราคา {price:.2f} — "
+                        + ("✅ ควรพิจารณาซื้อเพิ่ม" if is_safe_add else "⚠️ HOLD ก่อน") + f"{add_amount_txt}{knife_warning}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
+                    ),
+                ))
+                cache.set(_brk_key, True, timeout=12 * 60 * 60)
+            # "หุ้นเด่น" ต้องนับทุกรอบที่สัญญาณยังอยู่ ไม่ใช่เฉพาะรอบที่ยิงใบแจ้งเตือน —
+            # ฝั่ง "หุ้นอ่อนแอ" (STOP_LOSS) ไม่มีตัวกันซ้ำ จึงเติมทุกรอบ ถ้าฝั่งนี้เติมรอบเดียว
+            # สัญญาณ "สับเปลี่ยนหุ้น" จะจับคู่ไม่ติดตั้งแต่รอบที่สอง = ฟีเจอร์ตายไปเฉยๆ
             # นับเป็น "หุ้นเด่น" เฉพาะสัญญาณแรง — เบรค 52w High / Wyckoff Spring / PK ⭐ (pp_at_ma50)
             # PK ธรรมดาอย่างเดียวยังยิง alert เป็นข้อมูล แต่ไม่ดันขึ้นสรุป (ตรงกับ scanner ที่ให้ PK⚡ เป็นข้อมูล, PK★ เป็นคุณภาพ)
             if latest_scan.is_52w_breakout or latest_scan.wyckoff_spring or _pk_strict:
@@ -814,7 +840,7 @@ def evaluate_user_alerts(user, config):
                 new_events.append(StockAlertEvent(
                     user=user, symbol=weak['symbol'], market=weak['market'],
                     alert_type=StockAlertEvent.AlertType.REALLOCATE,
-                    strategy='', price=live_prices.get(weak['symbol']) or 0,
+                    strategy='', price=live_prices.get((weak['symbol'], weak['market'])) or 0,
                     message=(
                         f"ภาพรวมพอร์ต: หุ้น {weak['symbol']} มีสัญญาณอ่อนแอ ({weak['reason']}) "
                         f"ขณะที่ {strong['symbol']} เกิดสัญญาณแข็งแกร่งกว่า ({strong['reason']}, คะแนน {strong['score']}) "
@@ -878,7 +904,7 @@ def evaluate_user_alerts(user, config):
                 new_events.append(StockAlertEvent(
                     user=user, symbol=held[0], market=_mk,
                     alert_type=StockAlertEvent.AlertType.SECTOR_ROTATION,
-                    strategy='', price=live_prices.get(held[0]) or 0.0,
+                    strategy='', price=live_prices.get((held[0], _mk)) or 0.0,
                     message=(
                         f"กลุ่ม \"{sec}\" ที่คุณถือหุ้นอยู่ ({', '.join(sorted(held))}) กำลังอ่อนแรงกว่าตลาด "
                         f"(หุ้น Stage 2 ในกลุ่มมีเพียง {_sec_str:.0f}% ต่ำกว่าค่ากลาง {_median:.0f}%) "
@@ -890,7 +916,7 @@ def evaluate_user_alerts(user, config):
 
     if config.alert_watchlist_entry or config.alert_breakout_add:
         for w in watchlists:
-            price = live_prices.get(w.symbol)
+            price = live_prices.get((w.symbol, getattr(watchlist_scans.get(w.symbol), 'market', None)))
             if not price:
                 continue
             latest_scan = watchlist_scans.get(w.symbol)

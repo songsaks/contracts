@@ -1723,7 +1723,7 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
     equity = 0.0
     heat_rows = []
     for p in holdings:
-        px = prices.get(p.symbol)
+        px = prices.get((p.symbol, p.market))
         if not px:
             continue
         fx = usd_thb if p.market != MarketType.SET else 1.0
