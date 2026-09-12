@@ -100,9 +100,14 @@ def fetch_live_prices(symbol_market_pairs):
     if not pairs:
         return {}
 
-    yf_symbols = [_to_yf_symbol(sym, mkt) for sym, mkt in pairs]
-    # yf_sym -> original_sym (กรณีชนกันเอาตัวหลัง ไม่เป็นไร ราคาเดียวกัน)
-    sym_map = {ys: orig for (orig, _m), ys in zip(pairs, yf_symbols)}
+    yf_symbols = list(dict.fromkeys(_to_yf_symbol(sym, mkt) for sym, mkt in pairs))
+    # yf_sym -> รายชื่อ symbol ต้นทาง *ทุกตัว* ที่แปลงมาลงตัวเดียวกัน
+    # ต้องเก็บเป็นลิสต์ ไม่ใช่ทับกันเหลือตัวเดียว: พอร์ตเก็บ 'PTT.BK' ส่วน watchlist เก็บ 'PTT'
+    # ทั้งคู่แปลงเป็น 'PTT.BK' เหมือนกัน ถ้าเหลือคีย์เดียวอีกฝั่งจะไม่มีราคาให้ใช้
+    # แล้วหายไปเงียบๆ (พอร์ตหลุด alert SL/TP หรือ watchlist หลุด alert breakout สลับกันไป)
+    sym_map = {}
+    for (orig, mkt) in pairs:
+        sym_map.setdefault(_to_yf_symbol(orig, mkt), []).append(orig)
     live_prices = {}
 
     # ── หลัก: ยิง batch เดียวด้วย yf.download 1m — เร็วกว่า t.info ทีละตัวมาก ──
@@ -114,25 +119,29 @@ def fetch_live_prices(symbol_market_pairs):
                 ys = yf_symbols[0]
                 _close = df["Close"].dropna() if "Close" in df.columns else df.get(ys, df).get("Close")
                 if _close is not None and len(_close):
-                    live_prices[sym_map[ys]] = float(_close.iloc[-1])
+                    for orig in sym_map[ys]:
+                        live_prices[orig] = float(_close.iloc[-1])
             else:
                 for ys in yf_symbols:
                     try:
                         _close = df[ys]["Close"].dropna()
                         if len(_close):
-                            live_prices[sym_map[ys]] = float(_close.iloc[-1])
+                            for orig in sym_map[ys]:
+                                live_prices[orig] = float(_close.iloc[-1])
                     except Exception:
                         continue
     except Exception:
         pass
 
     # ── fallback: ตัวที่ batch ไม่ได้ราคา ให้ลอง fast_info ทีละตัว ──
-    missing = [(sym_map[ys], ys) for ys in yf_symbols if sym_map[ys] not in live_prices]
-    for original_sym, ys in missing:
+    missing = [ys for ys in yf_symbols
+               if any(orig not in live_prices for orig in sym_map[ys])]
+    for ys in missing:
         try:
             p = yf.Ticker(ys).fast_info.last_price
             if p:
-                live_prices[original_sym] = float(p)
+                for orig in sym_map[ys]:
+                    live_prices[orig] = float(p)
         except Exception:
             continue
 
@@ -144,6 +153,16 @@ def _symbol_key(symbol):
     ทั้งสองชี้ผลสแกนตัวเดียวกัน (_latest_scan ตัด .BK ทิ้งอยู่แล้ว) ถ้าเทียบสตริงดิบ
     การกันแจ้งเตือนซ้ำจะไม่ทำงานเลยเมื่อสองแหล่งสะกดต่างกัน"""
     return str(symbol or '').strip().upper().replace('.BK', '')
+
+
+def _breakout_cache_key(user_id, symbol, market):
+    """คีย์กันแจ้งเตือน BREAKOUT ซ้ำ — ใช้ร่วมกันทั้งฝั่งพอร์ตและฝั่ง watchlist
+
+    ต้องมี market ในคีย์ด้วย เพราะ ticker ซ้ำกันข้ามตลาดได้ (CPF / TU / SCB มีทั้ง
+    SET และ US) ถ้าตัด market ทิ้ง หุ้น US ที่ถืออยู่จะไปปิดปาก alert ของหุ้นไทย
+    ชื่อเดียวกันไปเลย
+    """
+    return f"stockalert_breakout_{user_id}_{_symbol_key(symbol)}_{market or ''}"
 
 
 def _latest_scan(symbol, market=None):
@@ -614,7 +633,12 @@ def evaluate_user_alerts(user, config):
             except Exception:
                 pass
 
-        if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring):
+        # บล็อกนี้เป็นบล็อกเดียวในไฟล์ที่ไม่มีตัวกันแจ้งเตือนซ้ำ ผลคือยิงใบเดิมทุกรอบเช็ค
+        # (~90 วินาทีตอนตลาดเปิด = หลายร้อยแถวต่อวันต่อหุ้นหนึ่งตัว) — ใช้คีย์ร่วมกับฝั่ง
+        # watchlist ด้วย หุ้นที่ถืออยู่และอยู่ใน watchlist จะได้ใบเดียว ไม่ว่าทางไหนยิงก่อน
+        _brk_key = _breakout_cache_key(user.id, p.symbol, p.market)
+        if (config.alert_breakout_add and not cache.get(_brk_key)
+                and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring)):
             # ── ระบุชนิด/ความแรงของสัญญาณให้ตรงกับ Precision scanner ──
             #   PK ⭐ (pp_at_ma50) = เด้งจาก SMA50 ในฐาน + CMF ≥ 0 → มั่นใจสูง (เทียบ badge PK★)
             #   PK ธรรมดา (pocket_pivot อย่างเดียว) = up-day + volume trigger → มั่นใจต่ำกว่า (เทียบ badge PK⚡)
@@ -706,6 +730,7 @@ def evaluate_user_alerts(user, config):
                     + ("✅ ควรพิจารณาซื้อเพิ่ม" if is_safe_add else "⚠️ HOLD ก่อน") + f"{add_amount_txt}{knife_warning}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
                 ),
             ))
+            cache.set(_brk_key, True, timeout=12 * 60 * 60)
             # นับเป็น "หุ้นเด่น" เฉพาะสัญญาณแรง — เบรค 52w High / Wyckoff Spring / PK ⭐ (pp_at_ma50)
             # PK ธรรมดาอย่างเดียวยังยิง alert เป็นข้อมูล แต่ไม่ดันขึ้นสรุป (ตรงกับ scanner ที่ให้ PK⚡ เป็นข้อมูล, PK★ เป็นคุณภาพ)
             if latest_scan.is_52w_breakout or latest_scan.wyckoff_spring or _pk_strict:
@@ -864,12 +889,6 @@ def evaluate_user_alerts(user, config):
                 cache.set(_k, True, timeout=24 * 60 * 60)
 
     if config.alert_watchlist_entry or config.alert_breakout_add:
-        # หุ้นที่ "ได้ใบ BREAKOUT จากฝั่งพอร์ตไปแล้วจริงๆ ในรอบนี้" — ดูจาก event ที่สร้างไว้
-        # ไม่ใช่เดาจากรายชื่อหุ้นที่ถือ เพราะฝั่งพอร์ตยิงเฉพาะ 52w/PK/Wyckoff (ไม่มี Preset 7)
-        # และ position กลยุทธ์ Turtle ถูก continue ออกไปก่อนถึงบล็อกนั้นด้วย
-        # ถ้าเดาว่า "ถืออยู่ = ได้ใบแล้ว" หุ้นที่มีแต่สัญญาณ Preset 7 จะไม่ได้ใบจากทางไหนเลย
-        breakout_alerted = {_symbol_key(e.symbol) for e in new_events
-                            if e.alert_type == StockAlertEvent.AlertType.BREAKOUT}
         for w in watchlists:
             price = live_prices.get(w.symbol)
             if not price:
@@ -885,10 +904,9 @@ def evaluate_user_alerts(user, config):
             # กรอง is_market_open ตั้งแต่ต้นฟังก์ชัน ตรงนี้ต้องกรองเอง ไม่งั้นข้อความ
             # "BREAKOUT วันนี้" จะถูกยิงกลางดึกจากผลสแกนของเมื่อวาน ขัดกับสัญญาที่
             # check_web_alerts.py เขียนไว้ว่าเช็คเวลาตลาดให้แล้ว
-            # (กรองเฉพาะบล็อกนี้ ไม่คลุมบล็อกโซนซื้อด้านล่างซึ่งไม่เคยมีเงื่อนไขเวลาตลาด)
-            if (config.alert_breakout_add
-                    and is_market_open(latest_scan.market)
-                    and _symbol_key(w.symbol) not in breakout_alerted):
+            # กรองเฉพาะบล็อกนี้ ไม่คลุมบล็อกโซนซื้อด้านล่าง ซึ่งไม่มีเงื่อนไขเวลาตลาดมาแต่เดิม
+            # (ก่อนฟีเจอร์ breakout จะถูกเพิ่มเข้ามา) — การเปลี่ยนพฤติกรรมนั้นเป็นคนละเรื่องกับบั๊กนี้
+            if config.alert_breakout_add and is_market_open(latest_scan.market):
                 _is_ext = bool(getattr(latest_scan, 'is_extended', False))
                 _rvol = float(getattr(latest_scan, 'rvol', 0) or 0)
                 _b52 = bool(getattr(latest_scan, 'is_52w_breakout', False))
@@ -908,7 +926,7 @@ def evaluate_user_alerts(user, config):
 
                 is_breakout_signal = _b52 or _pk or _wy or _buy_now
                 if is_breakout_signal and not _is_ext:
-                    cache_key = f"stockalert_wl_breakout_{user.id}_{w.symbol}"
+                    cache_key = _breakout_cache_key(user.id, w.symbol, latest_scan.market)
                     if not cache.get(cache_key):
                         if _b52:
                             sig_title = "เบรค 52w High 🔥"
@@ -931,8 +949,13 @@ def evaluate_user_alerts(user, config):
                         cache.set(cache_key, True, timeout=12 * 60 * 60)
 
             # ── 2. ตรวจจับการย่อเข้าโซนซื้อ (Buy Zone Entry) สำหรับหุ้นใน Watchlist ──
-            if config.alert_watchlist_entry and latest_scan.demand_zone_start:
-                in_zone = price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end
+            # ต้องเช็ค demand_zone_end ด้วย ไม่ใช่แค่ start — ฟิลด์นี้ null ได้ (models.py:336)
+            # และ scanner เขียนสองฟิลด์แยกกัน ถ้าเป็น None จะ price >= None = TypeError
+            # ซึ่งหลุดออกไปก่อน bulk_create ทำให้ alert ทั้งรอบของ user คนนั้นหายหมด
+            # (ฝั่งพอร์ตเช็คสองขอบอยู่แล้ว)
+            if (config.alert_watchlist_entry and latest_scan.demand_zone_start
+                    and latest_scan.demand_zone_end):
+                in_zone = latest_scan.demand_zone_end <= price <= latest_scan.demand_zone_start
                 if in_zone:
                     from stocks.views.base import _compute_signals
                     _sig = _compute_signals(latest_scan, current_price=price)
