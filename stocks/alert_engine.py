@@ -180,16 +180,37 @@ def _latest_scan(symbol, market=None, user=None):
     return qs.order_by('-scan_run').first()
 
 
-def _watchlist_market(symbol):
-    """เดา market ของรายการใน watchlist จากรูปสัญลักษณ์ — โมเดล Watchlist ไม่มีฟิลด์ market
+def _watchlist_scan(symbol, user):
+    """หาผลสแกนของรายการใน watchlist — โมเดล Watchlist ไม่มีฟิลด์ market ให้ใช้
 
-    'PTT.BK' บอกตลาดไว้ในชื่ออยู่แล้ว (help_text ของฟิลด์ระบุรูปแบบนี้) ส่วนชื่อเปล่า
-    อย่าง 'TU' บอกไม่ได้ว่าหมายถึงหุ้นไทยหรือหุ้น US — คืน None ให้ผู้เรียกไปหยิบผลสแกน
-    ล่าสุดของ user คนนั้นมาตัดสินแทน (ยังกำกวมอยู่ถ้า user สแกนทั้งสองตลาด แต่
-    อย่างน้อยไม่ไปหยิบผลสแกนของคนอื่นมาใช้)
+    ลำดับการตัดสิน:
+      1. ชื่อลงท้าย '.BK' = บอกตลาดมาในชื่อแล้ว (รูปแบบตาม help_text ของฟิลด์) ใช้ SET เลย
+      2. ชื่อเปล่าอย่าง 'TU' กำกวม — ดูว่า user คนนี้มีผลสแกนหุ้นชื่อนี้ในกี่ตลาด
+         ถ้าตลาดเดียวก็ไม่กำกวมจริง ใช้ตลาดนั้น (ครอบคลุมทั้ง 'NVDA' ฝั่ง US และ
+         'PTT' ฝั่งไทยที่ผู้ใช้พิมพ์สั้น)
+      3. มีทั้งสองตลาดถึงจะกำกวมจริง — เลือก SET ไว้ก่อนแบบคงเส้นคงวา เพราะ
+         _to_yf_symbol ก็ถือว่าชื่อเปล่าเป็นหุ้นไทยอยู่แล้ว ราคาและผลสแกนจะได้ตรงกัน
+         ห้ามปล่อยให้ "ตลาดไหนสแกนล่าสุด" เป็นตัวตัดสิน เพราะผลจะสลับไปมาเองระหว่างรอบ
+         ทำให้ได้ราคาผิดตัว เวลาตลาดผิด และคีย์กันซ้ำเปลี่ยนจนแจ้งเตือนซ้ำ
+
+    ทางแก้ที่ถูกต้องกว่านี้คือเพิ่มฟิลด์ market ให้ Watchlist (หรือบังคับเก็บ '.BK')
+    ซึ่งต้องมี migration จึงยังไม่ทำในนี้
     """
     sym = str(symbol or '').strip().upper()
-    return MarketType.SET if sym.endswith('.BK') else None
+    if sym.endswith('.BK'):
+        return _latest_scan(sym, MarketType.SET, user=user)
+
+    markets = set(
+        PrecisionScanCandidate.objects
+        .filter(symbol=sym, user=user)
+        .values_list('market', flat=True)
+        .distinct()
+    )
+    if len(markets) == 1:
+        return _latest_scan(sym, markets.pop(), user=user)
+    if MarketType.SET in markets:
+        return _latest_scan(sym, MarketType.SET, user=user)
+    return None
 
 
 def _is_turtle_strategy(strategy):
@@ -411,12 +432,16 @@ def evaluate_user_alerts(user, config):
     # ถ้าส่ง market=None ให้ heuristic ตัดสิน _to_yf_symbol จะเติม .BK ให้ทุกตัวที่ไม่ใช่
     # _NON_SET_MARKETS ซึ่งรวม None ด้วย หุ้น US ใน watchlist จึงถูกถามราคาเป็น 'AAPL.BK'
     # = ไม่มีราคา = ถูก continue ทิ้งทุกรอบ ไม่เคยได้ alert เลย แถมเสีย request เปล่าทุก ~90 วิ
-    watchlist_scans = {w.symbol: _latest_scan(w.symbol, _watchlist_market(w.symbol), user=user)
-                       for w in watchlists}
+    watchlist_scans = {w.symbol: _watchlist_scan(w.symbol, user) for w in watchlists}
 
+    # ขอราคาเฉพาะตัวที่มีผลสแกน — ลูปท้ายฟังก์ชัน continue ทิ้งตัวที่ไม่มีผลสแกนอยู่แล้ว
+    # ถ้าใส่เข้าไปด้วย มันจะไปเป็นคู่ (symbol, None) ซึ่ง _to_yf_symbol เติม .BK ให้
+    # กลายเป็น ticker ที่ไม่มีอยู่จริง ('NVDA.BK') แล้วโดนยิงถามทั้ง batch และ fallback
+    # ทุก ~90 วินาที เพื่อเอาไปทิ้ง
     symbol_market_pairs = (
         {(p.symbol, p.market) for p in portfolios}
-        | {(w.symbol, getattr(watchlist_scans.get(w.symbol), 'market', None)) for w in watchlists}
+        | {(w.symbol, watchlist_scans[w.symbol].market)
+           for w in watchlists if watchlist_scans.get(w.symbol) is not None}
     )
     live_prices = fetch_live_prices(symbol_market_pairs)
 
@@ -499,7 +524,11 @@ def evaluate_user_alerts(user, config):
                     weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุด Trailing Stop ที่ {stop_level:.2f}'})
             continue
 
-        latest_scan = _latest_scan(p.symbol, p.market)
+        # ต้องกรอง user ด้วย ไม่งั้น order_by('-scan_run').first() จะหยิบผลสแกนของ
+        # user คนไหนก็ได้ที่สแกนหุ้นตัวนี้ล่าสุด แล้ว stop_loss / โซน supply / ขนาดซื้อเพิ่ม
+        # ของคนอื่นจะมาขับ alert ของเรา — ถ้าเราไม่มีผลสแกนเอง ให้ตกไปใช้ fallback
+        # ที่คำนวณสดจากราคา ซึ่งถูกต้องกว่าใช้ตัวเลขของคนอื่น
+        latest_scan = _latest_scan(p.symbol, p.market, user=user)
         used_fallback = False
         if not latest_scan:
             # ไม่มีข้อมูลใน PrecisionScanCandidate เลย (เช่น ถูกกรองออกด้วย RS pre-filter ของ scanner
@@ -916,11 +945,11 @@ def evaluate_user_alerts(user, config):
 
     if config.alert_watchlist_entry or config.alert_breakout_add:
         for w in watchlists:
-            price = live_prices.get((w.symbol, getattr(watchlist_scans.get(w.symbol), 'market', None)))
-            if not price:
-                continue
             latest_scan = watchlist_scans.get(w.symbol)
             if not latest_scan:
+                continue
+            price = live_prices.get((w.symbol, latest_scan.market))
+            if not price:
                 continue
 
             now = dj_timezone.now()

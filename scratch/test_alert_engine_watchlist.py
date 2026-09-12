@@ -80,6 +80,7 @@ def run(cfg, wl_syms, pf_syms, scans, market_open=True):
          patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P(s) for s in pf_syms]), \
          patch.object(ae, 'fetch_live_prices', _prices), \
          patch.object(ae, '_latest_scan', lambda sym, market=None, user=None: scans.get(sym.replace('.BK',''))), \
+         patch.object(ae, '_watchlist_scan', lambda sym, user=None: scans.get(sym.replace('.BK',''))), \
          patch.object(ae, 'is_market_open', lambda m: market_open), \
          patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda evs: created.extend(evs)):
         ev = ae.evaluate_user_alerts(U(), cfg)
@@ -149,6 +150,7 @@ def run_all(cfg, wl, pf, sc, mo):
          _p.object(ae.Portfolio.objects,'filter', lambda **k:[P(x) for x in pf]), \
          _p.object(ae,'fetch_live_prices', lambda pairs:{(s,m):10.0 for s,m in pairs}), \
          _p.object(ae,'_latest_scan', lambda s,market=None,user=None: sc.get(s.replace('.BK',''))), \
+         _p.object(ae,'_watchlist_scan', lambda s,user=None: sc.get(s.replace('.BK',''))), \
          _p.object(ae,'is_market_open', lambda m: mo), \
          _p.object(ae.StockAlertEvent.objects,'bulk_create', lambda e: created.extend(e)):
         return ae.evaluate_user_alerts(U(), cfg)
@@ -175,6 +177,7 @@ def run_cross():
          _pp.object(ae.Portfolio.objects, 'filter', lambda **k: [PUS('TU')]), \
          _pp.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
          _pp.object(ae, '_latest_scan', _scan), \
+         _pp.object(ae, '_watchlist_scan', lambda s, user=None: _scan(s)), \
          _pp.object(ae, 'is_market_open', lambda m: True), \
          _pp.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
         return ae.evaluate_user_alerts(U(), Cfg())
@@ -216,6 +219,7 @@ def run_twice():
              patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('JJJ')]), \
              patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
              patch.object(ae, '_latest_scan', lambda s, market=None, user=None: sc.get(s.replace('.BK', ''))), \
+             patch.object(ae, '_watchlist_scan', lambda s, user=None: sc.get(s.replace('.BK', ''))), \
              patch.object(ae, 'is_market_open', lambda m: True), \
              patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
             ev = ae.evaluate_user_alerts(U(), Cfg())
@@ -239,6 +243,7 @@ def run_chain():
              patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('KKK')]), \
              patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
              patch.object(ae, '_latest_scan', lambda s, market=None, user=None: sc.get(s.replace('.BK', ''))), \
+             patch.object(ae, '_watchlist_scan', lambda s, user=None: sc.get(s.replace('.BK', ''))), \
              patch.object(ae, 'is_market_open', lambda m: True), \
              patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
             ev = ae.evaluate_user_alerts(U(), Cfg())
@@ -269,13 +274,14 @@ def run_realloc():
              patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('STRONG'), P('WEAK')]), \
              patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
              patch.object(ae, '_latest_scan', lambda s, market=None, user=None: sc.get(s.replace('.BK', ''))), \
+             patch.object(ae, '_watchlist_scan', lambda s, user=None: sc.get(s.replace('.BK', ''))), \
              patch.object(ae, 'is_market_open', lambda m: True), \
              patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
             ev = ae.evaluate_user_alerts(U(), Cfg(alert_stop_loss=True, alert_reallocate=True))
         out.append(len([e for e in ev if e.alert_type == ae.StockAlertEvent.AlertType.REALLOCATE]))
     return out
 rc = run_realloc()
-print('15) รอบ 2 ยังจับคู่สับเปลี่ยนหุ้นได้:', rc[1] >= 1 or rc[0] >= 1, f'(REALLOCATE ต่อรอบ: {rc})')
+print('15) รอบ 2 ยังจับคู่สับเปลี่ยนหุ้นได้:', rc[1] >= 1, f'(REALLOCATE ต่อรอบ: {rc})')
 
 # ── 16. fetch_live_prices ตัวจริง: TU ที่ SET กับ TU ที่ US ต้องได้ราคาคนละตัว ──
 _PX = {'TU.BK': 14.0, 'TU': 89.0}
@@ -289,3 +295,61 @@ with patch.object(ae.yf, 'download', lambda *a, **k: None), \
     got2 = ae.fetch_live_prices([('TU', 'SET'), ('TU', 'US')])
 print('16) TU(SET) vs TU(US) ได้ราคาคนละตัว:',
       got2.get(('TU', 'SET')) == 14.0 and got2.get(('TU', 'US')) == 89.0, f'-> {got2}')
+
+# ── 17. _watchlist_scan ต้องเลือกตลาดแบบคงเส้นคงวา ไม่ใช่ "ใครสแกนล่าสุด" ──
+class FakeQS:
+    """จำลอง PrecisionScanCandidate.objects สำหรับ _watchlist_scan (ไม่แตะ DB)"""
+    def __init__(self, rows): self.rows = rows
+    def filter(self, **kw):
+        r = self.rows
+        if 'symbol' in kw: r = [x for x in r if x.symbol == kw['symbol']]
+        if 'market' in kw: r = [x for x in r if x.market == kw['market']]
+        return FakeQS(r)
+    def values_list(self, f, flat=False): return FakeQS([getattr(x, f) for x in self.rows])
+    def distinct(self): return self
+    def order_by(self, *a): return self
+    def first(self): return self.rows[0] if self.rows else None
+    def __iter__(self): return iter(self.rows)
+
+def wl_market(rows, sym):
+    objs = FakeQS(rows)
+    with patch.object(ae, 'PrecisionScanCandidate', type('M', (), {'objects': objs})), \
+         patch.object(ae, '_latest_scan', lambda s, market=None, user=None:
+                      next((x for x in rows if x.symbol == s.replace('.BK', '')
+                            and (market is None or x.market == market)), None)):
+        sc = ae._watchlist_scan(sym, user=None)
+    return getattr(sc, 'market', None)
+
+set_row = Scan(market='SET'); set_row.symbol = 'TU'
+us_row  = Scan(market='US');  us_row.symbol = 'TU'
+nv_row  = Scan(market='US');  nv_row.symbol = 'NVDA'
+print('17) ชื่อ .BK -> SET เสมอ:', wl_market([set_row, us_row], 'TU.BK') == 'SET')
+print('    มีตลาดเดียว (NVDA ฝั่ง US) -> US:', wl_market([nv_row], 'NVDA') == 'US')
+print('    มีทั้งสองตลาด -> เลือก SET คงที่ ไม่สลับตามลำดับ:',
+      wl_market([us_row, set_row], 'TU') == 'SET' and wl_market([set_row, us_row], 'TU') == 'SET')
+
+# ── 18. symbol ที่ไม่มีผลสแกน ต้องไม่ถูกส่งไปขอราคา ──
+asked = []
+def _spy(pairs):
+    asked.extend(pairs)
+    return {(s, m): 10.0 for s, m in pairs}
+sc18 = {'HAS': Scan(market='SET', rvol=2.0, turtle_dist_pct=0.2)}
+created = []
+with patch.object(ae, 'cache', MemCache()), \
+     patch.object(vb, '_compute_signals', lambda s, current_price=0: {'buy_score': 80, 'reversal_score': 0, 'buy_reasons': []}), \
+     patch.object(ae.Watchlist.objects, 'filter', lambda **k: [W('HAS'), W('NOSCAN')]), \
+     patch.object(ae.Portfolio.objects, 'filter', lambda **k: []), \
+     patch.object(ae, 'fetch_live_prices', _spy), \
+     patch.object(ae, '_latest_scan', lambda s, market=None, user=None: sc18.get(s.replace('.BK', ''))), \
+     patch.object(ae, '_watchlist_scan', lambda s, user=None: sc18.get(s.replace('.BK', ''))), \
+     patch.object(ae, 'is_market_open', lambda m: True), \
+     patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
+    ae.evaluate_user_alerts(U(), Cfg())
+syms = sorted(s for s, _ in asked)
+print('18) ไม่ขอราคาให้ตัวที่ไม่มีผลสแกน:', syms == ['HAS'], f'(ขอราคา: {syms})')
+
+# ── 19. ลูปพอร์ตต้องกรอง user ตอนหาผลสแกน ──
+import inspect as _ins
+_src = _ins.getsource(ae.evaluate_user_alerts)
+print('19) ลูปพอร์ตกรอง user ตอนหาผลสแกน:',
+      '_latest_scan(p.symbol, p.market, user=user)' in _src)
