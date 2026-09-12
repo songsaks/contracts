@@ -139,6 +139,13 @@ def fetch_live_prices(symbol_market_pairs):
     return live_prices
 
 
+def _symbol_key(symbol):
+    """คีย์เทียบชื่อหุ้นข้ามแหล่งข้อมูล — พอร์ตเก็บ 'PTT.BK' ได้ ส่วน watchlist เก็บ 'PTT'
+    ทั้งสองชี้ผลสแกนตัวเดียวกัน (_latest_scan ตัด .BK ทิ้งอยู่แล้ว) ถ้าเทียบสตริงดิบ
+    การกันแจ้งเตือนซ้ำจะไม่ทำงานเลยเมื่อสองแหล่งสะกดต่างกัน"""
+    return str(symbol or '').strip().upper().replace('.BK', '')
+
+
 def _latest_scan(symbol, market=None):
     clean_symbol = symbol.replace('.BK', '')
     qs = PrecisionScanCandidate.objects.filter(symbol=clean_symbol)
@@ -362,8 +369,16 @@ def evaluate_user_alerts(user, config):
     watchlists = (list(Watchlist.objects.filter(user=user, is_active=True))
                   if (config.alert_watchlist_entry or config.alert_breakout_add) else [])
 
-    # Watchlist ไม่มีฟิลด์ market แยก จึงส่ง market=None ให้ heuristic เดิมตัดสิน (เหมือน monitor_stocks.py)
-    symbol_market_pairs = {(p.symbol, p.market) for p in portfolios} | {(w.symbol, None) for w in watchlists}
+    # Watchlist ไม่มีฟิลด์ market แยก แต่ผลสแกนมี — ดึงมาก่อนขอราคาแล้วใช้ซ้ำในลูปท้ายฟังก์ชัน
+    # ถ้าส่ง market=None ให้ heuristic ตัดสิน _to_yf_symbol จะเติม .BK ให้ทุกตัวที่ไม่ใช่
+    # _NON_SET_MARKETS ซึ่งรวม None ด้วย หุ้น US ใน watchlist จึงถูกถามราคาเป็น 'AAPL.BK'
+    # = ไม่มีราคา = ถูก continue ทิ้งทุกรอบ ไม่เคยได้ alert เลย แถมเสีย request เปล่าทุก ~90 วิ
+    watchlist_scans = {w.symbol: _latest_scan(w.symbol) for w in watchlists}
+
+    symbol_market_pairs = (
+        {(p.symbol, p.market) for p in portfolios}
+        | {(w.symbol, getattr(watchlist_scans.get(w.symbol), 'market', None)) for w in watchlists}
+    )
     live_prices = fetch_live_prices(symbol_market_pairs)
 
     # มูลค่าพอร์ตหุ้นไทย (SET) รวม — ใช้เป็นฐานคำนวณ "ซื้อเพิ่มกี่บาท" ในสัญญาณ Breakout (เสี่ยง 1% ของพอร์ตนี้ต่อการเพิ่มโพซิชันหนึ่งครั้ง)
@@ -849,27 +864,31 @@ def evaluate_user_alerts(user, config):
                 cache.set(_k, True, timeout=24 * 60 * 60)
 
     if config.alert_watchlist_entry or config.alert_breakout_add:
-        # หุ้นที่ถืออยู่แล้วมีเส้นทางแจ้งเตือน Breakout ของตัวเอง (พร้อมขนาดซื้อเพิ่ม/knife check)
-        # ถ้าหุ้นตัวเดียวกันอยู่ทั้งพอร์ตและ watchlist จะได้ BREAKOUT สองใบต่อสัญญาณเดียว
-        held_symbols = {p.symbol for p in portfolios}
+        # หุ้นที่ "ได้ใบ BREAKOUT จากฝั่งพอร์ตไปแล้วจริงๆ ในรอบนี้" — ดูจาก event ที่สร้างไว้
+        # ไม่ใช่เดาจากรายชื่อหุ้นที่ถือ เพราะฝั่งพอร์ตยิงเฉพาะ 52w/PK/Wyckoff (ไม่มี Preset 7)
+        # และ position กลยุทธ์ Turtle ถูก continue ออกไปก่อนถึงบล็อกนั้นด้วย
+        # ถ้าเดาว่า "ถืออยู่ = ได้ใบแล้ว" หุ้นที่มีแต่สัญญาณ Preset 7 จะไม่ได้ใบจากทางไหนเลย
+        breakout_alerted = {_symbol_key(e.symbol) for e in new_events
+                            if e.alert_type == StockAlertEvent.AlertType.BREAKOUT}
         for w in watchlists:
             price = live_prices.get(w.symbol)
             if not price:
                 continue
-            latest_scan = _latest_scan(w.symbol)
+            latest_scan = watchlist_scans.get(w.symbol)
             if not latest_scan:
-                continue
-            # Watchlist ไม่มีฟิลด์ market จึงใช้ market ของผลสแกนเป็นตัวตัดสิน
-            # ลูปพอร์ตกรอง is_market_open ตั้งแต่ต้นฟังก์ชัน ตรงนี้ต้องกรองเองไม่งั้น
-            # ข้อความ "BREAKOUT วันนี้" จะถูกยิงกลางดึกจากผลสแกนของเมื่อวาน
-            # ซึ่งขัดกับสัญญาที่ check_web_alerts.py เขียนไว้ว่าเช็คเวลาตลาดให้แล้ว
-            if not is_market_open(latest_scan.market):
                 continue
 
             now = dj_timezone.now()
 
             # ── 1. ตรวจจับสัญญาณ Breakout วันนี้ (BUY NOW / Preset 7) สำหรับหุ้นใน Watchlist ──
-            if config.alert_breakout_add and w.symbol not in held_symbols:
+            # Watchlist ไม่มีฟิลด์ market จึงใช้ market ของผลสแกนตัดสินเวลาตลาด — ลูปพอร์ต
+            # กรอง is_market_open ตั้งแต่ต้นฟังก์ชัน ตรงนี้ต้องกรองเอง ไม่งั้นข้อความ
+            # "BREAKOUT วันนี้" จะถูกยิงกลางดึกจากผลสแกนของเมื่อวาน ขัดกับสัญญาที่
+            # check_web_alerts.py เขียนไว้ว่าเช็คเวลาตลาดให้แล้ว
+            # (กรองเฉพาะบล็อกนี้ ไม่คลุมบล็อกโซนซื้อด้านล่างซึ่งไม่เคยมีเงื่อนไขเวลาตลาด)
+            if (config.alert_breakout_add
+                    and is_market_open(latest_scan.market)
+                    and _symbol_key(w.symbol) not in breakout_alerted):
                 _is_ext = bool(getattr(latest_scan, 'is_extended', False))
                 _rvol = float(getattr(latest_scan, 'rvol', 0) or 0)
                 _b52 = bool(getattr(latest_scan, 'is_52w_breakout', False))
@@ -879,7 +898,12 @@ def evaluate_user_alerts(user, config):
                 # (ดู _preset_signal('qp7_breakout_today') กับ PrecisionScanCandidate.rec_entered)
                 # ไม่ใช่ Stage 2 + RVOL — ถ้าตัดเงื่อนไขระยะถึงจุดเบรคออก มันจะยิงกับหุ้น Stage 2
                 # ตัวไหนก็ได้ที่วอลุ่มพุ่ง รวมถึงวันที่ราคาร่วงหนักด้วยวอลุ่มหนา ซึ่งตรงข้ามกับ breakout
-                _td = float(getattr(latest_scan, 'turtle_dist_pct', None) or 99.0)
+                # ต้องเช็ค is not None ไม่ใช่ `or 99.0` — turtle_dist_pct = 0.0 แปลว่าราคา
+                # แตะ/ทะลุ High 20 วันพอดี ซึ่งคือ breakout ที่แรงที่สุด แต่ 0.0 เป็น falsy
+                # `or` จึงเปลี่ยนมันเป็น 99.0 แล้วเคสที่กฎนี้ตั้งใจจับจะไม่มีวันยิงเลย
+                # (models.py rec_entered ใช้ is not None ด้วยเหตุผลเดียวกัน)
+                _td_raw = getattr(latest_scan, 'turtle_dist_pct', None)
+                _td = float(_td_raw) if _td_raw is not None else 99.0
                 _buy_now = _rvol >= 1.5 and _td <= 0.5
 
                 is_breakout_signal = _b52 or _pk or _wy or _buy_now
