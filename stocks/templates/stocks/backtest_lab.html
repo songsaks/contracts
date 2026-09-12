@@ -175,10 +175,11 @@
   <div class="bt-note">
     <i class="fa-solid fa-bookmark" style="color:#94a3b8;margin-top:2px;"></i>
     <span>
-      <b>ปุ่มลัดหน้าสแกน 6 จาก 8 ปุ่มทดสอบได้ที่นี่</b> — ชื่อขึ้นต้นด้วย <code>qp</code> ตามด้วยเลขปุ่ม
+      <b>ปุ่มลัดหน้าสแกน {{ quick_testable }} จาก {{ quick_total }} ปุ่มทดสอบได้ที่นี่</b> —
+      ชื่อขึ้นต้นด้วย <code>qp</code> ตามด้วยเลขปุ่ม
       กฎที่ใช้พอร์ตมาจากตัวนับเลขบนปุ่มโดยตรง ไม่ใช่จากคำโปรยบนปุ่ม
       {% if untestable %}
-      <br>อีก 2 ปุ่มยังทดสอบย้อนหลังแบบซื่อตรงไม่ได้:
+      <br>อีก {{ untestable|length }} ปุ่มยังทดสอบย้อนหลังแบบซื่อตรงไม่ได้:
       <ul class="mb-0 mt-1" style="padding-left:1.1rem;">
         {% for name, why in untestable.items %}
         <li><b>{{ name }}</b> — {{ why }}</li>

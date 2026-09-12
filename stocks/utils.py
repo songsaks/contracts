@@ -220,13 +220,25 @@ for _k in QUICK_PRESET_KEYS:
 
 
 def _build_preset_indicators(df):
-    """เตรียม indicator ที่ใช้ร่วมกันของทุก preset จาก OHLCV ย้อนหลัง"""
+    """เตรียม indicator ที่ใช้ร่วมกันของทุก preset จาก OHLCV ย้อนหลัง
+
+    ค่าเฉลี่ย/ผลรวม/มัธยฐานของ Volume ทุกตัวในนี้ใช้ min_periods=1 โดยตั้งใจ
+    ตัวดึงราคา (_fetch_universe_history._clean) ตัดทิ้งเฉพาะแถวที่ Close เป็น NaN
+    แถวที่ Volume เป็น NaN (เช่นวันที่หุ้นถูกพักการซื้อขาย) จึงหลุดเข้ามาได้
+    ถ้าใช้ค่าปริยาย rolling(N) จะต้องการค่าครบ N ตัว แท่ง NaN แท่งเดียวจะทำให้
+    ค่าเฉลี่ยเป็น NaN ยาว N แท่ง แล้ว CMF/RVOL หายทั้งช่วง ส่งผลให้ preset ที่ต้องใช้
+    (superformance, base_accumulation, high_momentum, qp4, qp5, qp6, qp7)
+    เงียบไปโดยไม่มีอะไรแจ้งว่าเกิดอะไรขึ้น
+    min_periods=1 ทำให้ข้าม NaN แล้วเฉลี่ยจากค่าที่มีจริง ตรงกับที่หน้าสแกนใช้
+    (.tail(N).mean() / .sum() ของ pandas ข้าม NaN อยู่แล้ว) ส่วนช่วง warm-up
+    ไม่กระทบผล เพราะ backtest เริ่มนับสัญญาณที่แท่งที่ 200 เป็นต้นไปเสมอ
+    """
     d = df.copy()
     d['SMA150'] = d['Close'].rolling(150).mean()
     d['stage2'] = (d['Close'] > d['SMA150']) & (d['SMA150'] > d['SMA150'].shift(5))
     d['RSI'] = ta.rsi(d['Close'], length=14)
     d['EMA200'] = ta.ema(d['Close'], length=200)
-    d['vol_avg50'] = d['Volume'].rolling(50).mean()
+    d['vol_avg50'] = d['Volume'].rolling(50, min_periods=1).mean()
     d['rvol'] = d['Volume'] / d['vol_avg50']
 
     # Pocket Pivot: วันขึ้นที่ volume > max(volume วันลง) ใน 10 วันก่อนหน้า
@@ -250,7 +262,8 @@ def _build_preset_indicators(df):
     # ปริยายจะคืน NaN ทั้งหน้าต่าง = CMF หายไป 20 แท่ง ทั้งที่หน้าสแกนใช้ _mfv.sum()
     # ซึ่งข้าม NaN แล้วได้ตัวเลขปกติ — เติม 0 ให้ตรงกับพฤติกรรมนั้น
     # (ตัวหารยังเป็น Volume ดิบเหมือนหน้าสแกน)
-    d['cmf'] = mf_vol.fillna(0.0).rolling(20).sum() / d['Volume'].rolling(20).sum()
+    d['cmf'] = (mf_vol.fillna(0.0).rolling(20, min_periods=1).sum()
+               / d['Volume'].rolling(20, min_periods=1).sum())
 
     # VCP แบบง่าย: อยู่เหนือ EMA200 และ range 10 วันหดตัวเทียบ 30 วันก่อนหน้า
     range10 = (d['High'].rolling(10).max() - d['Low'].rolling(10).min())
@@ -269,8 +282,8 @@ def _build_preset_indicators(df):
     #   A. ความแคบของราคา 5 วัน  B. ระยะถึง High 20 วัน  C. Volume Dry-Up
     tightness = (d['Close'].rolling(5).std() / d['Close'] * 100)
     turtle_dist = (d['High'].rolling(20).max() - d['Close']) / d['Close'] * 100
-    vol_3d = d['Volume'].rolling(3).mean()
-    median_vol_20 = d['Volume'].rolling(20).median()
+    vol_3d = d['Volume'].rolling(3, min_periods=1).mean()
+    median_vol_20 = d['Volume'].rolling(20, min_periods=1).median()
 
     launcher = np.zeros(len(d))
     launcher += np.where(tightness < 1.0, 40, np.where(tightness < 2.0, 25, 0))
@@ -284,14 +297,14 @@ def _build_preset_indicators(df):
     # และ ultra_indicators.py) เพื่อให้ backtest วัด "กฎเดียวกับปุ่ม" ไม่ใช่กฎชื่อพ้อง
 
     # RVOL ที่ตารางสแกนส่งให้ปุ่มใช้ เทียบค่าเฉลี่ย 20 วัน ไม่ใช่ 50 วันแบบ d['rvol']
-    d['rvol20'] = d['Volume'] / d['Volume'].rolling(20).mean()
+    d['rvol20'] = d['Volume'] / d['Volume'].rolling(20, min_periods=1).mean()
     # ระยะถึง High 20 วัน (รวมแท่งวันนี้) — ตรงกับ turtle_dist_pct ของหน้าสแกน
     d['turtle_dist'] = turtle_dist
 
     # Accumulation / Distribution 10 วันล่าสุด
     # เกณฑ์วอลุ่มคือค่าเฉลี่ย 10 วันของ "หน้าต่างเดียวกัน" ใช้ร่วมกันทั้ง 10 วัน
     # ไม่ใช่ค่าเฉลี่ยเลื่อนของแต่ละวัน จึงนับทีละ offset แทนการใช้ rolling().sum()
-    avg_vol_10 = d['Volume'].rolling(10).mean()
+    avg_vol_10 = d['Volume'].rolling(10, min_periods=1).mean()
     up_day = d['Close'] > d['Close'].shift(1)
     down_day = d['Close'] < d['Close'].shift(1)
     acc = np.zeros(len(d), dtype=int)
@@ -320,7 +333,7 @@ def _build_preset_indicators(df):
 
     # Episodic Pivot (Qullamaggie) — Gap ≥4.5% + Vol ≥2.5x เฉลี่ย 20 วันก่อนหน้า + แท่งเขียว
     prev_close = d['Close'].shift(1)
-    avg_vol_20_prior = d['Volume'].shift(1).rolling(20).mean()
+    avg_vol_20_prior = d['Volume'].shift(1).rolling(20, min_periods=1).mean()
     gap_pct = (d['Open'] - prev_close) / prev_close * 100
     d['episodic_pivot'] = ((gap_pct >= 4.5) &
                            (d['Volume'] >= avg_vol_20_prior * 2.5) &
