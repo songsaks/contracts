@@ -1999,6 +1999,9 @@ def precision_momentum_scanner(request):
     7. เก็บประวัติ scan 3 รอบล่าสุด
     8. is_new_entry flag (หุ้นใหม่ vs ยังอยู่จากรอบก่อน)
     """
+    from stocks.models import PrecisionScanRun
+    from stocks.precision_runs import rank_valid_returns, scan_timestamps
+
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
         from django.core.cache import cache as _cp
@@ -2037,6 +2040,7 @@ def precision_momentum_scanner(request):
             _cache_bg.set(cache_key, _init_status, timeout=900)
 
         def _run_precision_bg(uid, ckey):
+            run_record = None
             try:
                 import django
                 django.setup()
@@ -2069,6 +2073,11 @@ def precision_momentum_scanner(request):
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
                 scan_run_time = tz.now()
+
+                run_record = PrecisionScanRun.objects.create(
+                    user=user, market='SET', started_at=scan_run_time,
+                    total_symbols=len(sym_list),
+                )
 
                 # ====== Pin Scan Date ======
                 _bkk_tz = _pytz.timezone('Asia/Bangkok')
@@ -2143,24 +2152,18 @@ def precision_momentum_scanner(request):
                     except Exception as e:
                         logger.error(f"RS Chunk Error at {i}: {e}")
 
-                # FAILSAFE: If results are empty or too small, force evaluation of a subset
-                if len(rs_returns_all) < 10:
-                    import logging; logging.getLogger('stocks').warning(f"[Precision] Data recovery mode: Only {len(rs_returns_all)} found. Force fallback.")
-                    # Use at least top 50 symbols to ensure some results
-                    for s in sym_list[:100]:
-                        if s not in rs_returns_all: rs_returns_all[s] = 0.0 # Dummy score to pass filter
-
-                rs_ratings_map = {}
-                if rs_returns_all:
-                    _rs_ser = pd.Series(rs_returns_all)
-                    rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+                rs_ratings_map, valid_rs_count = rank_valid_returns(rs_returns_all)
+                run_record.rs_count = valid_rs_count
+                run_record.save(update_fields=['rs_count'])
+                if not rs_ratings_map:
+                    run_record.status = 'failed'
+                    run_record.message = 'ข้อมูล RS ไม่เพียงพอ (ต้องมีอย่างน้อย 10 ตัว) กรุณาลองสแกนใหม่'
+                    run_record.save(update_fields=['status', 'message'])
+                    _cache.set(ckey, {'state': 'done', 'count': 0}, timeout=300)
+                    return
 
                 # Phase 2: เจาะลึกหุ้นที่เข้ารอบ (ผ่อนปรนให้หุ้นที่มี RS >= 45 หลุดเข้าประเมินเชิงลึก เพื่อความยืดหยุ่นของ Early Accumulation)
                 results_to_process = [s for s in sym_list if rs_ratings_map.get(s, 0) >= 45]
-                if not results_to_process:
-                    # Fallback: ถ้าไม่มีข้อมูล RS เพียงพอ ให้ใช้ทุกหุ้นที่อยู่ใน rs_ratings_map หรือ top 50
-                    results_to_process = [s for s in sym_list if s in rs_ratings_map] or sym_list[:50]
-                    import logging; logging.getLogger('stocks').warning(f"[Precision] RS filter returned 0 — fallback to {len(results_to_process)} symbols")
 
                 def _process_precision_scan(symbol):
                     try:
@@ -3000,6 +3003,10 @@ def precision_momentum_scanner(request):
                     .distinct()
                 )
                 _seen_dates = []
+                _all_run_ts = scan_timestamps(
+                    _all_run_ts,
+                    PrecisionScanRun.objects.filter(user=user, market='SET'),
+                )
                 for _ts in _all_run_ts:
                     _d = tz.localtime(_ts).date()
                     if _d not in _seen_dates:
@@ -3009,14 +3016,22 @@ def precision_momentum_scanner(request):
                     old_runs = [_ts for _ts in _all_run_ts if tz.localtime(_ts).date() < _cutoff_date]
                     if old_runs:
                         PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run__in=old_runs).delete()
+                        PrecisionScanRun.objects.filter(user=user, market='SET', started_at__in=old_runs).exclude(status='running').delete()
 
+                run_record.status = 'completed'
+                run_record.candidate_count = len(results)
+                run_record.save(update_fields=['status', 'candidate_count'])
                 _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
 
             except Exception as _bg_err:
                 import logging
                 logging.getLogger('stocks').exception(f"[PrecisionBG] Error: {_bg_err}")
+                if run_record is not None:
+                    run_record.status = 'failed'
+                    run_record.message = 'สแกนไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ'
+                    run_record.save(update_fields=['status', 'message'])
                 from django.core.cache import cache as _ec
-                _ec.set(ckey, {'state': 'idle'}, timeout=60)
+                _ec.set(ckey, {'state': 'done', 'count': 0}, timeout=300)
 
         # เปิด background thread แล้ว return ทันที
         _t = threading.Thread(
@@ -3059,6 +3074,10 @@ def precision_momentum_scanner(request):
         .distinct()
     )
 
+    run_records = list(PrecisionScanRun.objects.filter(user=request.user, market='SET').exclude(status='running'))
+    all_runs = scan_timestamps(all_runs, run_records)
+    run_metadata = {r.started_at: r for r in run_records}
+
     # เลือกรอบสแกนตาม ?run_idx= (0 = ล่าสุด, 1 = ก่อนหน้า, ...)
     try:
         run_idx = int(request.GET.get('run_idx', 0))
@@ -3071,6 +3090,8 @@ def precision_momentum_scanner(request):
     if all_runs:
         selected_run = all_runs[run_idx]
         qs = PrecisionScanCandidate.objects.filter(user=request.user, scan_run=selected_run, market='SET')
+        if selected_run in run_metadata and run_metadata[selected_run].status == 'failed':
+            qs = qs.none()
         if use_db_sort:
             qs = qs.order_by(order_field)
         candidates = list(qs)
@@ -3522,6 +3543,7 @@ def precision_momentum_scanner(request):
 
     context = {
         'title': 'Precision Momentum Scanner - กรองคุณภาพ',
+        'scan_run_info': run_metadata.get(scanned_at),
         'candidates': candidates,
         'scanned_at': scanned_at,
         'current_sort': sort_by,
@@ -5325,6 +5347,9 @@ def us_precision_scanner(request):
     7. เก็บประวัติ scan 3 รอบล่าสุด
     8. is_new_entry flag (หุ้นใหม่ vs ยังอยู่จากรอบก่อน)
     """
+    from stocks.models import PrecisionScanRun
+    from stocks.precision_runs import rank_valid_returns, scan_timestamps
+
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
         from django.core.cache import cache as _cp
@@ -5364,6 +5389,7 @@ def us_precision_scanner(request):
             _cache_bg.set(cache_key, _init_status, timeout=900)
 
         def _run_precision_bg(uid, ckey):
+            run_record = None
             try:
                 import django
                 django.setup()
@@ -5395,6 +5421,11 @@ def us_precision_scanner(request):
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
                 scan_run_time = tz.now()
+
+                run_record = PrecisionScanRun.objects.create(
+                    user=user, market='US', started_at=scan_run_time,
+                    total_symbols=len(sym_list),
+                )
 
                 # ====== Pin Scan Date ======
                 _bkk_tz = _pytz.timezone('Asia/Bangkok')
@@ -5469,25 +5500,18 @@ def us_precision_scanner(request):
                     except Exception as e:
                         logger.error(f"RS Chunk Error at {i}: {e}")
 
-                # FAILSAFE: If results are empty or too small, force evaluation of a subset
-                if len(rs_returns_all) < 10:
-                    import logging; logging.getLogger('stocks').warning(f"[Precision] Data recovery mode: Only {len(rs_returns_all)} found. Force fallback.")
-                    # Use at least top 50 symbols to ensure some results
-                    for s in sym_list[:100]:
-                        if s not in rs_returns_all: rs_returns_all[s] = 0.0 # Dummy score to pass filter
-
-                rs_ratings_map = {}
-                if rs_returns_all:
-                    _rs_ser = pd.Series(rs_returns_all)
-                    rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+                rs_ratings_map, valid_rs_count = rank_valid_returns(rs_returns_all)
+                run_record.rs_count = valid_rs_count
+                run_record.save(update_fields=['rs_count'])
+                if not rs_ratings_map:
+                    run_record.status = 'failed'
+                    run_record.message = 'ข้อมูล RS ไม่เพียงพอ (ต้องมีอย่างน้อย 10 ตัว) กรุณาลองสแกนใหม่'
+                    run_record.save(update_fields=['status', 'message'])
+                    _cache.set(ckey, {'state': 'done', 'count': 0}, timeout=300)
+                    return
 
                 # Phase 2: เจาะลึกหุ้นที่เข้ารอบ (ผ่อนปรนให้หุ้นที่มี RS >= 45 หลุดเข้าประเมินเชิงลึก เพื่อความยืดหยุ่นของ Early Accumulation)
                 results_to_process = [s for s in sym_list if rs_ratings_map.get(s, 0) >= 45]
-                if not results_to_process:
-                    # Fallback: ถ้าไม่มีข้อมูล RS เพียงพอ ให้ใช้ทุกหุ้นที่อยู่ใน rs_ratings_map หรือ top 50
-                    results_to_process = [s for s in sym_list if s in rs_ratings_map] or sym_list[:50]
-                    import logging; logging.getLogger('stocks').warning(f"[Precision] RS filter returned 0 — fallback to {len(results_to_process)} symbols")
-
                 def _process_precision_scan(symbol):
                     try:
                         # ใช้ yf.Ticker().history() แทน yf.download() เพราะ yf.download() 
@@ -6322,6 +6346,10 @@ def us_precision_scanner(request):
                     .distinct()
                 )
                 _seen_dates = []
+                _all_run_ts = scan_timestamps(
+                    _all_run_ts,
+                    PrecisionScanRun.objects.filter(user=user, market='US'),
+                )
                 for _ts in _all_run_ts:
                     _d = tz.localtime(_ts).date()
                     if _d not in _seen_dates:
@@ -6331,14 +6359,22 @@ def us_precision_scanner(request):
                     old_runs = [_ts for _ts in _all_run_ts if tz.localtime(_ts).date() < _cutoff_date]
                     if old_runs:
                         PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run__in=old_runs).delete()
+                        PrecisionScanRun.objects.filter(user=user, market='US', started_at__in=old_runs).exclude(status='running').delete()
 
+                run_record.status = 'completed'
+                run_record.candidate_count = len(results)
+                run_record.save(update_fields=['status', 'candidate_count'])
                 _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
 
             except Exception as _bg_err:
                 import logging
                 logging.getLogger('stocks').exception(f"[PrecisionBG] Error: {_bg_err}")
+                if run_record is not None:
+                    run_record.status = 'failed'
+                    run_record.message = 'สแกนไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ'
+                    run_record.save(update_fields=['status', 'message'])
                 from django.core.cache import cache as _ec
-                _ec.set(ckey, {'state': 'idle'}, timeout=60)
+                _ec.set(ckey, {'state': 'done', 'count': 0}, timeout=300)
 
         # เปิด background thread แล้ว return ทันที
         _t = threading.Thread(
@@ -6381,6 +6417,10 @@ def us_precision_scanner(request):
         .distinct()
     )
 
+    run_records = list(PrecisionScanRun.objects.filter(user=request.user, market='US').exclude(status='running'))
+    all_runs = scan_timestamps(all_runs, run_records)
+    run_metadata = {r.started_at: r for r in run_records}
+
     # เลือกรอบสแกนตาม ?run_idx= (0 = ล่าสุด, 1 = ก่อนหน้า, ...)
     try:
         run_idx = int(request.GET.get('run_idx', 0))
@@ -6393,6 +6433,8 @@ def us_precision_scanner(request):
     if all_runs:
         selected_run = all_runs[run_idx]
         qs = PrecisionScanCandidate.objects.filter(user=request.user, scan_run=selected_run, market='US')
+        if selected_run in run_metadata and run_metadata[selected_run].status == 'failed':
+            qs = qs.none()
         if use_db_sort:
             qs = qs.order_by(order_field)
         candidates = list(qs)
@@ -6844,6 +6886,7 @@ def us_precision_scanner(request):
 
     context = {
         'title': 'US Precision Momentum Scanner - กรองคุณภาพ',
+        'scan_run_info': run_metadata.get(scanned_at),
         'candidates': candidates,
         'scanned_at': scanned_at,
         'current_sort': sort_by,

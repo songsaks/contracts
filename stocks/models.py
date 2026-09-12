@@ -9,6 +9,21 @@ from django.contrib.auth import get_user_model
 # ดึง User model ที่กำหนดไว้ใน settings (รองรับ Custom User)
 User = get_user_model()
 
+
+class PrecisionScanRun(models.Model):
+    """Persist scan outcomes even when no candidates were produced."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    market = models.CharField(max_length=10, default='SET')
+    started_at = models.DateTimeField()
+    status = models.CharField(max_length=16, default='running')
+    total_symbols = models.PositiveIntegerField(default=0)
+    rs_count = models.PositiveIntegerField(default=0)
+    candidate_count = models.PositiveIntegerField(default=0)
+    message = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+
 # ====== ประเภทสินทรัพย์ ======
 
 class AssetCategory(models.TextChoices):

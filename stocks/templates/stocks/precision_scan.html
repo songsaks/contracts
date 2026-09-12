@@ -7,6 +7,22 @@
 {% block container_class %}container-fluid px-2 px-md-3{% endblock %}
 
 {% block content %}
+{% if scan_run_info %}
+<div class="alert {% if scan_run_info.status == 'failed' %}alert-danger{% elif scan_run_info.rs_count < scan_run_info.total_symbols %}alert-warning{% else %}alert-info{% endif %} mx-3 mt-3" role="status">
+    <strong>รอบสแกน {{ scan_run_info.started_at|date:"d/m/Y H:i" }}</strong><br>
+    {% if scan_run_info.status == 'failed' %}
+        {{ scan_run_info.message }} — รอบนี้ไม่แสดงคำแนะนำหุ้น กรุณาเลือกรอบก่อนหน้าเพื่อดูประวัติ
+    {% elif scan_run_info.candidate_count == 0 %}
+        รอบนี้ไม่พบหุ้นผ่านเกณฑ์ — ไม่ได้นำผลรอบก่อนมาแสดงแทน
+    {% else %}
+        ผ่านเกณฑ์ {{ scan_run_info.candidate_count }} ตัว
+    {% endif %}
+    <div>ข้อมูล RS ใช้งานได้ {{ scan_run_info.rs_count }}/{{ scan_run_info.total_symbols }} ตัว
+    {% if scan_run_info.rs_count < scan_run_info.total_symbols %}
+        — ข้อมูลไม่ครบ อันดับเทียบเฉพาะหุ้นที่มีข้อมูล หุ้นที่ข้อมูลขาดจะไม่ถูกให้คะแนนหรือคัดเลือก
+    {% endif %}</div>
+</div>
+{% endif %}
 <style>
 /* ปุ่ม "รันผ่าน Trade Flow" — สะพานจากขั้นกรองหุ้นไปขั้นตัดสินใจ
    เดิมเล็กกว่าป้าย filter ข้างๆ จนคนมองข้าม ทั้งที่เป็นปุ่มที่ควรกดต่อ */
