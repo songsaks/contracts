@@ -200,9 +200,13 @@ def _watchlist_scan(symbol, user):
     if sym.endswith('.BK'):
         return _latest_scan(sym, MarketType.SET, user=user)
 
+    # ต้อง .order_by() ล้าง Meta.ordering (['-scan_run', '-technical_score']) ก่อน .distinct()
+    # ไม่งั้น Django ใส่ฟิลด์ ordering เข้าไปใน SELECT DISTINCT ด้วย แล้วได้ market ซ้ำ
+    # กลับมาเท่าจำนวนแถวสแกนทั้งหมด (ตอนนี้ set() ช่วยกลบไว้ แต่ดึงข้อมูลเกินเปล่าๆ)
     markets = set(
         PrecisionScanCandidate.objects
         .filter(symbol=sym, user=user)
+        .order_by()
         .values_list('market', flat=True)
         .distinct()
     )
@@ -211,6 +215,29 @@ def _watchlist_scan(symbol, user):
     if MarketType.SET in markets:
         return _latest_scan(sym, MarketType.SET, user=user)
     return None
+
+
+# อายุ cache ของสัญญาณ fallback — สั้นพอให้ตัวเลขยังสด แต่ยาวกว่ารอบเช็ค (~90 วิ) มาก
+_FALLBACK_SIGNAL_TTL = 15 * 60
+
+
+def _cached_fallback_signals(symbol, market):
+    """สัญญาณ fallback ที่คำนวณสดจากราคา — cache ไว้ต่อ (symbol, market)
+
+    compute_fallback_alert_signals ดึงราคาย้อนหลัง 1 ปีจาก yfinance แบบ synchronous
+    ต่อหนึ่ง symbol และ evaluate_user_alerts ถูกเรียกจาก context processor ด้วย
+    (stocks/context_processors.py) แปลว่ามันอยู่บนเส้นทางเรนเดอร์หน้าเว็บ
+    ตั้งแต่ตอนกรอง user ในการหาผลสแกน โพซิชันที่เคยยืมผลสแกนของคนอื่นมาใช้ได้
+    จะตกมาทางนี้กันหมด ถ้าไม่ cache ไว้ หน้าเว็บจะค้างและโดน yfinance throttle
+    """
+    key = f"stockalert_fallback_{_symbol_key(symbol)}_{market or ''}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None          # เคยลองแล้วไม่มีข้อมูล เก็บเป็น False ไว้ ไม่ต้องยิงซ้ำ
+    from stocks.utils import compute_fallback_alert_signals
+    val = compute_fallback_alert_signals(symbol, market)
+    cache.set(key, val if val is not None else False, timeout=_FALLBACK_SIGNAL_TTL)
+    return val
 
 
 def _is_turtle_strategy(strategy):
@@ -533,8 +560,7 @@ def evaluate_user_alerts(user, config):
         if not latest_scan:
             # ไม่มีข้อมูลใน PrecisionScanCandidate เลย (เช่น ถูกกรองออกด้วย RS pre-filter ของ scanner
             # ตั้งแต่ต้น) — คำนวณสัญญาณพื้นฐานสดจากราคาตรงแทน ดีกว่าข้ามหุ้นตัวนี้ไปเงียบๆ ไม่แจ้งอะไรเลย
-            from stocks.utils import compute_fallback_alert_signals
-            latest_scan = compute_fallback_alert_signals(p.symbol, p.market)
+            latest_scan = _cached_fallback_signals(p.symbol, p.market)
             used_fallback = True
             if not latest_scan:
                 continue

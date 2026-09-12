@@ -304,29 +304,45 @@ class FakeQS:
         r = self.rows
         if 'symbol' in kw: r = [x for x in r if x.symbol == kw['symbol']]
         if 'market' in kw: r = [x for x in r if x.market == kw['market']]
+        # ต้องกรอง user ด้วย ไม่งั้นเทสต์จะผ่านแม้ถอดตัวกรอง user ออกจากโค้ดจริง
+        if 'user' in kw: r = [x for x in r if getattr(x, 'owner', None) == kw['user']]
         return FakeQS(r)
+    def order_by(self, *a): return FakeQS(self.rows)
     def values_list(self, f, flat=False): return FakeQS([getattr(x, f) for x in self.rows])
     def distinct(self): return self
-    def order_by(self, *a): return self
     def first(self): return self.rows[0] if self.rows else None
     def __iter__(self): return iter(self.rows)
 
-def wl_market(rows, sym):
-    objs = FakeQS(rows)
-    with patch.object(ae, 'PrecisionScanCandidate', type('M', (), {'objects': objs})), \
-         patch.object(ae, '_latest_scan', lambda s, market=None, user=None:
-                      next((x for x in rows if x.symbol == s.replace('.BK', '')
-                            and (market is None or x.market == market)), None)):
-        sc = ae._watchlist_scan(sym, user=None)
-    return getattr(sc, 'market', None)
+ME, OTHER = 'me', 'other'
 
-set_row = Scan(market='SET'); set_row.symbol = 'TU'
-us_row  = Scan(market='US');  us_row.symbol = 'TU'
-nv_row  = Scan(market='US');  nv_row.symbol = 'NVDA'
-print('17) ชื่อ .BK -> SET เสมอ:', wl_market([set_row, us_row], 'TU.BK') == 'SET')
-print('    มีตลาดเดียว (NVDA ฝั่ง US) -> US:', wl_market([nv_row], 'NVDA') == 'US')
+def wl_market(rows, sym, who=ME):
+    objs = FakeQS(rows)
+    seen = []
+    def _ls(s, market=None, user=None):
+        seen.append(user)
+        return next((x for x in rows if x.symbol == s.replace('.BK', '')
+                     and (market is None or x.market == market)
+                     and (user is None or getattr(x, 'owner', None) == user)), None)
+    with patch.object(ae, 'PrecisionScanCandidate', type('M', (), {'objects': objs})), \
+         patch.object(ae, '_latest_scan', _ls):
+        sc = ae._watchlist_scan(sym, user=who)
+    return getattr(sc, 'market', None), seen
+
+def _row(sym, market, owner=ME):
+    r = Scan(market=market); r.symbol = sym; r.owner = owner; return r
+
+set_row, us_row = _row('TU', 'SET'), _row('TU', 'US')
+nv_row = _row('NVDA', 'US')
+print('17) ชื่อ .BK -> SET เสมอ:', wl_market([set_row, us_row], 'TU.BK')[0] == 'SET')
+print('    มีตลาดเดียว (NVDA ฝั่ง US) -> US:', wl_market([nv_row], 'NVDA')[0] == 'US')
 print('    มีทั้งสองตลาด -> เลือก SET คงที่ ไม่สลับตามลำดับ:',
-      wl_market([us_row, set_row], 'TU') == 'SET' and wl_market([set_row, us_row], 'TU') == 'SET')
+      wl_market([us_row, set_row], 'TU')[0] == 'SET' and wl_market([set_row, us_row], 'TU')[0] == 'SET')
+# ผลสแกนของคนอื่นต้องไม่ถูกหยิบมาใช้ และ user ต้องถูกส่งต่อไปถึง _latest_scan จริง
+other_only = [_row('XYZ', 'US', owner=OTHER)]
+_m, _seen = wl_market(other_only, 'XYZ')
+print('    ไม่หยิบผลสแกนของ user คนอื่น:', _m is None)
+_m2, _seen2 = wl_market([set_row], 'TU.BK')
+print('    ส่ง user ต่อให้ _latest_scan จริง:', _seen2 == [ME])
 
 # ── 18. symbol ที่ไม่มีผลสแกน ต้องไม่ถูกส่งไปขอราคา ──
 asked = []
@@ -348,8 +364,44 @@ with patch.object(ae, 'cache', MemCache()), \
 syms = sorted(s for s, _ in asked)
 print('18) ไม่ขอราคาให้ตัวที่ไม่มีผลสแกน:', syms == ['HAS'], f'(ขอราคา: {syms})')
 
-# ── 19. ลูปพอร์ตต้องกรอง user ตอนหาผลสแกน ──
-import inspect as _ins
-_src = _ins.getsource(ae.evaluate_user_alerts)
-print('19) ลูปพอร์ตกรอง user ตอนหาผลสแกน:',
-      '_latest_scan(p.symbol, p.market, user=user)' in _src)
+# ── 19. ลูปพอร์ตต้องส่ง user ไปให้ _latest_scan จริง (วัดจากการเรียก ไม่ใช่จากข้อความในซอร์ส) ──
+seen_users = []
+sc19 = {'ZZZ': Scan(market='SET', rvol=2.0, turtle_dist_pct=0.2)}
+def _ls19(s, market=None, user=None):
+    seen_users.append(user)
+    return sc19.get(s.replace('.BK', ''))
+created = []
+me = U()
+with patch.object(ae, 'cache', MemCache()), \
+     patch.object(vb, '_compute_signals', lambda s, current_price=0: {'buy_score': 80, 'reversal_score': 0, 'buy_reasons': []}), \
+     patch.object(ae.Watchlist.objects, 'filter', lambda **k: []), \
+     patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('ZZZ')]), \
+     patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
+     patch.object(ae, '_latest_scan', _ls19), \
+     patch.object(ae, '_watchlist_scan', lambda s, user=None: None), \
+     patch.object(ae, 'is_market_open', lambda m: True), \
+     patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
+    ae.evaluate_user_alerts(me, Cfg())
+print('19) ลูปพอร์ตส่ง user ไปให้ _latest_scan:', seen_users == [me], f'(ได้: {seen_users})')
+
+# ── 20. สัญญาณ fallback ต้องถูก cache ไม่ใช่ยิง yfinance ใหม่ทุกรอบเช็ค ──
+calls = []
+def _fake_fallback(sym, mkt):
+    calls.append((sym, mkt))
+    return Scan(market=mkt, rvol=0.5, turtle_dist_pct=99.0)
+import stocks.utils as _su
+mc20 = MemCache()
+for _ in range(3):
+    created = []
+    with patch.object(ae, 'cache', mc20), \
+         patch.object(_su, 'compute_fallback_alert_signals', _fake_fallback), \
+         patch.object(vb, '_compute_signals', lambda s, current_price=0: {'buy_score': 10, 'reversal_score': 0, 'buy_reasons': []}), \
+         patch.object(ae.Watchlist.objects, 'filter', lambda **k: []), \
+         patch.object(ae.Portfolio.objects, 'filter', lambda **k: [P('NOSCAN')]), \
+         patch.object(ae, 'fetch_live_prices', lambda pairs: {(s, m): 10.0 for s, m in pairs}), \
+         patch.object(ae, '_latest_scan', lambda s, market=None, user=None: None), \
+         patch.object(ae, '_watchlist_scan', lambda s, user=None: None), \
+         patch.object(ae, 'is_market_open', lambda m: True), \
+         patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
+        ae.evaluate_user_alerts(U(), Cfg())
+print('20) รัน 3 รอบ -> ดึงราคา fallback ครั้งเดียว:', len(calls) == 1, f'(เรียก {len(calls)} ครั้ง)')
