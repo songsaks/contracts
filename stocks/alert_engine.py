@@ -219,6 +219,11 @@ def _watchlist_scan(symbol, user):
 
 # อายุ cache ของสัญญาณ fallback — สั้นพอให้ตัวเลขยังสด แต่ยาวกว่ารอบเช็ค (~90 วิ) มาก
 _FALLBACK_SIGNAL_TTL = 15 * 60
+# กรณีดึงไม่ได้ต้องหมดอายุเร็วกว่ากันคนละเรื่อง: สาเหตุที่พบบ่อยคือ yfinance ล่มชั่วคราว
+# หรือโดน throttle ซึ่งหายเองในไม่กี่นาที ถ้าใช้ TTL เดียวกับผลสำเร็จ = ปิดปาก alert
+# ของโพซิชันนั้นทั้งหมดรวมถึง STOP_LOSS ไปเต็ม 15 นาทีเพราะเน็ตสะดุดครั้งเดียว
+# 120 วิ ยาวกว่ารอบเช็คนิดหน่อย พอกันไม่ให้ยิงซ้ำถี่ แต่กลับมาลองใหม่ได้ไว
+_FALLBACK_SIGNAL_FAIL_TTL = 120
 
 
 def _cached_fallback_signals(symbol, market):
@@ -236,7 +241,8 @@ def _cached_fallback_signals(symbol, market):
         return hit or None          # เคยลองแล้วไม่มีข้อมูล เก็บเป็น False ไว้ ไม่ต้องยิงซ้ำ
     from stocks.utils import compute_fallback_alert_signals
     val = compute_fallback_alert_signals(symbol, market)
-    cache.set(key, val if val is not None else False, timeout=_FALLBACK_SIGNAL_TTL)
+    cache.set(key, val if val is not None else False,
+              timeout=_FALLBACK_SIGNAL_TTL if val is not None else _FALLBACK_SIGNAL_FAIL_TTL)
     return val
 
 

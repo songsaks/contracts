@@ -50,10 +50,10 @@ from django.contrib.auth import get_user_model
 U = lambda: get_user_model()(id=1, username='t')
 
 class MemCache:
-    def __init__(self): self.d = {}
+    def __init__(self): self.d = {}; self.ttl = {}
     def get(self, k, default=None): return self.d.get(k, default)
-    def set(self, k, v, timeout=None): self.d[k] = v
-    def clear(self): self.d.clear()
+    def set(self, k, v, timeout=None): self.d[k] = v; self.ttl[k] = timeout
+    def clear(self): self.d.clear(); self.ttl.clear()
 
 def _prices(pairs):
     """จำลอง fetch_live_prices จริง: แปลงผ่าน _to_yf_symbol แล้วให้ราคาเฉพาะ ticker ที่ถูกต้อง
@@ -405,3 +405,16 @@ for _ in range(3):
          patch.object(ae.StockAlertEvent.objects, 'bulk_create', lambda e: created.extend(e)):
         ae.evaluate_user_alerts(U(), Cfg())
 print('20) รัน 3 รอบ -> ดึงราคา fallback ครั้งเดียว:', len(calls) == 1, f'(เรียก {len(calls)} ครั้ง)')
+
+# ── 21. ดึงราคา fallback ไม่สำเร็จ ต้องหมดอายุเร็ว ไม่ปิดปาก alert ยาว 15 นาที ──
+def fallback_ttl(result):
+    mc = MemCache()
+    with patch.object(ae, 'cache', mc), \
+         patch.object(_su, 'compute_fallback_alert_signals', lambda s, m: result):
+        ae._cached_fallback_signals('QQQ', 'SET')
+    return next(iter(mc.ttl.values()))
+ok_ttl = fallback_ttl(Scan(market='SET'))
+fail_ttl = fallback_ttl(None)
+print('21) TTL สำเร็จ vs ล้มเหลว:', ok_ttl == ae._FALLBACK_SIGNAL_TTL and fail_ttl == ae._FALLBACK_SIGNAL_FAIL_TTL,
+      f'(สำเร็จ {ok_ttl} วิ, ล้มเหลว {fail_ttl} วิ)')
+print('    ล้มเหลวต้องสั้นกว่าสำเร็จมาก:', fail_ttl < ok_ttl / 4)
