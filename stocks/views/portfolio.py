@@ -1123,9 +1123,13 @@ def portfolio_scan(request):
                 adx = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
                 gap_to_high = ((year_high - current_price) / current_price) * 100
 
-                # ====== เกณฑ์กรอง Trend Template (เหมือน momentum_scanner) ======
-                # คอมเมนต์บรรทัดบนบอกเจตนาไว้ว่าให้เหมือน momentum_scanner แต่ของเดิม
-                # พิมพ์ 0.60 ไว้เองขณะที่ที่อื่นใช้ 0.65/0.75 — ใช้ค่าคงที่ตัวเดียวกันทั้งระบบ
+                # ====== เกณฑ์กรอง Trend Template ======
+                # ใช้ค่าคงที่ตัวเดียวกับสแกนเนอร์ (ของเดิมพิมพ์ 0.60 ไว้เองทั้งที่คอมเมนต์
+                # อ้างว่าเหมือน momentum_scanner) แต่ยัง *ไม่* เหมือนกันเป๊ะอยู่ดี:
+                # สแกนเนอร์ยกเว้นเกณฑ์นี้ให้หุ้นที่เข้าข่าย early_accumulation (วอลุ่มพุ่ง /
+                # ราคาบีบตัว / วอลุ่มแห้ง) ส่วนตรงนี้บังคับทุกตัวไม่มียกเว้น
+                # ผลคือหุ้นที่โผล่บนหน้าสแกนอาจไม่โผล่ที่นี่ — ตั้งใจให้หน้านี้เข้มกว่า
+                # ถ้าจะให้ตรงกันต้องยกตัวคำนวณ early_accumulation มาด้วย ซึ่งเป็นงานคนละก้อน
                 is_uptrend = (current_price > ema200)
                 near_high = (current_price >= year_high * MINERVINI_NEAR_HIGH_RATIO)
 

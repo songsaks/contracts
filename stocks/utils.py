@@ -369,7 +369,7 @@ def _build_preset_indicators(df):
         + ((sma50_tt > d['SMA150']) & (sma50_tt > sma200_tt)).astype(int)
         + (d['Close'] > sma50_tt).astype(int)
         + (d['Close'] >= year_low * 1.25).astype(int)
-        + (d['Close'] >= year_high * 0.75).astype(int)
+        + (d['Close'] >= year_high * MINERVINI_NEAR_HIGH_RATIO).astype(int)
     )
     # ต้นฉบับคืน score 0 เมื่อข้อมูลไม่พอ: ต้องมี ≥210 แท่ง *และ* SMA200 ที่ไม่ใช่ NaN ≥22 ค่า
     # เงื่อนไขหลังเข้มกว่า — SMA200 เริ่มมีค่าที่แท่งที่ 200 จึงต้องถึงแท่งที่ 221 (index 220)

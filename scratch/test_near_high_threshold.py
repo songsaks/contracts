@@ -1,24 +1,35 @@
-"""ตรวจว่าเกณฑ์ "ใกล้ High 52 สัปดาห์" มีนิยามเดียวและถูกใช้ทุกที่จริง
+"""ตรวจว่าเกณฑ์ "ใกล้ High 52 สัปดาห์" ของ Minervini Trend Template มีนิยามเดียว
 
-เดิมค่านี้ถูกพิมพ์กระจาย 4 ที่แล้วเพี้ยนกันเป็น 0.60 / 0.65 / 0.75 ทั้งที่ทุกที่
-เขียนกำกับว่าเป็น Minervini Trend Template เหมือนกัน เทสต์นี้กันไม่ให้เกิดซ้ำ
-ใช้ ast อ่านโครงสร้างจริง ไม่ใช่ตัด string ที่ '#' (ซึ่งพลาดถ้ามี # อยู่ในสตริง)
+เดิมค่านี้ถูกพิมพ์กระจายหลายที่แล้วเพี้ยนกันเป็น 0.60 / 0.65 / 0.75 ทั้งที่ทุกที่
+เขียนกำกับว่าเป็นเกณฑ์เดียวกัน เทสต์นี้กันไม่ให้เกิดซ้ำ
+
+วิธีตรวจ: ใช้ ast หา "การคูณตัวแปร High 52 สัปดาห์ด้วยค่าคงตัว" ทุกจุดในไฟล์ที่
+เกี่ยวข้อง แล้วบังคับว่าต้องอ้าง MINERVINI_NEAR_HIGH_RATIO เว้นแต่จะอยู่ใน
+ALLOWED ซึ่งเป็นรายการ "ตัวเลขที่เป็นคนละเกณฑ์จริงๆ" พร้อมเหตุผลกำกับทีละตัว
+ใครเพิ่มเลขดิบใหม่จะถูกจับทันที ต้องเลือกว่าจะใช้ค่าคงที่หรือมาขึ้นทะเบียนที่นี่
 
 ไม่ต้องใช้ฐานข้อมูลและไม่ต้อง import Django
 รันจาก repo root: python3 scratch/test_near_high_threshold.py
 """
 import ast
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-
-# ไฟล์ที่มีตัวคัดกรองซึ่งเทียบราคากับ High 52 สัปดาห์
-GATE_FILES = ['stocks/views/scanners.py', 'stocks/views/portfolio.py']
-# ตัวนิยาม Trend Template ของระบบ — ค่าคงที่ต้องอยู่ที่นี่
-HOME = 'stocks/utils.py'
-# ตัวเลขดิบที่ยังเหลือได้: ชั้นไล่คะแนนของ us_momentum_scanner (ไม่ใช่ประตูกรอง)
-SCORE_TIERS = {0.90, 0.80}
 CONST = 'MINERVINI_NEAR_HIGH_RATIO'
+HOME = 'stocks/utils.py'          # ที่อยู่ของค่าคงที่ (ข้าง check_trend_template)
+FILES = [HOME, 'stocks/views/scanners.py', 'stocks/views/portfolio.py']
+
+# ตัวเลขดิบที่ "ไม่ใช่" เกณฑ์ Trend Template — ขึ้นทะเบียนไว้พร้อมเหตุผล
+# key = (ไฟล์, ค่า) เพื่อไม่ให้ค่าที่อนุญาตในไฟล์หนึ่งไปเปิดช่องให้อีกไฟล์
+ALLOWED = {
+    ('stocks/utils.py', 0.99): 'เบรก/แตะ 52W High (±1%) — คนละเกณฑ์กับ Trend Template',
+    ('stocks/utils.py', 0.90): 'ชั้นไล่คะแนนความใกล้ยอด',
+    ('stocks/utils.py', 0.85): 'ชั้นไล่คะแนนความใกล้ยอด',
+    ('stocks/views/scanners.py', 0.90): 'ชั้นไล่คะแนนของ us_momentum_scanner',
+    ('stocks/views/scanners.py', 0.80): 'ชั้นไล่คะแนนของ us_momentum_scanner',
+    ('stocks/views/scanners.py', 0.88): 'VDU near high — เกณฑ์วอลุ่มแห้ง ไม่ใช่ประตู Trend Template',
+}
 
 fails = []
 
@@ -28,65 +39,63 @@ def check(label, ok, detail=''):
     fails.append(ok)
 
 
-def _mults(path):
-    """คูณที่ year_high เป็นตัวตั้งโดยตรง — ไม่นับ (price/year_high*100) ซึ่งเป็นคณิตเปอร์เซ็นต์
-    ต้องเช็ค operand ตรงๆ ไม่ใช่ walk ทั้งต้นไม้ ไม่งั้นจะไปเจอ 100 ในนิพจน์ซ้อน"""
+def near_high_mults(path):
+    """คืน [(บรรทัด, ตัวคูณอีกฝั่ง)] ของทุกจุดที่คูณตัวแปร High 52 สัปดาห์โดยตรง
+
+    จับทุกชื่อที่ขึ้นต้นด้วย year_h (scanners.py ใช้ทั้ง year_high และ year_h)
+    เทียบเฉพาะ operand ตรงๆ ไม่ walk ทั้งต้นไม้ ไม่งั้นจะไปเจอ 100 ใน
+    (price / year_high * 100) ซึ่งเป็นคณิตเปอร์เซ็นต์ ไม่ใช่เกณฑ์
+    """
     tree = ast.parse((ROOT / path).read_text())
     for n in ast.walk(tree):
         if not (isinstance(n, ast.BinOp) and isinstance(n.op, ast.Mult)):
             continue
-        sides = (n.left, n.right)
-        if not any(isinstance(x, ast.Name) and x.id == 'year_high' for x in sides):
+        sides = [n.left, n.right]
+        hi = [x for x in sides if isinstance(x, ast.Name) and x.id.startswith('year_h')]
+        if not hi:
             continue
-        yield [x for x in sides if not (isinstance(x, ast.Name) and x.id == 'year_high')]
-
-
-def raw_multipliers(path):
-    """ตัวเลขดิบที่ถูกคูณกับ year_high ตรงๆ"""
-    return [float(o.value) for others in _mults(path) for o in others
-            if isinstance(o, ast.Constant) and isinstance(o.value, (int, float))]
-
-
-def const_uses(path):
-    """จำนวนจุดที่คูณ year_high กับค่าคงที่"""
-    return sum(1 for others in _mults(path) for o in others
-               if isinstance(o, ast.Name) and o.id == CONST)
+        for other in (x for x in sides if x not in hi):
+            yield n.lineno, other
 
 
 # 1. ค่าคงที่ต้องอยู่ที่ utils.py และเป็น 0.75 (ภายใน 25% ของ High 52 สัปดาห์)
-home_tree = ast.parse((ROOT / HOME).read_text())
-val = None
-for node in home_tree.body:
+val, err = None, ''
+for node in ast.parse((ROOT / HOME).read_text()).body:
     if isinstance(node, ast.Assign) and any(
             isinstance(t, ast.Name) and t.id == CONST for t in node.targets):
-        val = node.value.value
-check(f'1) {CONST} อยู่ที่ {HOME} และเป็น 0.75', val == 0.75, f'(ได้ {val})')
+        if isinstance(node.value, ast.Constant):
+            val = node.value.value
+        else:
+            err = ' (ไม่ใช่ค่าคงตัว — เทสต์อ่านไม่ได้)'   # กันพังถ้ามีคนเขียนเป็นนิพจน์
+check(f'1) {CONST} อยู่ที่ {HOME} และเป็น 0.75', val == 0.75, f'(ได้ {val}{err})')
 
-# 2. check_trend_template ต้องใช้ค่าคงที่ ไม่ใช่เลขดิบ
-check('2) check_trend_template ใช้ค่าคงที่', const_uses(HOME) >= 1,
-      f'({const_uses(HOME)} จุด)')
+# 2. ทุกไฟล์: จุดที่คูณ High 52 สัปดาห์ ต้องใช้ค่าคงที่ หรืออยู่ในทะเบียน ALLOWED
+total_const = 0
+for f in FILES:
+    bad, uses = [], 0
+    for lineno, other in near_high_mults(f):
+        if isinstance(other, ast.Name) and other.id == CONST:
+            uses += 1
+        elif isinstance(other, ast.Constant) and isinstance(other.value, (int, float)):
+            if (f, float(other.value)) not in ALLOWED:
+                bad.append(f'บรรทัด {lineno} → *{other.value}')
+    total_const += uses
+    check(f'2) {f.split("/")[-1]}: ใช้ค่าคงที่ {uses} จุด, ไม่มีเลขดิบนอกทะเบียน',
+          not bad, f'({bad or "ไม่มี"})')
 
-# 3. ทุกไฟล์ที่มีประตูกรองต้องใช้ค่าคงที่ และไม่มีเลขดิบนอกจากชั้นคะแนน
-total = 0
-for f in GATE_FILES:
-    raws = [r for r in raw_multipliers(f) if r not in SCORE_TIERS]
-    uses = const_uses(f)
-    total += uses
-    check(f'3) {f.split("/")[-1]}: ใช้ค่าคงที่ {uses} จุด, ไม่มีเลขดิบ',
-          uses >= 1 and not raws, f'(เลขดิบที่พบ: {raws or "ไม่มี"})')
+# 3. ต้องมีอย่างน้อย 5 จุด (utils 2: check_trend_template + tt_price_score,
+#    scanners 3, portfolio 1 = 6) — ใช้ >= เพื่อไม่ให้แดงเมื่อมีคนเพิ่มจุดที่ถูกต้อง
+check('3) จุดที่ใช้ค่าคงที่รวมทุกไฟล์ ≥ 5', total_const >= 5, f'(ได้ {total_const})')
 
-# 4. รวมทุกไฟล์ต้องมีอย่างน้อย 4 จุด (scanners 3 + portfolio 1)
-#    ใช้ >= ไม่ใช่ == เพราะการเพิ่มสแกนเนอร์ใหม่ที่ใช้ค่าคงที่ถูกต้อง ไม่ควรทำให้เทสต์แดง
-check('4) จุดที่ใช้ค่าคงที่รวมทุกไฟล์ ≥ 4', total >= 4, f'(ได้ {total})')
-
-# 5. ข้อความบนหน้าเว็บต้องไม่โฆษณาเกณฑ์เก่า
+# 4. ข้อความบนหน้าเว็บต้องตรงกับค่าคงที่ — คิดเปอร์เซ็นต์จากค่าจริง ไม่พิมพ์ตายตัว
+want = f'{(val or 0) * 100:.0f}'
+pat = re.compile(r'(\d{2})%\s*(?:of\s*52W\s*High|ของ\s*High\s*52)', re.I)
 stale = []
-for html in (ROOT / 'stocks/templates/stocks').glob('*.html'):
-    txt = html.read_text()
-    for bad in ('65% of 52W High', '65% ของ High 52'):
-        if bad in txt:
-            stale.append(f'{html.name}: {bad}')
-check('5) ไม่มีหน้าเว็บโฆษณา 65% ค้างอยู่', not stale, f'({stale or "ไม่มี"})')
+for html in (ROOT / 'stocks/templates').rglob('*.html'):
+    for m in pat.finditer(html.read_text()):
+        if m.group(1) != want:
+            stale.append(f'{html.name}:{m.group(0)}')
+check(f'4) หน้าเว็บระบุ {want}% ตรงกับค่าคงที่', not stale, f'({stale or "ไม่มี"})')
 
 print('\nสรุป:', 'ผ่านหมด' if all(fails) else 'มีข้อที่ไม่ผ่าน')
 raise SystemExit(0 if all(fails) else 1)
