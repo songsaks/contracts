@@ -1,4 +1,5 @@
 from .base import *
+from stocks.utils import MINERVINI_NEAR_HIGH_RATIO   # เกณฑ์ใกล้ High 52 สัปดาห์ — นิยามเดียวของทั้งระบบ
 import logging
 from django.db import transaction
 
@@ -1123,8 +1124,10 @@ def portfolio_scan(request):
                 gap_to_high = ((year_high - current_price) / current_price) * 100
 
                 # ====== เกณฑ์กรอง Trend Template (เหมือน momentum_scanner) ======
+                # คอมเมนต์บรรทัดบนบอกเจตนาไว้ว่าให้เหมือน momentum_scanner แต่ของเดิม
+                # พิมพ์ 0.60 ไว้เองขณะที่ที่อื่นใช้ 0.65/0.75 — ใช้ค่าคงที่ตัวเดียวกันทั้งระบบ
                 is_uptrend = (current_price > ema200)
-                near_high = (current_price >= year_high * 0.60)
+                near_high = (current_price >= year_high * MINERVINI_NEAR_HIGH_RATIO)
 
                 if is_uptrend and near_high:
                     sector = "Unknown"

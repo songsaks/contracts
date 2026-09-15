@@ -1,4 +1,5 @@
 from .base import *
+from stocks.utils import MINERVINI_NEAR_HIGH_RATIO   # เกณฑ์ใกล้ High 52 สัปดาห์ — นิยามเดียวของทั้งระบบ
 import logging
 import time
 
@@ -610,17 +611,6 @@ def mean_reversion_scanner(request):
 #   รวบรวมหุ้นที่ผ่านเกณฑ์จากระบบสแกนต่าง ๆ พร้อมสัญญาณและคะแนน
 #   แสดงผลเป็น Dashboard สำหรับนักลงทุนใช้ตัดสินใจเบื้องต้น
 # ============================================================
-# ====== เกณฑ์ "ใกล้ High 52 สัปดาห์" ของ Minervini Trend Template ======
-# ข้อที่ 7 ของ Trend Template: ราคาต้องอยู่ภายใน 25% ของ High 52 สัปดาห์
-# (price >= year_high * 0.75) ซึ่งเป็นตัวตัดหุ้นที่กำลังไหลลงใน Stage 3/4 ออก
-#
-# เดิมค่านี้ถูกพิมพ์กระจายอยู่ 3 ที่ในไฟล์นี้และไม่ตรงกัน: precision_scan ฝั่ง SET
-# กับ us_momentum_scanner ใช้ 0.65 ส่วน us_precision_scan ใช้ 0.75 ทั้งที่ทั้งสาม
-# แห่งเขียนกำกับไว้ว่าเป็น "Minervini Trend Template" เหมือนกัน
-# 0.65 = ยอมให้หุ้นที่ต่ำกว่า High 52 สัปดาห์ถึง 35% ผ่านเข้ามา ซึ่งคือช่วงที่
-# Minervini ถือว่าเป็นขาลงแล้ว — รวมไว้ที่เดียวเพื่อไม่ให้เพี้ยนกันอีก
-MINERVINI_NEAR_HIGH_RATIO = 0.75
-
 # ต้นทุนเงินทุนอ้างอิงตลาดไทย — แก้ที่เดียวเมื่อภาวะดอกเบี้ยเปลี่ยน
 TH_RISK_FREE_PCT      = 2.5   # พันธบัตรรัฐบาลไทย 10 ปี
 TH_EQUITY_PREMIUM_PCT = 7.5   # Equity Risk Premium ไทย (Damodaran)
