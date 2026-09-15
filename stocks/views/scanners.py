@@ -610,6 +610,17 @@ def mean_reversion_scanner(request):
 #   รวบรวมหุ้นที่ผ่านเกณฑ์จากระบบสแกนต่าง ๆ พร้อมสัญญาณและคะแนน
 #   แสดงผลเป็น Dashboard สำหรับนักลงทุนใช้ตัดสินใจเบื้องต้น
 # ============================================================
+# ====== เกณฑ์ "ใกล้ High 52 สัปดาห์" ของ Minervini Trend Template ======
+# ข้อที่ 7 ของ Trend Template: ราคาต้องอยู่ภายใน 25% ของ High 52 สัปดาห์
+# (price >= year_high * 0.75) ซึ่งเป็นตัวตัดหุ้นที่กำลังไหลลงใน Stage 3/4 ออก
+#
+# เดิมค่านี้ถูกพิมพ์กระจายอยู่ 3 ที่ในไฟล์นี้และไม่ตรงกัน: precision_scan ฝั่ง SET
+# กับ us_momentum_scanner ใช้ 0.65 ส่วน us_precision_scan ใช้ 0.75 ทั้งที่ทั้งสาม
+# แห่งเขียนกำกับไว้ว่าเป็น "Minervini Trend Template" เหมือนกัน
+# 0.65 = ยอมให้หุ้นที่ต่ำกว่า High 52 สัปดาห์ถึง 35% ผ่านเข้ามา ซึ่งคือช่วงที่
+# Minervini ถือว่าเป็นขาลงแล้ว — รวมไว้ที่เดียวเพื่อไม่ให้เพี้ยนกันอีก
+MINERVINI_NEAR_HIGH_RATIO = 0.75
+
 # ต้นทุนเงินทุนอ้างอิงตลาดไทย — แก้ที่เดียวเมื่อภาวะดอกเบี้ยเปลี่ยน
 TH_RISK_FREE_PCT      = 2.5   # พันธบัตรรัฐบาลไทย 10 ปี
 TH_EQUITY_PREMIUM_PCT = 7.5   # Equity Risk Premium ไทย (Damodaran)
@@ -2272,9 +2283,9 @@ def precision_momentum_scanner(request):
                             return None
 
                         # ====== Trend Template Filter ======
-                        near_high  = current_price >= year_high * 0.65
+                        near_high  = current_price >= year_high * MINERVINI_NEAR_HIGH_RATIO
                         if not near_high and not early_accumulation:
-                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 65% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < {MINERVINI_NEAR_HIGH_RATIO*100:.0f}% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
                             return None
 
                         import logging; logger = logging.getLogger('stocks')
@@ -4782,7 +4793,7 @@ def us_momentum_scanner(request):
                             rvol_val     = float(last['RVOL']) if _pd.notna(last.get('RVOL')) else 1.0
 
                             # ── Minervini Trend Template filters ──────
-                            if not (current_p > ema200 and current_p >= year_high * 0.65):
+                            if not (current_p > ema200 and current_p >= year_high * MINERVINI_NEAR_HIGH_RATIO):
                                 return None
                             if adx_val < 15:
                                 return None
@@ -4806,6 +4817,9 @@ def us_momentum_scanner(request):
                             elif is_bullish and rvol_val >= 1.0: score += 12
                             elif rvol_val >= 1.0:                score += 5
                             # Price strength (max 10)
+                            # ไล่ระดับคะแนน ไม่ใช่ประตูกรอง — ตัวกรอง Trend Template คือ
+                            # MINERVINI_NEAR_HIGH_RATIO ด้านบน สองบรรทัดนี้แค่ให้คะแนนหุ้น
+                            # ที่ยิ่งใกล้ High ยิ่งได้มาก จึงเป็นคนละตัวเลขกันโดยตั้งใจ
                             if current_p >= year_high * 0.90:    score += 10
                             elif current_p >= year_high * 0.80:  score += 5
                             # RS Rating bonus (max 15)
@@ -5619,9 +5633,9 @@ def us_precision_scanner(request):
                             return None
 
                         # ====== Trend Template Filter ======
-                        near_high  = current_price >= year_high * 0.75  # Minervini Trend Template: within 25% of 52w high
+                        near_high  = current_price >= year_high * MINERVINI_NEAR_HIGH_RATIO
                         if not near_high and not early_accumulation:
-                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ${current_price} < 75% of 52wH ${year_high} ({current_price/year_high*100:.0f}%)")
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ${current_price} < {MINERVINI_NEAR_HIGH_RATIO*100:.0f}% of 52wH ${year_high} ({current_price/year_high*100:.0f}%)")
                             return None
 
                         import logging; logger = logging.getLogger('stocks')
