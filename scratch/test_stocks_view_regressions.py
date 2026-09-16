@@ -32,7 +32,10 @@ from django.test import RequestFactory
 from django.views.decorators.http import require_POST
 from stocks.forms import SellStockForm
 from stocks.models import Portfolio, SoldStock, Watchlist, MarketType, PrecisionScanRun
-from stocks.precision_runs import rank_valid_returns, scan_timestamps
+from stocks.precision_runs import (
+    rank_valid_returns, scan_timestamps, entry_risk_reward,
+    average_daily_turnover, deep_scan_outcome,
+)
 
 
 def load_view(filename, name):
@@ -138,6 +141,46 @@ class StockViewRegressionTests(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertEqual(ranks, {})
 
+    def test_live_entry_rr_controls_qualification(self):
+        from types import SimpleNamespace
+        tree = ast.parse((ROOT / 'stocks/views/scanners.py').read_text(encoding='utf-8'))
+        view = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'precision_momentum_scanner')
+        node = next(n for n in ast.walk(view) if isinstance(n, ast.FunctionDef) and n.name == '_is_fully_qualified')
+        namespace = dict(globals())
+        exec(compile(ast.Module(body=[node], type_ignores=[]), 'qualification', 'exec'), namespace)
+        candidate = SimpleNamespace(risk_reward_ratio=6, demand_zone_start=100, demand_zone_end=96,
+            price=100, live_price=120, live_zone_prox=20, zone_proximity=0, supply_zone_start=130,
+            stop_loss=95, buy_score=80, adx=25, rsi=65, rvol_bullish=True, rvol=1.2, sell_score=0, rs_rating=80)
+        self.assertAlmostEqual(entry_risk_reward(120, 95, 130), 0.4)
+        self.assertFalse(namespace['_is_fully_qualified'](candidate))
+        candidate.live_price = 100
+        candidate.live_zone_prox = 0
+        self.assertTrue(namespace['_is_fully_qualified'](candidate))
+        candidate.stop_loss = None
+        self.assertFalse(namespace['_is_fully_qualified'](candidate))
+
+    def test_invalid_entry_rr(self):
+        for values in ((95, 95, 130), (140, 95, 130), (100, -5, 130), (float('nan'), 95, 130)):
+            self.assertIsNone(entry_risk_reward(*values))
+
+    def test_turnover_uses_daily_products(self):
+        import pandas as pd
+        df = pd.DataFrame({'Close': [1] * 10 + [100] * 10, 'Volume': [1000000] * 10 + [10000] * 10})
+        self.assertEqual(average_daily_turnover(df), 1000000)
+        df.loc[19, 'Volume'] = float('nan')
+        with self.assertRaises(ValueError):
+            average_daily_turnover(df)
+
+    def test_deep_scan_failures_are_not_empty_success(self):
+        status, message = deep_scan_outcome(0, 0, 20)
+        self.assertEqual(status, 'failed')
+        self.assertIn('20', message)
+        self.assertEqual(deep_scan_outcome(0, 20, 0), ('completed', ''))
+        status, message = deep_scan_outcome(2, 15, 3)
+        self.assertEqual(status, 'completed')
+        self.assertIn('ผลไม่ครบ', message)
+        self.assertIn('3', message)
+
     def test_empty_scan_is_latest_and_preserves_legacy_history(self):
         from datetime import timedelta
         from django.utils import timezone
@@ -179,6 +222,12 @@ class StockViewRegressionTests(unittest.TestCase):
         record.message = 'ข้อมูล RS ไม่เพียงพอ'
         html = compiled.render(Context({'scan_run_info': record}))
         self.assertIn('ข้อมูล RS ไม่เพียงพอ', html)
+        if filename == 'precision_scan.html':
+            record.status = 'completed'
+            record.message = 'ผลไม่ครบ: วิเคราะห์ล้มเหลว 3 ตัว'
+            html = compiled.render(Context({'scan_run_info': record}))
+            self.assertIn(record.message, html)
+            self.assertIn('alert-warning', html)
 
     def test_scanner_history_keeps_markets_and_users_separate(self):
         from datetime import timedelta

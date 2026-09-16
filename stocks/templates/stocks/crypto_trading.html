@@ -2982,7 +2982,11 @@
             const m = bootstrap.Modal.getInstance(document.getElementById('botConfirmModal'));
             if(m) m.hide();
             logMessage(`กำลังส่งคำสั่งเริ่มทำงานของบอท (${activeStrategy})...`, "text-warning");
-            fetch(`{% url 'stocks:start_crypto_bot' %}?strategy=${activeStrategy}`).then(r=>r.json()).then(d => { 
+            fetch(`{% url 'stocks:start_crypto_bot' %}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: `strategy=${encodeURIComponent(activeStrategy)}`
+            }).then(r=>r.json()).then(d => { 
                 if (d.success) logMessage(`บอทคริปโตเริ่มต้นการทำงานแล้ว (${activeStrategy}) — โหมดเฝ้าดูเงื่อนไขเปิดใช้งาน`, "text-success fw-bold"); 
                 else logMessage("ไม่สามารถเปิดใช้งานบอทได้: " + d.error, "text-danger");
             });
@@ -2992,7 +2996,10 @@
             if (!confirm("⚠️ ยืนยันการปิดระบบและหยุดการเฝ้าดูเงื่อนไขของบอททั้งหมด?")) return;
             
             logMessage("กำลังสั่งหยุดการทำงานของบอท...", "text-danger");
-            fetch("{% url 'stocks:stop_crypto_bot' %}").then(r=>r.json()).then(d => { 
+            fetch("{% url 'stocks:stop_crypto_bot' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            }).then(r=>r.json()).then(d => { 
                 if (d.success) {
                     alert("✅ ระบบบอทหยุดการทำงาน (OFFLINE) เรียบร้อยแล้ว");
                     logMessage("บอทคริปโตหยุดทำงานเสร็จสิ้น", "text-warning fw-bold"); 

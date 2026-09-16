@@ -58,7 +58,7 @@ def get_gold_positions_ajax(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-@csrf_exempt
+@require_POST
 @login_required
 def close_all_gold_positions_ajax(request):
     """
@@ -72,12 +72,10 @@ def close_all_gold_positions_ajax(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-@csrf_exempt
+@require_POST
 @login_required
 def modify_gold_position_ajax(request):
     """แก้ไข SL/TP ของ position ที่เปิดอยู่"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=400)
     import json
 
     from stocks.trading_bridge import RobotBridge
@@ -101,14 +99,12 @@ def modify_gold_position_ajax(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-@csrf_exempt
+@require_POST
 @login_required
 def execute_gold_trade_ajax(request):
     """
     รับคำสั่งจากปุ่มเทรดในหน้า Gold Command Center
     """
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Post required'}, status=400)
     if _check_rate_limit(request.user.id, 'gold_execute', limit=10, window=60):
         return JsonResponse({'success': False, 'error': 'Rate limit: max 10 trades/minute'}, status=429)
     import json
@@ -237,7 +233,7 @@ def get_crypto_positions_ajax(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
-@csrf_exempt
+@require_POST
 @login_required
 def close_all_crypto_positions_ajax(request):
     """
@@ -253,12 +249,10 @@ def close_all_crypto_positions_ajax(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
-@csrf_exempt
+@require_POST
 @login_required
 def modify_crypto_position_ajax(request):
     """แก้ไข SL/TP ของ position คริปโตที่เปิดอยู่"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=400)
     import json
 
     from stocks.trading_bridge import RobotBridge
@@ -282,14 +276,12 @@ def modify_crypto_position_ajax(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
-@csrf_exempt
+@require_POST
 @login_required
 def execute_crypto_trade_ajax(request):
     """
     รับคำสั่งจากปุ่มเทรดในหน้า Crypto Command Center
     """
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Post required'}, status=400)
     if _check_rate_limit(request.user.id, 'crypto_execute', limit=10, window=60):
         return JsonResponse({'success': False, 'error': 'Rate limit: max 10 trades/minute'}, status=429)
     import json
@@ -427,7 +419,7 @@ def get_crypto_bot_status_ajax(request):
             else:
                 os.kill(pid, 0)
                 is_process_alive = True
-        except:
+        except (OSError, ValueError):
             is_process_alive = False
 
     try:
@@ -450,6 +442,7 @@ def get_crypto_bot_status_ajax(request):
         })
 
 
+@require_POST
 @login_required
 def start_crypto_bot_ajax(request):
     """สั่งเริ่มการทำงานของบอทคริปโต (Isolated by User)"""
@@ -472,14 +465,17 @@ def start_crypto_bot_ajax(request):
             else:
                 os.kill(pid, 0)
                 return JsonResponse({'success': False, 'error': 'Bot is already running'})
-        except:
+        except (OSError, ValueError):
             if os.path.exists(user_pid_file): os.remove(user_pid_file)
 
     try:
         import sys
         python_exe = sys.executable
         log_dir = os.path.dirname(os.path.dirname(__file__))
-        strategy = request.GET.get('strategy', 'SNIPER')
+        _ALLOWED_STRATEGIES = {'SNIPER', 'SCALP', 'SWING', 'TURTLE'}
+        strategy = request.POST.get('strategy', 'SNIPER').strip().upper()
+        if strategy not in _ALLOWED_STRATEGIES:
+            strategy = 'SNIPER'
         
         cmd_args = [python_exe, 'manage.py', 'run_crypto_bot', 
                     '--strategy', strategy, 
@@ -506,6 +502,7 @@ def start_crypto_bot_ajax(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
+@require_POST
 @login_required
 def stop_crypto_bot_ajax(request):
     """สั่งหยุดบอทคริปโต (Isolated by User)"""
@@ -527,7 +524,7 @@ def stop_crypto_bot_ajax(request):
             subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True)
         else:
             try: os.kill(pid, signal.SIGTERM)
-            except: pass
+            except OSError: pass
             subprocess.run(['pkill', '-f', f'--user_id {request.user.id}'], capture_output=True)
 
         if os.path.exists(user_pid_file): os.remove(user_pid_file)
@@ -701,7 +698,7 @@ def get_bot_status_ajax(request):
             else:
                 os.kill(pid, 0)
                 is_process_alive = True
-        except:
+        except (OSError, ValueError):
             is_process_alive = False
 
     # 2. ดึงข้อมูลจากฐานข้อมูล (BotActivity)
@@ -724,6 +721,7 @@ def get_bot_status_ajax(request):
             'process_running': is_process_alive
         })
 
+@require_POST
 @login_required
 def start_gold_bot_ajax(request):
     """สั่งเริ่มการทำงานของบอท (Isolated by User)"""
@@ -747,14 +745,17 @@ def start_gold_bot_ajax(request):
             else:
                 os.kill(pid, 0)
                 return JsonResponse({'success': False, 'error': 'Bot is already running'})
-        except:
+        except (OSError, ValueError):
             if os.path.exists(user_pid_file): os.remove(user_pid_file)
 
     try:
         import sys
         python_exe = sys.executable
         log_dir = os.path.dirname(os.path.dirname(__file__))
-        strategy = request.GET.get('strategy', 'SNIPER')
+        _ALLOWED_STRATEGIES = {'SNIPER', 'SCALP', 'SWING', 'TURTLE'}
+        strategy = request.POST.get('strategy', 'SNIPER').strip().upper()
+        if strategy not in _ALLOWED_STRATEGIES:
+            strategy = 'SNIPER'
         
         # รัน management command พร้อมส่ง --user_id
         cmd_args = [python_exe, 'manage.py', 'run_gold_bot', 
@@ -806,6 +807,7 @@ def save_gold_config_ajax(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
+@require_POST
 @login_required
 def stop_gold_bot_ajax(request):
     """สั่งหยุดบอท (Isolated by User)"""
@@ -827,7 +829,7 @@ def stop_gold_bot_ajax(request):
             subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True)
         else:
             try: os.kill(pid, signal.SIGTERM)
-            except: pass
+            except OSError: pass
             # กวาดล้างเฉพาะ process ที่รันด้วย user_id นี้
             subprocess.run(['pkill', '-f', f'--user_id {request.user.id}'], capture_output=True)
 

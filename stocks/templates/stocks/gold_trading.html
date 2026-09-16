@@ -3264,7 +3264,11 @@
             const m = bootstrap.Modal.getInstance(document.getElementById('botConfirmModal'));
             if(m) m.hide();
             logMessage(`Starting Bot (${activeStrategy})...`, "text-warning");
-            fetch(`{% url 'stocks:start_gold_bot' %}?strategy=${activeStrategy}`).then(r=>r.json()).then(d => { 
+            fetch(`{% url 'stocks:start_gold_bot' %}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: `strategy=${encodeURIComponent(activeStrategy)}`
+            }).then(r=>r.json()).then(d => { 
                 if (d.success) logMessage(`Bot Started (${activeStrategy}) - One-Shot Mode Active`, "text-success fw-bold"); 
                 else logMessage("Failed to start: " + d.error, "text-danger");
             });
@@ -3274,7 +3278,10 @@
             if (!confirm("⚠️ ยืนยันการหยุดทำงานของบอท?")) return;
             
             logMessage("Stopping Bot...", "text-danger");
-            fetch("{% url 'stocks:stop_gold_bot' %}").then(r=>r.json()).then(d => { 
+            fetch("{% url 'stocks:stop_gold_bot' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            }).then(r=>r.json()).then(d => { 
                 if (d.success) {
                     alert("✅ ระบบหยุดทำงาน (OFFLINE) เรียบร้อยแล้วครับ");
                     logMessage("Bot Stopped Successfully", "text-warning fw-bold"); 

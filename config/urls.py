@@ -37,6 +37,7 @@ urlpatterns = [
     path('chat/', include('chat.urls')),                       # URL ของระบบแชท Real-time
     path('ops/', include('ops.urls')),                         # URL ของระบบจัดการปฏิบัติงาน
     path('board/', include('board.urls', namespace='board')), # URL ของกระดานความรู้พนักงาน
+    path('marketing/', include('marketing.urls', namespace='marketing')), # URL ของระบบการตลาด AI (Marketing OS)
     path('', include('landing.urls')),                        # URL ของหน้าแรก (root path)
 ]
 

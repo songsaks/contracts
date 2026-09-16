@@ -1,0 +1,227 @@
+{% extends 'marketing/base_marketing.html' %}
+{% load static %}
+
+{% block title %}คู่มือการใช้งานระบบ — AI Marketing & Growth OS{% endblock %}
+
+{% block header_title %}
+    <i class="fas fa-book-open text-blue-600 dark:text-blue-400"></i>
+    <span>คู่มือการใช้งานระบบ (User Manual)</span>
+{% endblock %}
+
+{% block header_subtitle %}
+    คู่มือและขั้นตอนการปฏิบัติงานอย่างละเอียด 10 บท สำหรับผู้บริหาร, เจ้าของกิจการ และ Performance Marketer
+{% endblock %}
+
+{% block extra_head %}
+<!-- marked.js for fast & secure Markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+    /* Markdown Prose Styling for Light & Dark Mode */
+    .guide-prose {
+        color: var(--m-text-primary);
+        line-height: 1.75;
+        font-size: 0.95rem;
+    }
+    .guide-prose h1 {
+        font-size: 1.85rem;
+        font-weight: 800;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--m-panel-border);
+        color: var(--m-text-primary);
+    }
+    .guide-prose h2 {
+        font-size: 1.45rem;
+        font-weight: 700;
+        margin-top: 2.25rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--m-panel-border);
+        color: var(--m-text-primary);
+    }
+    .guide-prose h3 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: var(--m-text-primary);
+    }
+    .guide-prose p {
+        margin-bottom: 1.1rem;
+    }
+    .guide-prose ul, .guide-prose ol {
+        margin-left: 1.5rem;
+        margin-bottom: 1.25rem;
+    }
+    .guide-prose ul { list-style-type: disc; }
+    .guide-prose ol { list-style-type: decimal; }
+    .guide-prose li {
+        margin-bottom: 0.4rem;
+    }
+    .guide-prose blockquote {
+        border-left: 4px solid #3b82f6;
+        padding: 0.75rem 1.25rem;
+        margin: 1.25rem 0;
+        background: rgba(59, 130, 246, 0.07);
+        border-radius: 0 0.75rem 0.75rem 0;
+        font-style: italic;
+    }
+    .guide-prose code {
+        background: rgba(100, 116, 139, 0.12);
+        color: #ef4444;
+        padding: 0.15rem 0.4rem;
+        border-radius: 0.35rem;
+        font-size: 0.88em;
+        font-family: monospace;
+    }
+    html.dark .guide-prose code {
+        color: #f87171;
+        background: rgba(255, 255, 255, 0.1);
+    }
+    .guide-prose pre {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 1.25rem;
+        border-radius: 0.875rem;
+        overflow-x: auto;
+        margin: 1.25rem 0;
+        font-size: 0.88rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .guide-prose pre code {
+        background: transparent;
+        color: inherit;
+        padding: 0;
+    }
+    .guide-prose table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        font-size: 0.88rem;
+    }
+    .guide-prose th {
+        background: rgba(100, 116, 139, 0.08);
+        border: 1px solid var(--m-panel-border);
+        padding: 0.65rem 0.85rem;
+        text-align: left;
+        font-weight: 700;
+    }
+    .guide-prose td {
+        border: 1px solid var(--m-panel-border);
+        padding: 0.65rem 0.85rem;
+    }
+    .guide-prose tr:nth-child(even) td {
+        background: rgba(100, 116, 139, 0.03);
+    }
+    .guide-prose a {
+        color: #2563eb;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        font-weight: 600;
+    }
+    html.dark .guide-prose a {
+        color: #60a5fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Action Banner -->
+    <div class="glass-panel p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-200/80 dark:border-gray-800">
+        <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white text-xl shadow-lg shadow-blue-500/20">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+            <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">ศูนย์รวมความรู้และคู่มือปฏิบัติงาน (Knowledge Center)</h2>
+                <p class="text-xs text-slate-500 dark:text-gray-400">เนื้อหาครอบคลุมทุกโมดูล อัปเดตล่าสุดตามมาตรฐานเวอร์ชันปัจจุบัน</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 w-full md:w-auto">
+            <a href="{% url 'marketing:dashboard' %}" class="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-200 text-xs font-semibold transition-all">
+                <i class="fas fa-chart-line"></i> กลับสู่ Dashboard
+            </a>
+            <button onclick="window.print()" class="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition-all">
+                <i class="fas fa-print"></i> พิมพ์คู่มือ
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        
+        <!-- Sticky Table of Contents (Left 1 Col) -->
+        <div class="lg:col-span-1 glass-panel p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 lg:sticky lg:top-20 space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-gray-800">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">สารบัญคู่มือ 10 บท</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">10 Chapters</span>
+            </div>
+
+            <nav class="space-y-1 text-xs max-h-[70vh] overflow-y-auto pr-1">
+                <a href="#บทที่-1-การเข้าใช้งานและการตั้งค่าระบบ-getting-started--setup" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    1. การเข้าใช้งาน & ตั้งค่า
+                </a>
+                <a href="#บทที่-2-ระบบแสดงผลแบบทูโทน-light-theme-vs-dark-theme" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    2. Light Theme vs Dark Theme
+                </a>
+                <a href="#บทที่-3-ศูนย์บัญชาการใหญ่-executive-growth-command-center--dashboard" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    3. ศูนย์บัญชาการ (5 KPIs)
+                </a>
+                <a href="#บทที่-4-การบริหารจัดการแคมเปญและชิ้นงานโฆษณา-campaigns--ad-matrix" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    4. แคมเปญ & Ads Matrix
+                </a>
+                <a href="#บทที่-5-การบันทึกสถิติและตัวเลขรายวัน-daily-metric-tracking--financials" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    5. บันทึกสถิติ ROAS & ยอดขาย
+                </a>
+                <a href="#บทที่-6-ห้องบัญชาการแผนปฏิบัติการ-ai-ai-action-plan-command-center" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    6. AI Action Plan รายวัน
+                </a>
+                <a href="#บทที่-7-ห้องทดลองไอเดียและสคริปต์โฆษณา-creative--script-lab" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    7. Creative & Script Lab
+                </a>
+                <a href="#บทที่-8-เรดาร์สอดส่องคู่แข่งและการแก้เกม-competitor-radar--intel" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    8. Competitor Radar ส่องคู่แข่ง
+                </a>
+                <a href="#บทที่-9-ขั้นตอนปฏิบัติงานมาตรฐานประจำวัน-15-นาที-daily-sop-routine" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    9. Daily SOP ประจำวัน 15 นาที
+                </a>
+                <a href="#บทที่-10-คำถามที่พบบ่อยและการแก้ไขปัญหา-faq--troubleshooting" class="block px-2.5 py-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+                    10. คำถามที่พบบ่อย (FAQ)
+                </a>
+            </nav>
+        </div>
+
+        <!-- Rendered Documentation Body (Right 3 Cols) -->
+        <div class="lg:col-span-3 glass-panel p-6 sm:p-10 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-sm">
+            <!-- Raw Markdown Storage (Hidden) -->
+            <textarea id="raw-markdown-data" style="display:none;">{{ manual_content|escape }}</textarea>
+            
+            <!-- Target Render Container -->
+            <div id="guide-render-container" class="guide-prose">
+                <div class="text-center py-12 text-slate-400 dark:text-gray-500">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p>กำลังโหลดเนื้อหาคู่มือ...</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const rawMarkdown = document.getElementById('raw-markdown-data').value;
+        const container = document.getElementById('guide-render-container');
+        if (typeof marked !== 'undefined' && rawMarkdown) {
+            container.innerHTML = marked.parse(rawMarkdown);
+        } else if (rawMarkdown) {
+            container.innerHTML = '<pre class="whitespace-pre-wrap font-sans text-sm">' + rawMarkdown + '</pre>';
+        }
+    });
+</script>
+{% endblock %}

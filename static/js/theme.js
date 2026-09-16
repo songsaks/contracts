@@ -49,6 +49,7 @@
         var html = document.documentElement;
         html.setAttribute('data-theme', theme);
         html.setAttribute('data-bs-theme', theme);    // Bootstrap 5
+        html.classList.toggle('dark', theme === DARK);
         localStorage.setItem(STORAGE_KEY, theme);
 
         // Update icon on all toggle buttons already in DOM
@@ -58,6 +59,9 @@
                 iconEl.className = theme === DARK ? 'fas fa-sun' : 'fas fa-moon';
             }
         });
+
+        // Notify components (e.g. ApexCharts) of theme change
+        window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: theme, isDark: theme === DARK } }));
     }
 
     /** Toggle between dark and light */

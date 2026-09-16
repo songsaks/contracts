@@ -8,7 +8,7 @@
 
 {% block content %}
 {% if scan_run_info %}
-<div class="alert {% if scan_run_info.status == 'failed' %}alert-danger{% elif scan_run_info.rs_count < scan_run_info.total_symbols %}alert-warning{% else %}alert-info{% endif %} mx-3 mt-3" role="status">
+<div class="alert {% if scan_run_info.status == 'failed' %}alert-danger{% elif scan_run_info.message or scan_run_info.rs_count < scan_run_info.total_symbols %}alert-warning{% else %}alert-info{% endif %} mx-3 mt-3" role="status">
     <strong>รอบสแกน {{ scan_run_info.started_at|date:"d/m/Y H:i" }}</strong><br>
     {% if scan_run_info.status == 'failed' %}
         {{ scan_run_info.message }} — รอบนี้ไม่แสดงคำแนะนำหุ้น กรุณาเลือกรอบก่อนหน้าเพื่อดูประวัติ
@@ -17,6 +17,7 @@
     {% else %}
         ผ่านเกณฑ์ {{ scan_run_info.candidate_count }} ตัว
     {% endif %}
+    {% if scan_run_info.status != 'failed' and scan_run_info.message %}<div>{{ scan_run_info.message }}</div>{% endif %}
     <div>ข้อมูล RS ใช้งานได้ {{ scan_run_info.rs_count }}/{{ scan_run_info.total_symbols }} ตัว
     {% if scan_run_info.rs_count < scan_run_info.total_symbols %}
         — ข้อมูลไม่ครบ อันดับเทียบเฉพาะหุ้นที่มีข้อมูล หุ้นที่ข้อมูลขาดจะไม่ถูกให้คะแนนหรือคัดเลือก
@@ -3718,7 +3719,7 @@
 
 {% if has_scanned and ai_scan_json %}
 <!-- AI Scan JSON data -->
-<script id="ai-scan-data" type="application/json">{{ ai_scan_json|safe }}</script>
+{{ ai_scan_json|json_script:"ai-scan-data" }}
 <span id="ai-endpoint" data-url="{% url 'stocks:precision_scan_ai_analysis' %}" data-csrf="{{ csrf_token }}"></span>
 
 

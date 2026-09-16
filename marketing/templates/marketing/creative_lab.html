@@ -1,0 +1,457 @@
+{% extends 'marketing/base_marketing.html' %}
+{% load static %}
+
+{% block title %}Creative & Script Lab — AI Marketing OS{% endblock %}
+
+{% block header_title %}
+    <i class="fas fa-wand-magic-sparkles text-pink-600 dark:text-pink-400"></i>
+    <span>Creative & Script Lab (ห้องทดลองไอเดีย & สคริปต์โฆษณา)</span>
+{% endblock %}
+
+{% block header_subtitle %}
+    ป้อนโจทย์สินค้าให้ AI ช่วยคิดมุมขาย (Angles), 5 Hooks หยุดนิ้วโป้ง, โครงสร้างสคริปต์วิดีโอ 60 วินาที และแคปชั่นปิดการขาย
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Creative Generation Form Panel -->
+    <div class="glass-panel rounded-2xl p-6 border border-slate-200/80 dark:border-gray-800">
+        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200/80 dark:border-gray-800">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-rose-500 flex items-center justify-center text-white text-lg shadow-md shadow-pink-500/25">
+                <i class="fas fa-lightbulb"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-900 dark:text-white text-base">สร้างสรรค์ไอเดียคอนเทนต์ & สคริปต์โฆษณาใหม่</h3>
+                <p class="text-xs text-slate-500 dark:text-gray-400">กรอกข้อมูลสินค้าเพื่อให้ AI ช่วยคิดมุมขาย สคริปต์ และคำเปิดคลิปที่หยุดนิ้วโป้ง</p>
+            </div>
+        </div>
+
+        <form id="creativeForm" onsubmit="generateCreative(event)" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">สินค้า / บริการ *</label>
+                    <input type="text" id="product_name" required placeholder="เช่น เซรั่มลดฝ้า Melasma Pro" class="w-full px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">กลุ่มเป้าหมาย (Persona)</label>
+                    <input type="text" id="target_persona" placeholder="เช่น ผู้หญิง 35-50 ปี ทำงานกลางแจ้ง หน้าเป็นฝ้า" class="w-full px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">มุมการขายหลัก (Angle / Pain Point) *</label>
+                    <input type="text" id="angle_theme" required placeholder="เช่น รักษามาหลายที่ ไม่กล้าทำเลเซอร์ กลัวหน้าบาง" class="w-full px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">รูปแบบคอนเทนต์</label>
+                    <select id="format" class="w-full px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500">
+                        <option value="tiktok_reels">TikTok / Reels (คลิปแนวตั้ง 9:16)</option>
+                        <option value="fb_video">Facebook Video (สี่เหลี่ยม 1:1 หรือ 4:5)</option>
+                        <option value="carousel">Carousel Post (สไลด์ภาพหลายหน้า)</option>
+                        <option value="direct_response">Direct-Response Long Post (โพสต์ยาวปิดการขาย)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-start">
+                <button type="submit" id="genBtn" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-600 via-rose-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-pink-500/25 transition-all active:scale-95">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <span>สั่ง AI ผลิตไอเดีย & สคริปต์ทันที</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Realtime Result Card (Hidden by default, shows upon generation) -->
+    <div id="newResultBox" class="hidden glass-panel rounded-2xl p-6 border-2 border-pink-500/40 bg-pink-50/60 dark:bg-pink-950/10 space-y-6 transition-all">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-gray-800">
+            <h4 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                <i class="fas fa-check-circle text-emerald-500 dark:text-emerald-400"></i>
+                <span>ผลงานที่ AI เพิ่งสร้างเสร็จสมบูรณ์</span>
+            </h4>
+            <div class="flex items-center gap-2">
+                <button onclick="window.location.reload()" class="px-3 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-gray-700 shadow-sm hover:bg-slate-50 transition-all">
+                    <i class="fas fa-sync-alt mr-1"></i> อัปเดตเข้ารายการ
+                </button>
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-pink-500/15 text-pink-700 dark:text-pink-300 border border-pink-500/30">New Creative</span>
+            </div>
+        </div>
+
+        <!-- 5 Hooks -->
+        <div>
+            <div class="text-xs font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400 mb-2.5 flex items-center gap-2">
+                <i class="fas fa-bullhorn"></i>
+                <span>5 ตัวเลือก Hook 3 วินาทีแรก (คำเปิดคลิปหยุดนิ้วโป้ง)</span>
+            </div>
+            <div id="resHooks" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"></div>
+        </div>
+
+        <!-- Script Body -->
+        <div>
+            <div class="flex items-center justify-between mb-2.5">
+                <div class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                    <i class="fas fa-film"></i>
+                    <span>โครงเรื่องสคริปต์วิดีโอ (Video Script Outline)</span>
+                </div>
+                <button onclick="copyToClipboard(document.getElementById('resScript').innerText, 'คัดลอกสคริปต์สำเร็จ!')" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold flex items-center gap-1">
+                    <i class="fas fa-copy"></i> คัดลอกสคริปต์
+                </button>
+            </div>
+            <pre id="resScript" class="p-4 rounded-xl bg-white dark:bg-gray-900/80 border border-slate-200 dark:border-gray-800 text-slate-800 dark:text-gray-200 text-xs font-sans whitespace-pre-wrap leading-relaxed shadow-sm"></pre>
+        </div>
+
+        <!-- Caption -->
+        <div>
+            <div class="flex items-center justify-between mb-2.5">
+                <div class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                    <i class="fas fa-file-pen"></i>
+                    <span>ข้อความแคปชั่นพร้อมโพสต์ (Post Copy)</span>
+                </div>
+                <button onclick="copyToClipboard(document.getElementById('resCaption').innerText, 'คัดลอกแคปชั่นสำเร็จ!')" class="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1">
+                    <i class="fas fa-copy"></i> คัดลอกแคปชั่น
+                </button>
+            </div>
+            <pre id="resCaption" class="p-4 rounded-xl bg-white dark:bg-gray-900/80 border border-slate-200 dark:border-gray-800 text-slate-800 dark:text-gray-200 text-xs font-sans whitespace-pre-wrap leading-relaxed shadow-sm"></pre>
+        </div>
+    </div>
+
+    <!-- Saved Ideas History -->
+    <div class="glass-panel rounded-2xl p-6 mt-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                <i class="fas fa-bookmark text-pink-500 dark:text-pink-400"></i>
+                <span>คลังไอเดีย & สคริปต์ที่บันทึกไว้ในระบบ</span>
+                <span class="text-xs px-2.5 py-0.5 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 font-bold ml-1">{{ ideas.count }} รายการ</span>
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-gray-400 hidden sm:block">คลิกดูรายละเอียดเพื่ออ่านสคริปต์และแคปชั่นฉบับเต็ม</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="ideasGrid">
+            {% for idea in ideas %}
+            <div class="glass-panel p-5 rounded-xl border border-slate-200/80 dark:border-gray-800 flex flex-col justify-between glow-card">
+                <!-- Hidden raw data for Modal inspection -->
+                <script type="application/json" id="idea-raw-{{ idea.id }}">
+                {
+                    "id": {{ idea.id }},
+                    "product_name": "{{ idea.product_name|escapejs }}",
+                    "target_persona": "{{ idea.target_persona|escapejs }}",
+                    "angle_theme": "{{ idea.angle_theme|escapejs }}",
+                    "format_display": "{{ idea.get_format_display|escapejs }}",
+                    "hooks": {{ idea.hook_options|safe }},
+                    "script": "{{ idea.script_outline|escapejs }}",
+                    "caption": "{{ idea.caption_copy|escapejs }}",
+                    "created_at": "{{ idea.created_at|date:'d M Y H:i' }}",
+                    "delete_url": "{% url 'marketing:creative_idea_delete' idea.id %}"
+                }
+                </script>
+
+                <div>
+                    <!-- Header with Title, Format and Delete button -->
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div class="cursor-pointer group" onclick="openIdeaModal({{ idea.id }})">
+                            <h4 class="font-bold text-slate-900 dark:text-white text-sm group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+                                {{ idea.product_name }}
+                            </h4>
+                            <div class="text-[11px] text-indigo-600 dark:text-indigo-300 font-medium mt-0.5">
+                                <i class="fas fa-tag text-[10px] mr-1"></i>ธีม: {{ idea.angle_theme }}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-[10px] text-slate-600 dark:text-gray-300 font-medium">
+                                {{ idea.get_format_display }}
+                            </span>
+
+                            <!-- Delete button -->
+                            <form method="post" action="{% url 'marketing:creative_idea_delete' idea.id %}" onsubmit="return confirm('ยืนยันลบไอเดียสคริปต์ {{ idea.product_name }} หรือไม่?')" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all" title="ลบไอเดียนี้">
+                                    <i class="fas fa-trash-alt text-xs"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% if idea.target_persona %}
+                    <div class="text-[11px] text-slate-500 dark:text-gray-400 mb-2 line-clamp-1">
+                        <i class="fas fa-users text-slate-400 mr-1"></i>กลุ่มเป้าหมาย: {{ idea.target_persona }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Sample 3 Hooks -->
+                    <div class="text-[11px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                        <i class="fas fa-bullhorn text-pink-500 text-[10px]"></i> Hook ตัวอย่าง:
+                    </div>
+                    <div class="space-y-1 text-xs text-slate-600 dark:text-gray-400 italic mb-3">
+                        {% for h in idea.hook_options|slice:":3" %}
+                        <div class="p-2 rounded-lg bg-slate-50 dark:bg-gray-900/50 border border-slate-200/60 dark:border-gray-800/60 text-[11px] truncate">
+                            "{{ h }}"
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Footer with Created date, View Full Details button, and Copy button -->
+                <div class="pt-3 border-t border-slate-200/80 dark:border-gray-800/80 text-[11px] text-slate-500 dark:text-gray-500 flex items-center justify-between gap-2">
+                    <span>สร้างเมื่อ: {{ idea.created_at|date:"d M Y H:i" }}</span>
+                    
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="openIdeaModal({{ idea.id }})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/30 dark:hover:bg-pink-900/40 text-pink-600 dark:text-pink-400 font-bold transition-all" title="ดู 5 Hooks, สคริปต์ 60 วิ และแคปชั่น">
+                            <i class="fas fa-eye"></i> ดูรายละเอียด
+                        </button>
+                        <button type="button" onclick="copyToClipboard(`{{ idea.script_outline|escapejs }}`, 'คัดลอกสคริปต์เรียบร้อยแล้ว!')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-semibold transition-all" title="คัดลอกสคริปต์">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-12 text-center text-slate-400 dark:text-gray-500 text-xs">
+                <i class="fas fa-film text-3xl mb-2 text-slate-300 dark:text-gray-600"></i>
+                <p>ยังไม่มีไอเดียที่สร้างไว้ ลองป้อนข้อมูลสินค้าด้านบนเพื่อเริ่มคิดสคริปต์แรก</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ====== Detailed Modal for Inspecting Full Creative Idea ====== -->
+<div id="ideaDetailModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-3xl rounded-2xl border border-slate-200 dark:border-gray-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-slate-200 dark:border-gray-800 flex items-center justify-between bg-slate-50/50 dark:bg-gray-900/50">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h3 id="modalProductTitle" class="text-lg font-bold text-slate-900 dark:text-white"></h3>
+                    <span id="modalFormatBadge" class="px-2 py-0.5 text-[10px] font-semibold rounded bg-pink-500/15 text-pink-600 dark:text-pink-400 border border-pink-500/30"></span>
+                </div>
+                <div class="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-3 mt-1">
+                    <span><i class="fas fa-tag text-pink-500 mr-1"></i>ธีม: <strong id="modalAngleTheme" class="text-slate-800 dark:text-gray-200"></strong></span>
+                    <span id="modalPersonaWrapper"><i class="fas fa-users text-purple-500 mr-1"></i>กลุ่มเป้าหมาย: <strong id="modalTargetPersona" class="text-slate-800 dark:text-gray-200"></strong></span>
+                </div>
+            </div>
+            <button onclick="closeIdeaModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition-all">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body (Scrollable) -->
+        <div class="p-6 overflow-y-auto space-y-6">
+            <!-- Section 1: 5 Thumb-Stopping Hooks -->
+            <div>
+                <div class="text-xs font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400 mb-3 flex items-center gap-2">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>5 ตัวเลือก Hook 3 วินาทีแรก (คำเปิดคลิปหยุดนิ้วโป้ง)</span>
+                </div>
+                <div id="modalHooksList" class="space-y-2 text-xs"></div>
+            </div>
+
+            <!-- Section 2: Full Video Script Outline -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                        <i class="fas fa-film"></i>
+                        <span>โครงเรื่องสคริปต์วิดีโอ 60 วินาที (Full Video Script Outline)</span>
+                    </div>
+                    <button id="modalCopyScriptBtn" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1">
+                        <i class="fas fa-copy"></i> คัดลอกสคริปต์
+                    </button>
+                </div>
+                <pre id="modalScriptContent" class="p-4 rounded-xl bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-slate-800 dark:text-gray-200 text-xs font-sans whitespace-pre-wrap leading-relaxed shadow-sm"></pre>
+            </div>
+
+            <!-- Section 3: Caption Copywriting -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                        <i class="fas fa-file-pen"></i>
+                        <span>ข้อความแคปชั่นพร้อมโพสต์ (Caption Copywriting)</span>
+                    </div>
+                    <button id="modalCopyCaptionBtn" class="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-bold flex items-center gap-1">
+                        <i class="fas fa-copy"></i> คัดลอกแคปชั่น
+                    </button>
+                </div>
+                <pre id="modalCaptionContent" class="p-4 rounded-xl bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-slate-800 dark:text-gray-200 text-xs font-sans whitespace-pre-wrap leading-relaxed shadow-sm"></pre>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-3.5 border-t border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900/50 flex items-center justify-between">
+            <span id="modalCreatedAt" class="text-[11px] text-slate-400 dark:text-gray-500"></span>
+
+            <div class="flex items-center gap-2">
+                <!-- Delete form in modal -->
+                <form id="modalDeleteForm" method="post" action="" onsubmit="return confirm('ยืนยันลบไอเดียสคริปต์นี้หรือไม่?')" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 font-bold text-xs transition-all flex items-center gap-1.5">
+                        <i class="fas fa-trash-alt"></i> ลบไอเดียนี้
+                    </button>
+                </form>
+
+                <button onclick="closeIdeaModal()" class="px-4 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-bold text-xs transition-all">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ====== Modal Logic ======
+    function openIdeaModal(id) {
+        const rawEl = document.getElementById(`idea-raw-${id}`);
+        if (!rawEl) return;
+        
+        try {
+            const data = JSON.parse(rawEl.textContent);
+            document.getElementById('modalProductTitle').textContent = data.product_name || 'ไอเดียโฆษณา';
+            document.getElementById('modalFormatBadge').textContent = data.format_display || '';
+            document.getElementById('modalAngleTheme').textContent = data.angle_theme || '-';
+            
+            const personaWrapper = document.getElementById('modalPersonaWrapper');
+            if (data.target_persona) {
+                document.getElementById('modalTargetPersona').textContent = data.target_persona;
+                personaWrapper.style.display = 'inline';
+            } else {
+                personaWrapper.style.display = 'none';
+            }
+
+            // Hooks
+            const hooksContainer = document.getElementById('modalHooksList');
+            hooksContainer.innerHTML = '';
+            (data.hooks || []).forEach((h, idx) => {
+                const item = document.createElement('div');
+                item.className = 'p-3 rounded-xl bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 flex items-start justify-between gap-3 shadow-sm';
+                item.innerHTML = `
+                    <div class="flex items-start gap-2 text-slate-800 dark:text-gray-200">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pink-500/15 text-pink-600 dark:text-pink-400 shrink-0">#${idx+1}</span>
+                        <span>"${h}"</span>
+                    </div>
+                    <button type="button" class="shrink-0 text-slate-400 hover:text-pink-600 dark:hover:text-pink-400 text-xs px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-gray-800 transition-all font-semibold" title="คัดลอก Hook นี้">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                `;
+                item.querySelector('button').addEventListener('click', () => {
+                    copyToClipboard(h, `คัดลอก Hook #${idx+1} สำเร็จ!`);
+                });
+                hooksContainer.appendChild(item);
+            });
+
+            // Script & Caption
+            document.getElementById('modalScriptContent').textContent = data.script || '';
+            document.getElementById('modalCopyScriptBtn').onclick = () => copyToClipboard(data.script, 'คัดลอกสคริปต์สำเร็จ!');
+
+            document.getElementById('modalCaptionContent').textContent = data.caption || '';
+            document.getElementById('modalCopyCaptionBtn').onclick = () => copyToClipboard(data.caption, 'คัดลอกแคปชั่นสำเร็จ!');
+
+            // Date & Delete URL
+            document.getElementById('modalCreatedAt').textContent = `สร้างเมื่อ: ${data.created_at || ''}`;
+            document.getElementById('modalDeleteForm').action = data.delete_url || '';
+
+            // Show Modal
+            const modal = document.getElementById('ideaDetailModal');
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        } catch (e) {
+            console.error('Failed to parse idea data', e);
+        }
+    }
+
+    function closeIdeaModal() {
+        const modal = document.getElementById('ideaDetailModal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Close on backdrop click
+    document.getElementById('ideaDetailModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeIdeaModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeIdeaModal();
+        }
+    });
+
+    // ====== Generate Creative AI Action ======
+    async function generateCreative(e) {
+        e.preventDefault();
+        const btn = document.getElementById('genBtn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> AI กำลังคิดสคริปต์ & Hooks...';
+
+        const payload = {
+            product_name: document.getElementById('product_name').value,
+            target_persona: document.getElementById('target_persona').value,
+            angle_theme: document.getElementById('angle_theme').value,
+            format: document.getElementById('format').value,
+        };
+
+        try {
+            const res = await fetch("{% url 'marketing:api_generate_creative' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                const box = document.getElementById('newResultBox');
+                box.classList.remove('hidden');
+
+                // Render hooks
+                const hooksContainer = document.getElementById('resHooks');
+                hooksContainer.innerHTML = '';
+                (data.hooks || []).forEach((h, i) => {
+                    const el = document.createElement('div');
+                    el.className = 'p-2.5 rounded-xl bg-white dark:bg-gray-900 border border-pink-200 dark:border-pink-500/20 text-slate-800 dark:text-gray-200 shadow-sm flex items-start justify-between gap-2';
+                    el.innerHTML = `
+                        <div><span class="text-pink-600 dark:text-pink-400 font-bold mr-1.5">#${i+1}</span> "${h}"</div>
+                        <button type="button" class="shrink-0 text-slate-400 hover:text-pink-600 text-xs"><i class="fas fa-copy"></i></button>
+                    `;
+                    el.querySelector('button').addEventListener('click', () => copyToClipboard(h, 'คัดลอก Hook สำเร็จ!'));
+                    hooksContainer.appendChild(el);
+                });
+
+                document.getElementById('resScript').innerText = data.script || '';
+                document.getElementById('resCaption').innerText = data.caption || '';
+                box.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                alert('เกิดข้อผิดพลาด: ' + data.message);
+            }
+        } catch (err) {
+            alert('ไม่สามารถเชื่อมต่อได้: ' + err);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+
+    function copyToClipboard(text, successMsg = 'คัดลอกลง Clipboard เรียบร้อยแล้ว!') {
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            // Toast notification
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold shadow-2xl flex items-center gap-2 border border-slate-700 animate-in fade-in slide-in-from-bottom duration-200';
+            toast.innerHTML = `<i class="fas fa-check-circle text-emerald-400"></i> <span>${successMsg}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 2500);
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,403 @@
+{% extends 'marketing/base_marketing.html' %}
+
+{% block title %}Dashboard — AI Marketing OS{% endblock %}
+{% block header_title %}Executive Growth Command Center{% endblock %}
+{% block header_subtitle %}ศูนย์ควบคุมประสิทธิภาพการตลาด ติดตาม ROAS กำไรสุทธิ และคำสั่งปฏิบัติการ AI รายวัน{% endblock %}
+
+{% block content %}
+<!-- Time Range Filter & Header Summary -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-4 rounded-2xl">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center text-lg">
+            <i class="fas fa-chart-pie"></i>
+        </div>
+        <div>
+            <div class="text-xs text-slate-500 dark:text-gray-400">ช่วงเวลาการวิเคราะห์</div>
+            <div class="text-sm font-bold text-slate-900 dark:text-white">{{ summary.start_date|date:"d M Y" }} — {{ summary.end_date|date:"d M Y" }} ({{ summary.days }} วันล่าสุด)</div>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+        <a href="?days=7" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all {% if current_days == 7 %}bg-blue-600 text-white shadow-md shadow-blue-500/20{% else %}bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white{% endif %}">7 วัน</a>
+        <a href="?days=14" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all {% if current_days == 14 %}bg-blue-600 text-white shadow-md shadow-blue-500/20{% else %}bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white{% endif %}">14 วัน</a>
+        <a href="?days=30" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all {% if current_days == 30 %}bg-blue-600 text-white shadow-md shadow-blue-500/20{% else %}bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white{% endif %}">30 วัน</a>
+        <a href="{% url 'marketing:daily_metrics' %}" class="ml-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-xs font-semibold text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-gray-700/60 transition-all flex items-center gap-1.5">
+            <i class="fas fa-plus"></i> บันทึกยอดวันนี้
+        </a>
+    </div>
+</div>
+
+<!-- 5 Primary Executive KPI Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <!-- 1. Revenue -->
+    <div class="glass-panel p-5 rounded-2xl glow-card border-l-4 border-l-blue-500">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-gray-400 mb-2">
+            <span>ยอดขายรวม (Revenue)</span>
+            <span class="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400"><i class="fas fa-receipt"></i></span>
+        </div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">฿{{ summary.total_revenue|floatformat:2 }}</div>
+        <div class="mt-2 flex items-center gap-1 text-xs {% if summary.revenue_growth_pct >= 0 %}text-emerald-600 dark:text-emerald-400{% else %}text-rose-600 dark:text-rose-400{% endif %}">
+            <i class="fas {% if summary.revenue_growth_pct >= 0 %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i>
+            <span>{{ summary.revenue_growth_pct }}% จากรอบก่อนหน้า</span>
+        </div>
+    </div>
+
+    <!-- 2. Ad Spend -->
+    <div class="glass-panel p-5 rounded-2xl glow-card border-l-4 border-l-purple-500">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-gray-400 mb-2">
+            <span>ค่าโฆษณารวม (Ad Spend)</span>
+            <span class="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400"><i class="fas fa-bullhorn"></i></span>
+        </div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">฿{{ summary.total_spend|floatformat:2 }}</div>
+        <div class="mt-2 text-xs text-slate-500 dark:text-gray-400">
+            <span>กระจายใน {{ summary.platform_breakdown|length }} แพลตฟอร์ม</span>
+        </div>
+    </div>
+
+    <!-- 3. ROAS -->
+    <div class="glass-panel p-5 rounded-2xl glow-card border-l-4 border-l-emerald-500">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-gray-400 mb-2">
+            <span>ROAS รวม (Blended MER)</span>
+            <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><i class="fas fa-scale-balanced"></i></span>
+        </div>
+        <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{{ summary.overall_roas }}x</div>
+        <div class="mt-2 flex items-center gap-1.5 text-xs">
+            {% if summary.overall_roas >= 3.0 %}
+            <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/30">🟢 ผ่านเป้าหมาย</span>
+            {% else %}
+            <span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/30">🟡 ต่ำกว่าเป้า 3.0x</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 4. Net Profit -->
+    <div class="glass-panel p-5 rounded-2xl glow-card border-l-4 border-l-amber-500">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-gray-400 mb-2">
+            <span>กำไรสุทธิ (Net Profit)</span>
+            <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400"><i class="fas fa-sack-dollar"></i></span>
+        </div>
+        <div class="text-2xl font-black {% if summary.net_profit >= 0 %}text-slate-900 dark:text-white{% else %}text-rose-600 dark:text-rose-400{% endif %} tracking-tight">
+            ฿{{ summary.net_profit|floatformat:2 }}
+        </div>
+        <div class="mt-2 text-xs text-slate-500 dark:text-gray-400">
+            <span>Margin: <strong class="text-amber-600 dark:text-amber-400 font-bold">{{ summary.profit_margin }}%</strong></span>
+        </div>
+    </div>
+
+    <!-- 5. Orders & CPA -->
+    <div class="glass-panel p-5 rounded-2xl glow-card border-l-4 border-l-pink-500">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-gray-400 mb-2">
+            <span>คำสั่งซื้อ / CPA</span>
+            <span class="p-1.5 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400"><i class="fas fa-cart-shopping"></i></span>
+        </div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{{ summary.total_conversions }} <span class="text-xs font-normal text-slate-500 dark:text-gray-400">ออเดอร์</span></div>
+        <div class="mt-2 text-xs text-slate-500 dark:text-gray-400">
+            <span>CPA เฉลี่ย: <strong class="text-slate-800 dark:text-white font-semibold">฿{{ summary.avg_cpa }}</strong> / order</span>
+        </div>
+    </div>
+</div>
+
+<!-- Section: Today's AI Action Plan & Command Center -->
+<div class="glass-panel rounded-2xl p-6 relative overflow-hidden border border-purple-500/20 shadow-md">
+    <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200/80 dark:border-gray-800">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xl shadow-lg shadow-purple-500/30">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-black text-slate-900 dark:text-white">AI Daily Action Plan (คำสั่งปฏิบัติการประจำวัน)</h2>
+                    {% if latest_plan %}
+                    <span class="px-2 py-0.5 text-[11px] font-bold rounded-full {% if latest_plan.status_level == 'healthy' %}bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30{% elif latest_plan.status_level == 'warning' %}bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30{% else %}bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30{% endif %}">
+                        {{ latest_plan.get_status_level_display }}
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                    {% if latest_plan %}ประเมินล่าสุดเมื่อ: {{ latest_plan.created_at|date:"d/m/Y H:i" }} น. ({{ latest_plan.ai_model_name }}){% else %}ยังไม่มีแผนงานที่ประมวลผล{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+            <button onclick="triggerAiActionPlan()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2">
+                <i class="fas fa-sparkles"></i>
+                <span>สั่ง AI วิเคราะห์วันนี้ใหม่</span>
+            </button>
+            <a href="{% url 'marketing:action_plans' %}" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white font-medium text-xs border border-slate-200 dark:border-gray-700/60 transition-all">
+                ดูประวัติทั้งหมด <i class="fas fa-arrow-right text-[10px] ml-1"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Executive Summary Quote -->
+    {% if latest_plan %}
+    <div class="mt-5 p-4 rounded-xl bg-indigo-50/80 dark:bg-gray-800/40 border border-indigo-200/80 dark:border-gray-700/40 text-sm text-slate-700 dark:text-gray-200 leading-relaxed flex items-start gap-3">
+        <i class="fas fa-quote-left text-indigo-500 dark:text-indigo-400 text-lg mt-0.5 shrink-0"></i>
+        <div>
+            <div class="font-semibold text-slate-900 dark:text-white mb-1">ข้อสรุปจาก AI Growth Officer:</div>
+            <p>{{ latest_plan.executive_summary }}</p>
+        </div>
+    </div>
+
+    <!-- Interactive Action Checklist -->
+    <div class="mt-5">
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+            <i class="fas fa-list-check text-blue-500 dark:text-blue-400"></i>
+            <span>3-5 สิ่งที่ต้องลงมือทำทันทีวันนี้ (Action Items)</span>
+        </div>
+
+        <div class="space-y-2.5" id="actionItemsContainer">
+            {% for item in latest_plan.action_items %}
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-gray-900/60 border border-slate-200/80 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700 transition-all group">
+                <label class="flex items-center gap-3 cursor-pointer select-none flex-1">
+                    <input type="checkbox" onchange="toggleActionItem({{ latest_plan.id }}, {{ item.id }})" {% if item.completed %}checked{% endif %} class="w-4 h-4 rounded text-blue-600 bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-700 focus:ring-blue-500">
+                    <span class="text-sm {% if item.completed %}line-through text-slate-400 dark:text-gray-500{% else %}text-slate-800 dark:text-gray-200 font-medium{% endif %}">
+                        {{ item.task }}
+                    </span>
+                </label>
+                <div class="flex items-center gap-2 text-xs">
+                    {% if item.impact %}
+                    <span class="text-slate-500 dark:text-gray-400 text-[11px] hidden sm:inline"><i class="fas fa-bullseye text-blue-500 dark:text-blue-400 mr-1"></i>{{ item.impact }}</span>
+                    {% endif %}
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {% if item.priority == 'high' %}bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30{% elif item.priority == 'medium' %}bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30{% else %}bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30{% endif %}">
+                        {{ item.priority|upper }}
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-6 text-slate-400 dark:text-gray-400 text-sm">ไม่มีงานค้างสำหรับวันนี้</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="mt-6 text-center py-10 glass-panel rounded-xl">
+        <div class="w-14 h-14 mx-auto rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl mb-3">
+            <i class="fas fa-wand-magic-sparkles"></i>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 dark:text-white">ยังไม่มีการสร้าง Action Plan ล่าสุด</h3>
+        <p class="text-xs text-slate-500 dark:text-gray-400 max-w-sm mx-auto mt-1 mb-4">กดปุ่มด้านล่างเพื่อให้ Google Gemini ประมวลผลตัวเลขยอดขายและสร้างแผนงานประจำวันให้ทันที</p>
+        <button onclick="triggerAiActionPlan()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/20">
+            เริ่มต้นวิเคราะห์แผนงานแรก
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Charts & Platform Breakdown Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left 2 Cols: Main Daily Trend Chart -->
+    <div class="lg:col-span-2 glass-panel p-5 rounded-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                    <i class="fas fa-chart-line text-blue-500 dark:text-blue-400"></i>
+                    <span>แนวโน้มยอดขาย vs ค่าโฆษณา vs กำไรสุทธิ</span>
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-gray-400">เปรียบเทียบผลลัพธ์รายวัน (บาท)</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <span class="flex items-center gap-1.5 text-slate-600 dark:text-gray-300"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> ยอดขาย</span>
+                <span class="flex items-center gap-1.5 text-slate-600 dark:text-gray-300"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span> ค่าแอด</span>
+                <span class="flex items-center gap-1.5 text-slate-600 dark:text-gray-300"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> กำไร</span>
+            </div>
+        </div>
+        <div id="performanceTrendChart" class="w-full h-72"></div>
+    </div>
+
+    <!-- Right 1 Col: Platform Efficiency Breakdown -->
+    <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
+        <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+                <i class="fas fa-shapes text-indigo-500 dark:text-indigo-400"></i>
+                <span>ประสิทธิภาพแยกตามช่องทาง</span>
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-gray-400 mb-4">ROAS และยอดขายแต่ละ Platform</p>
+
+            <div class="space-y-3.5">
+                {% for p in summary.platform_breakdown %}
+                <div class="p-3 rounded-xl bg-slate-50/80 dark:bg-gray-900/60 border border-slate-200/80 dark:border-gray-800">
+                    <div class="flex items-center justify-between text-xs mb-1.5">
+                        <span class="font-bold text-slate-900 dark:text-white">{{ p.name }}</span>
+                        <span class="font-bold text-emerald-600 dark:text-emerald-400">{{ p.roas }}x ROAS</span>
+                    </div>
+                    <div class="w-full bg-slate-200 dark:bg-gray-800 rounded-full h-2 mb-2 overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full" style="width: {% widthratio p.roas 5 100 %}%"></div>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
+                        <span>ค่าแอด: ฿{{ p.spend|floatformat:0 }}</span>
+                        <span>ยอดขาย: ฿{{ p.revenue|floatformat:0 }}</span>
+                        <span>{{ p.orders }} ออเดอร์</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-8 text-slate-400 dark:text-gray-400 text-xs">ยังไม่มีข้อมูลช่องทางโฆษณา</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-slate-200/80 dark:border-gray-800 flex items-center justify-between text-xs">
+            <span class="text-slate-500 dark:text-gray-400">อัตราเฉลี่ยรวมทุกช่องทาง</span>
+            <span class="font-bold text-slate-900 dark:text-white">{{ summary.overall_roas }}x</span>
+        </div>
+    </div>
+</div>
+
+<!-- Creatives Status Matrix: Winners vs Kill List -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Left: Top Performing Creatives (Winners to Scale) -->
+    <div class="glass-panel p-5 rounded-2xl border-t-4 border-t-emerald-500">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <i class="fas fa-rocket text-emerald-500 dark:text-emerald-400"></i>
+                <span>แอดตัวทำเงินที่ควรเพิ่มงบ (Winners)</span>
+            </h3>
+            <a href="{% url 'marketing:campaign_list' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">ดูทั้งหมด</a>
+        </div>
+
+        <div class="space-y-3">
+            {% for c in summary.winning_creatives %}
+            <div class="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
+                <div>
+                    <div class="font-bold text-slate-900 dark:text-white text-xs">{{ c.name }}</div>
+                    <div class="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">แคมเปญ: {{ c.campaign.name }}</div>
+                    {% if c.hook_text %}
+                    <div class="text-[11px] text-emerald-700 dark:text-emerald-400/90 italic mt-1">"{{ c.hook_text|truncatechars:45 }}"</div>
+                    {% endif %}
+                </div>
+                <div class="text-right shrink-0">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">Scale +20%</span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-6 text-slate-400 dark:text-gray-400 text-xs">ยังไม่มีแอดที่จัดอยู่ในหมวด Winner</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Right: Losers / Bleeders to Kill Immediately -->
+    <div class="glass-panel p-5 rounded-2xl border-t-4 border-t-rose-500">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <i class="fas fa-ban text-rose-500 dark:text-rose-400"></i>
+                <span>แอดที่ควรปิดทันทีเพื่อหยุดเลือดไหล (Kill List)</span>
+            </h3>
+            <a href="{% url 'marketing:campaign_list' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">ดูทั้งหมด</a>
+        </div>
+
+        <div class="space-y-3">
+            {% for c in summary.killed_creatives %}
+            <div class="p-3 rounded-xl bg-rose-500/5 border border-rose-500/20 flex items-center justify-between">
+                <div>
+                    <div class="font-bold text-slate-900 dark:text-white text-xs">{{ c.name }}</div>
+                    <div class="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">แคมเปญ: {{ c.campaign.name }}</div>
+                    {% if c.hook_text %}
+                    <div class="text-[11px] text-rose-700 dark:text-rose-400/90 italic mt-1">"{{ c.hook_text|truncatechars:45 }}"</div>
+                    {% endif %}
+                </div>
+                <div class="text-right shrink-0">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">ปิดแอดแล้ว</span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-6 text-slate-400 dark:text-gray-400 text-xs">ไม่มีแอดที่ถูกปิดใช้งานในขณะนี้</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle action checklist item via API
+    async function toggleActionItem(planId, itemId) {
+        try {
+            await fetch("{% url 'marketing:api_toggle_action_item' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ plan_id: planId, item_id: itemId })
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // Initialize ApexCharts with dynamic Light/Dark theme configuration
+    document.addEventListener('DOMContentLoaded', () => {
+        const labels = {{ summary.chart_labels|safe }};
+        const revenue = {{ summary.chart_revenue|safe }};
+        const spend = {{ summary.chart_spend|safe }};
+        const profit = {{ summary.chart_profit|safe }};
+
+        function getChartThemeOptions(isDark) {
+            return {
+                chart: {
+                    foreColor: isDark ? '#9ca3af' : '#64748b',
+                },
+                grid: {
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+                    strokeDashArray: 4,
+                },
+                xaxis: {
+                    labels: { style: { colors: isDark ? '#9ca3af' : '#64748b', fontSize: '11px' } }
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: isDark ? '#9ca3af' : '#64748b', fontSize: '11px' }
+                    }
+                },
+                tooltip: {
+                    theme: isDark ? 'dark' : 'light'
+                }
+            };
+        }
+
+        const isCurrentDark = document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark';
+
+        const baseOptions = {
+            series: [
+                { name: 'ยอดขาย (Revenue)', data: revenue },
+                { name: 'ค่าโฆษณา (Spend)', data: spend },
+                { name: 'กำไรสุทธิ (Net Profit)', data: profit }
+            ],
+            chart: {
+                height: 280,
+                type: 'line',
+                toolbar: { show: false },
+                background: 'transparent'
+            },
+            colors: ['#3b82f6', '#a855f7', '#10b981'],
+            stroke: { width: [3, 2, 2], curve: 'smooth' },
+            xaxis: {
+                categories: labels,
+                axisBorder: { show: false },
+                axisTicks: { show: false }
+            },
+            yaxis: {
+                labels: {
+                    formatter: function(val) { return '฿' + (val >= 1000 ? (val/1000).toFixed(1) + 'k' : val); }
+                }
+            },
+            tooltip: {
+                y: { formatter: function(val) { return '฿' + Number(val).toLocaleString(); } }
+            },
+            legend: { show: false }
+        };
+
+        const finalOptions = Object.assign({}, baseOptions, getChartThemeOptions(isCurrentDark));
+        const chart = new ApexCharts(document.querySelector("#performanceTrendChart"), finalOptions);
+        chart.render();
+
+        // Listen to live theme toggle events
+        window.addEventListener('themeChanged', (e) => {
+            const isDark = e.detail?.isDark ?? (e.detail?.theme === 'dark');
+            chart.updateOptions(getChartThemeOptions(isDark));
+        });
+    });
+</script>
+{% endblock %}

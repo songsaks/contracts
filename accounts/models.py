@@ -88,6 +88,7 @@ class UserProfile(models.Model):
     access_accounts = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบจัดการพนักงาน (User Management)")
     access_ops = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบวางแผน (Ops App)")
     access_board = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบ Dashboard (Board)")
+    access_marketing = models.BooleanField(default=True, verbose_name="เข้าใช้ระบบการตลาด AI (Marketing OS)")
 
     class Meta:
         verbose_name = "โปรไฟล์พนักงาน"
