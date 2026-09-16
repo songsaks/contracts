@@ -158,6 +158,61 @@ def auto_backtest_strategy(df, strategy_type='momentum_rsi', period_days=250):
 MINERVINI_NEAR_HIGH_RATIO = 0.75
 
 
+# ----------------------------------------------------------------------
+# พื้นระยะ Stop Loss ขั้นต่ำ — stop ที่ชิดราคาเข้ากว่านี้ไม่ใช่ stop แต่เป็นลอตเตอรี่
+#
+# ที่มา: stop ของ demand zone คิดจาก "ขอบล่างโซน ลบบัฟเฟอร์นิดหน่อย"
+# (v1 = lower × 0.99, v2 = lower − 0.5×ATR) พอเจอโซนที่บีบมากๆ ระยะ stop จะเหลือ
+# น้อยกว่าการแกว่งปกติของวันเดียว แล้วโดนเขี่ยทิ้งแบบสุ่มโดยไม่เกี่ยวกับ thesis เลย
+# เคสจริงที่เจอ: หุ้นสองตัวในพอร์ตมี stop ห่างจากราคาแค่ 0.33%
+#
+# ทุกที่ที่คำนวณ stop จากโซนต้องเรียก apply_min_stop_distance() ห้ามพิมพ์ตัวเลขทับ
+MIN_STOP_ATR_MULT = 1.0   # อย่างน้อย 1 ATR (ครอบคลุมการแกว่งปกติของวัน)
+MIN_STOP_PCT = 2.0        # และอย่างน้อย 2% ของราคาเข้า (เผื่อหุ้นที่ ATR ต่ำผิดปกติ)
+
+
+def min_stop_distance(entry_price, atr=0.0):
+    """ระยะขั้นต่ำที่ stop ต้องห่างจากราคาเข้า = max(1×ATR, 2% ของราคา)"""
+    try:
+        entry = float(entry_price or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if entry <= 0:
+        return 0.0
+    try:
+        atr_val = float(atr or 0)
+        if atr_val != atr_val or atr_val < 0:   # NaN หรือค่าติดลบ = ใช้ไม่ได้
+            atr_val = 0.0
+    except (TypeError, ValueError):
+        atr_val = 0.0
+    return max(atr_val * MIN_STOP_ATR_MULT, entry * MIN_STOP_PCT / 100.0)
+
+
+def apply_min_stop_distance(entry_price, stop_loss, atr=0.0):
+    """
+    ดัน stop ลงให้ห่างจากราคาเข้าอย่างน้อยตามพื้นที่กำหนด
+
+    ดันลงอย่างเดียว ไม่เคยดันขึ้น — stop ที่กว้างอยู่แล้วคือการตัดสินใจของสูตรนั้น
+    ส่วน stop ที่แคบเกินคือข้อบกพร่องที่ต้องแก้ ผลข้างเคียงคือ RR จะลดลงและ
+    position size จะเล็กลง ซึ่งเป็นตัวเลขที่ตรงความจริงกว่าเดิม
+    """
+    try:
+        entry = float(entry_price or 0)
+        stop = float(stop_loss) if stop_loss is not None else 0.0
+    except (TypeError, ValueError):
+        return stop_loss
+    if entry <= 0:
+        return stop_loss
+
+    floor_price = entry - min_stop_distance(entry, atr)
+    if floor_price <= 0:
+        return stop_loss
+    # stop ที่เพี้ยน (อยู่เหนือหรือเท่าราคาเข้า) ก็ถูกดันลงมาที่พื้นเช่นกัน
+    if stop <= 0 or stop > floor_price:
+        return floor_price
+    return stop
+
+
 PRESET_DEFINITIONS = {
     'superformance': 'Stage2 + Pocket Pivot + CMF≥0.1 + VCP (ไม่รวม RS≥80 และ EPS/Rev ≥20%)',
     'launcher_breakout': 'Stage2 + Launcher≥70 + VCP + Inside Bar',
@@ -2538,6 +2593,15 @@ def find_supply_demand_zones(df):
     # คำนวณ Risk/Reward เบื้องต้น
     entry_price = refined_upper       # เข้าซื้อที่ขอบบนของ zone
     stop_loss = refined_lower * 0.99  # SL อยู่ต่ำกว่า zone เล็กน้อย
+    # โซนที่บีบมากจะได้ stop ที่ชิดจนอยู่ใต้ noise รายวัน — ดันลงให้ถึงพื้นขั้นต่ำ
+    _atr_v1 = 0.0
+    try:
+        _a = ta.atr(df['High'], df['Low'], df['Close'], length=14)
+        if _a is not None and pd.notna(_a.iloc[-1]):
+            _atr_v1 = float(_a.iloc[-1])
+    except Exception:
+        pass
+    stop_loss = apply_min_stop_distance(entry_price, stop_loss, _atr_v1)
     risk = entry_price - stop_loss
     reward = target_price - entry_price
 
@@ -2930,6 +2994,8 @@ def find_supply_demand_zones_v2(df):
     stop_loss = refined_lower - (atr * 0.5) if atr > 0 else refined_lower * 0.99
 
     entry_price = refined_upper
+    # โซนที่บีบมากจะได้ stop ที่ชิดจนอยู่ใต้ noise รายวัน — ดันลงให้ถึงพื้นขั้นต่ำ
+    stop_loss = apply_min_stop_distance(entry_price, stop_loss, atr)
     risk = entry_price - stop_loss
     reward = target_price - entry_price
     rr_ratio = reward / risk if risk > 0 else 0

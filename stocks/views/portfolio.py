@@ -219,14 +219,23 @@ def portfolio_list(request):
             from stocks.utils import analyze_momentum_technical_v2
 
             # 1. ลองหาผล Precision Scan ล่าสุดก่อน (ตรงกับ Precision Scanner ทุกค่า)
-            prec_data = (PrecisionScanCandidate.objects
-                         .filter(user=request.user, symbol=clean_symbol)
-                         .order_by('-scan_run').first())
+            # ติดอายุกำกับไว้ด้วย — ผลสแกนไม่มีวันหมดอายุในตัวเอง ถ้าไม่บอกอายุ
+            # หน้าจอจะโชว์ SL/TP/คะแนนของเมื่อ 3 สัปดาห์ก่อนเหมือนเป็นข้อมูลสดๆ
+            from stocks.scan_freshness import annotate as _annotate_freshness
+            prec_data = _annotate_freshness(
+                PrecisionScanCandidate.objects
+                .filter(user=request.user, symbol=clean_symbol)
+                .order_by('-scan_run').first()
+            )
 
             if prec_data and not request.GET.get('refresh') == 'true':
                 # ใช้ข้อมูลจาก Precision Scanner โดยตรง
                 class QuickMom: pass
                 mom_data = QuickMom()
+                # ค่าชุดนี้เป็นของ "วันที่สแกน" ไม่ใช่ของวันนี้ — พกอายุติดไปด้วยเสมอ
+                mom_data.is_scan_stale        = prec_data.is_scan_stale
+                mom_data.scan_age_days        = prec_data.scan_age_days
+                mom_data.scan_freshness_label = prec_data.scan_freshness_label
                 mom_data.technical_score   = prec_data.technical_score
                 mom_data.rvol              = prec_data.rvol
                 mom_data.rvol_bullish      = prec_data.rvol_bullish
@@ -341,10 +350,19 @@ def portfolio_list(request):
                 'reversal_reasons': [], 'stage_label': '—', 'stage_color': 'secondary',
             }
 
+            # สาขาอื่นที่ไม่ได้มาจากผลสแกน คำนวณสดจากราคาอยู่แล้ว จึงถือว่าไม่เก่า
+            if mom_data is not None and not hasattr(mom_data, 'is_scan_stale'):
+                mom_data.is_scan_stale = False
+                mom_data.scan_age_days = 0
+                mom_data.scan_freshness_label = 'คำนวณสดจากราคา'
+
             # ====== สถานะ "ควรขายเมื่อไหร่ / ขายเท่าไหร่" — ใช้ logic เดียวกับ alert_engine.py ======
             from stocks.alert_engine import _recommended_sell_qty, _tp_partial_sell_pct
             from stocks.utils import simple_trailing_stop
             sell_status = None
+            # stop จากผลสแกนเก่า = โซนของสภาพตลาดเมื่อหลายสัปดาห์ก่อน ห้ามเอามาสั่ง
+            # "ตัดขาดทุนทั้งหมด" — ตกไปใช้ ATR trailing stop ที่คำนวณจากราคาล่าสุดแทน
+            _scan_stale = bool(getattr(mom_data, 'is_scan_stale', False))
             _is_turtle_pos = bool(item.strategy) and 'turtle' in item.strategy.lower()
             if mom_data and current_price > 0:
                 entry_p = float(item.entry_price or 0)
@@ -357,12 +375,25 @@ def portfolio_list(request):
                             'label': '🔒 ล็อกกำไรแล้ว — กำลังเทรล',
                             'detail': f"หลุด ฿{trail_stop:.2f} เมื่อไหร่ ขายที่เหลือทั้งหมด {_recommended_sell_qty(item.quantity, item.market, 1.0):,} หุ้น",
                         }
-                elif getattr(mom_data, 'stop_loss', None) and current_price <= mom_data.stop_loss:
+                elif (not _scan_stale) and getattr(mom_data, 'stop_loss', None) and current_price <= mom_data.stop_loss:
                     qty = _recommended_sell_qty(item.quantity, item.market, 1.0)
                     sell_status = {
                         'level': 'sl', 'color': 'danger',
                         'label': '🩸 หลุด Stop Loss',
                         'detail': f"ควรตัดขาดทุนทั้งหมด {qty:,} หุ้น ที่ ฿{mom_data.stop_loss:.2f}",
+                    }
+                elif _scan_stale and getattr(mom_data, 'stop_loss', None):
+                    # ผลสแกนเก่าเกินไป — ไม่ตัดสินจาก stop ชุดนั้น แต่บอกให้ผู้ใช้สแกนใหม่
+                    _live_stop = simple_trailing_stop(item.highest_price, item.atr, item.trail_multiplier)
+                    _detail = f"ตัวเลข SL/TP ที่เห็นเป็นของ {mom_data.scan_freshness_label} "
+                    if _live_stop:
+                        _detail += f"· ATR trailing stop จากราคาล่าสุดอยู่ที่ ฿{_live_stop:.2f}"
+                    else:
+                        _detail += "· ยังไม่มี ATR trailing stop ให้ใช้แทน"
+                    sell_status = {
+                        'level': 'stale', 'color': 'secondary',
+                        'label': '🕓 ผลสแกนเก่าแล้ว — สแกนใหม่ก่อนตัดสินใจ',
+                        'detail': _detail,
                     }
                 elif not _is_turtle_pos and getattr(mom_data, 'supply_zone_start', None) and current_price >= mom_data.supply_zone_start and is_in_profit:
                     tp_pct = _tp_partial_sell_pct(item.strategy or '')
@@ -1784,8 +1815,11 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
     prefill = None
     if symbol:
         clean = symbol.split('.')[0].upper()
-        prefill = (PrecisionScanCandidate.objects
-                   .filter(user=user, symbol=clean).order_by('-scan_run').first())
+        # ราคา/stop ที่เอามาคำนวณขนาดไม้ต้องสดเท่านั้น — ราคาของเมื่อ 3 สัปดาห์ก่อน
+        # ทำให้ระยะ stop ผิด แล้วจำนวนหุ้นที่แนะนำผิดตามไปทั้งก้อน
+        from stocks.scan_freshness import fresh_only as _fresh_only
+        prefill = _fresh_only(PrecisionScanCandidate.objects
+                              .filter(user=user, symbol=clean).order_by('-scan_run').first())
         if prefill:
             market = getattr(prefill, 'market', MarketType.SET) or MarketType.SET
             if entry is None:
