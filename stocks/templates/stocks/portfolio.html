@@ -782,10 +782,16 @@
                             </td>
                             <!-- SL -->
                             <td class="text-end col-hide-md" style="font-size:0.82rem;">
-                                {% if item.mom_data and item.mom_data.stop_loss %}
-                                <span title="{% if item.trailing_stop_data.color == 'danger' %}SELL NOW! (หลุดจุดคัท){% else %}{% if item.obj.strategy == 'Turtle S1' or item.obj.strategy == 'Turtle S2' %}RIDE TREND (รันเทรนด์){% else %}HOLDING (ถือครอง){% endif %}{% endif %}" class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
-                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.stop_loss|floatformat:2 }}
+                                {% if item.effective_stop %}
+                                <span title="จุดตัดขาดทุนที่ล็อกไว้กับไม้นี้ — ขยับขึ้นตามกำไรได้ แต่ไม่เลื่อนลงตามราคา{% if item.mom_data.stop_loss %} (ผลสแกนล่าสุดให้ไว้ที่ {{ item.mom_data.stop_loss|floatformat:2 }}){% endif %}" class="fw-bold {% if item.stop_breach.stop_hit or item.stop_breach.over_limit %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
+                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.effective_stop|floatformat:2 }}
                                 </span>
+                                {% if item.stop_breach.over_limit %}
+                                <div class="text-danger fw-bold" style="font-size:0.58rem;line-height:1.1;"
+                                     title="ขาดทุน {{ item.stop_breach.loss_pct }}% เกินเพดาน {{ item.stop_breach.max_loss_pct }}% ที่ระบบตั้งไว้">
+                                    เลยจุดตัด {{ item.stop_breach.excess_pct }}%
+                                </div>
+                                {% endif %}
                                 {% if item.mom_data.is_scan_stale %}
                                 <div class="text-secondary" style="font-size:0.58rem;line-height:1.1;"
                                      title="ตัวเลขนี้เป็นของ{{ item.mom_data.scan_freshness_label }} ไม่ใช่ของวันนี้ — สแกนใหม่ก่อนใช้ตัดสินใจ">

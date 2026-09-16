@@ -245,6 +245,19 @@ class Portfolio(models.Model):
     # ราคา ณ ตอนแตะโซนขายทำกำไรครั้งแรก (สำหรับอ้างอิง/แสดงผล)
     tp1_price = models.FloatField(null=True, blank=True, verbose_name="ราคา ณ TP1")
 
+    # ====== Stop Loss ที่ยึดกับไม้นี้จริงๆ (ไม่ใช่ตัวเลขจากผลสแกนล่าสุด) ======
+    # เดิมตารางนี้ไม่มีฟิลด์ stop เลย ช่อง SL บนหน้าจอจึงดึงมาจากผลสแกน ซึ่งคำนวณ
+    # โซน demand ใหม่จากราคาปัจจุบันทุกครั้ง พอราคาลง stop ก็ไหลลงตาม
+    # กลายเป็นว่าไม่มีอะไรยึดจุดตัดขาดทุนไว้กับวันที่ซื้อเลย
+    initial_stop = models.FloatField(
+        null=True, blank=True, verbose_name="Stop ตอนเข้าซื้อ",
+        help_text="จุดตัดขาดทุนที่ตั้งไว้ตอนเปิดสถานะ ไม่เปลี่ยนตามราคาที่ไหลลง")
+    # stop ที่ใช้จริง — ขยับขึ้นได้อย่างเดียว (ดู stocks/stop_ratchet.py)
+    locked_stop = models.FloatField(
+        null=True, blank=True, verbose_name="Stop ที่ล็อกไว้",
+        help_text="ขยับขึ้นตามกำไรได้ แต่ไม่เคยเลื่อนลง")
+    stop_updated_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         verbose_name = "Portfolio"
         verbose_name_plural = "Portfolios"

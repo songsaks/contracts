@@ -242,10 +242,23 @@ class FreshnessIsWiredInTests(unittest.TestCase):
         self.assertEqual(src.count('fresh_only('), 2,
                          'ทั้งฝั่ง watchlist และฝั่งพอร์ตต้องกรองอายุ')
 
-    def test_portfolio_does_not_trigger_stop_loss_from_stale_scan(self):
+    def test_portfolio_does_not_trigger_stop_loss_from_the_scan_at_all(self):
+        """คำสั่ง "ตัดขาดทุนทั้งหมด" ต้องไม่มาจากผลสแกน ไม่ว่าจะสดหรือเก่า
+
+        เดิมเทสต์นี้ตรวจว่ามีการกันผลสแกน "ที่หมดอายุ" ออกจากการตัดสินใจ
+        ตอนนี้แข็งแรงขึ้นอีกขั้น: การตัดสินใจย้ายไปยึดกับ locked stop ของไม้เอง
+        (stocks/stop_ratchet.py) จึงไม่แตะตัวเลขจากผลสแกนเลย เรื่องอายุจึงไม่มีผล
+        """
         src = self._src('stocks/views/portfolio.py')
-        self.assertIn('(not _scan_stale) and getattr(mom_data, \'stop_loss\', None)', src,
-                      'คำสั่ง "ตัดขาดทุนทั้งหมด" ต้องไม่มาจากผลสแกนที่หมดอายุ')
+        self.assertNotIn('current_price <= mom_data.stop_loss', src,
+                         'ยังตัดสินใจตัดขาดทุนจาก stop ของผลสแกนอยู่')
+        self.assertIn("_stop_breach['stop_hit']", src,
+                      'ต้องตัดสินใจจาก stop ที่ล็อกไว้กับไม้แทน')
+
+    def test_stale_scan_still_warns_the_user(self):
+        # ถึงจุดตัดขาดทุนจะปลอดภัยแล้ว แต่โซน/คะแนนที่โชว์ยังเก่าอยู่ ต้องบอกด้วย
+        src = self._src('stocks/views/portfolio.py')
+        self.assertIn("_scan_stale and getattr(mom_data, 'stop_loss', None)", src)
 
     def test_position_sizing_prefill_filters_stale(self):
         src = self._src('stocks/views/portfolio.py')

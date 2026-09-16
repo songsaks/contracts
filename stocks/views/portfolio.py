@@ -109,6 +109,7 @@ def portfolio_list(request):
             is_us = item.market == MarketType.US
 
             # ====== คำนวณ ATR Trailing Stop ======
+            from stocks.stop_ratchet import hard_floor as _hard_floor
             from stocks.utils import calculate_atr_trailing_stop
             atr_ts = calculate_atr_trailing_stop(
                 df=hist if not hist.empty else None,
@@ -166,7 +167,10 @@ def portfolio_list(request):
                     'pyramid_status': 'PYRAMID NOW! 🚀' if current_price >= pyramid_price else 'WAITING ⏳'
                 })
             elif is_pms and atr_ts:
-                pms_stop = float(atr_ts['highest']) - (2.0 * float(item.atr or 0))
+                # เพดานขาดทุนเดียวกับที่ calculate_atr_trailing_stop ใส่ไว้ —
+                # สาขานี้เขียนทับ trailing_stop เอง จึงต้องใส่เพดานกลับเข้ามาด้วย
+                pms_stop = max(float(atr_ts['highest']) - (2.0 * float(item.atr or 0)),
+                               _hard_floor(item.entry_price))
                 atr_ts.update({
                     'trailing_stop': pms_stop,
                     'is_pms': True,
@@ -176,7 +180,8 @@ def portfolio_list(request):
             elif is_dividend and atr_ts:
                 # Dividend: Safety first, 15% Max drawdown from cost or custom multiplier
                 multiplier = float(item.trail_multiplier or 2.5)
-                div_stop = float(item.entry_price or 0) - (multiplier * float(item.atr or 0))
+                div_stop = max(float(item.entry_price or 0) - (multiplier * float(item.atr or 0)),
+                               _hard_floor(item.entry_price))
                 atr_ts.update({
                     'trailing_stop': div_stop,
                     'is_dividend': True,
@@ -186,7 +191,8 @@ def portfolio_list(request):
             elif is_value and atr_ts:
                 # Value: Deep value holding
                 multiplier = float(item.trail_multiplier or 3.0)
-                val_stop = float(atr_ts['highest']) - (multiplier * float(item.atr or 0))
+                val_stop = max(float(atr_ts['highest']) - (multiplier * float(item.atr or 0)),
+                               _hard_floor(item.entry_price))
                 atr_ts.update({
                     'trailing_stop': val_stop,
                     'is_value': True,
@@ -356,6 +362,35 @@ def portfolio_list(request):
                 mom_data.scan_age_days = 0
                 mom_data.scan_freshness_label = 'คำนวณสดจากราคา'
 
+            # ====== Stop ที่ไม่เคยเลื่อนลง ======
+            # ยึด stop ไว้กับไม้นี้จริงๆ แทนที่จะเชื่อตัวเลขจากผลสแกนล่าสุด
+            # (ผลสแกนคำนวณโซนใหม่จากราคาปัจจุบัน พอราคาลง stop ก็ไหลลงตาม)
+            from stocks.stop_ratchet import breach_report, effective_stop
+            _trail_candidate = (atr_ts or {}).get('trailing_stop')
+            # stop จากผลสแกนใช้เป็นตัวเสนอได้ "เฉพาะตอนยังไม่เคยล็อกอะไรไว้"
+            # คือตอนเพิ่งซื้อ ถ้าล็อกไปแล้วมันขึ้นได้แต่ห้ามดึงลง ซึ่ง ratchet จัดการให้
+            if item.initial_stop is None and not getattr(mom_data, 'is_scan_stale', True):
+                # จับเฉพาะจากผลสแกนที่ยังสด — ยึด stop ไว้กับตัวเลขที่หมดอายุแล้ว
+                # ก็ไม่ต่างจากไม่ยึดอะไรเลย
+                _scan_stop = getattr(mom_data, 'stop_loss', None)
+                if _scan_stop and float(_scan_stop) > 0:
+                    item.initial_stop = float(_scan_stop)
+                    item.save(update_fields=['initial_stop'])
+
+            _eff_stop = effective_stop(
+                item.entry_price,
+                initial_stop=item.initial_stop,
+                locked_stop=item.locked_stop,
+                trailing_stop=_trail_candidate,
+            )
+            # ขยับขึ้นเมื่อไหร่ก็บันทึกไว้ เพื่อให้รอบหน้าถอยกลับไม่ได้
+            if _eff_stop and float(item.locked_stop or 0) < _eff_stop - 1e-9:
+                item.locked_stop = _eff_stop
+                item.stop_updated_at = timezone.now()
+                item.save(update_fields=['locked_stop', 'stop_updated_at'])
+
+            _stop_breach = breach_report(item.entry_price, current_price, _eff_stop)
+
             # ====== สถานะ "ควรขายเมื่อไหร่ / ขายเท่าไหร่" — ใช้ logic เดียวกับ alert_engine.py ======
             from stocks.alert_engine import _recommended_sell_qty, _tp_partial_sell_pct
             from stocks.utils import simple_trailing_stop
@@ -375,21 +410,30 @@ def portfolio_list(request):
                             'label': '🔒 ล็อกกำไรแล้ว — กำลังเทรล',
                             'detail': f"หลุด ฿{trail_stop:.2f} เมื่อไหร่ ขายที่เหลือทั้งหมด {_recommended_sell_qty(item.quantity, item.market, 1.0):,} หุ้น",
                         }
-                elif (not _scan_stale) and getattr(mom_data, 'stop_loss', None) and current_price <= mom_data.stop_loss:
+                elif _stop_breach['over_limit']:
+                    # ขาดทุนเกินเพดานที่ระบบตั้งไว้เอง — ควรออกไปตั้งแต่ก่อนหน้านี้แล้ว
+                    # เดิมไม่มีอะไรจับเคสนี้เลยเพราะ stop ไหลลงตามราคาไปเรื่อยๆ
+                    qty = _recommended_sell_qty(item.quantity, item.market, 1.0)
+                    sell_status = {
+                        'level': 'sl', 'color': 'danger',
+                        'label': f"🩸 ขาดทุนเกินเพดาน {_stop_breach['max_loss_pct']:.0f}%",
+                        'detail': (f"ตอนนี้ขาดทุน {_stop_breach['loss_pct']:.1f}% "
+                                   f"(เลยจุดตัดขาดทุนมา {_stop_breach['excess_pct']:.1f}%) — "
+                                   f"จุดที่ควรออกคือ ฿{_eff_stop:.2f} · ถือครบ {qty:,} หุ้น"),
+                    }
+                elif _stop_breach['stop_hit']:
                     qty = _recommended_sell_qty(item.quantity, item.market, 1.0)
                     sell_status = {
                         'level': 'sl', 'color': 'danger',
                         'label': '🩸 หลุด Stop Loss',
-                        'detail': f"ควรตัดขาดทุนทั้งหมด {qty:,} หุ้น ที่ ฿{mom_data.stop_loss:.2f}",
+                        'detail': f"ควรตัดขาดทุนทั้งหมด {qty:,} หุ้น ที่ ฿{_eff_stop:.2f}",
                     }
                 elif _scan_stale and getattr(mom_data, 'stop_loss', None):
-                    # ผลสแกนเก่าเกินไป — ไม่ตัดสินจาก stop ชุดนั้น แต่บอกให้ผู้ใช้สแกนใหม่
-                    _live_stop = simple_trailing_stop(item.highest_price, item.atr, item.trail_multiplier)
-                    _detail = f"ตัวเลข SL/TP ที่เห็นเป็นของ {mom_data.scan_freshness_label} "
-                    if _live_stop:
-                        _detail += f"· ATR trailing stop จากราคาล่าสุดอยู่ที่ ฿{_live_stop:.2f}"
-                    else:
-                        _detail += "· ยังไม่มี ATR trailing stop ให้ใช้แทน"
+                    # ผลสแกนเก่าเกินไป — ตัวเลขโซน/คะแนนที่เห็นไม่ใช่ของวันนี้
+                    # (จุดตัดขาดทุนไม่กระทบ เพราะยึดกับ locked_stop ไม่ใช่ผลสแกน)
+                    _detail = f"ตัวเลขโซน/คะแนนที่เห็นเป็นของ{mom_data.scan_freshness_label}"
+                    if _eff_stop:
+                        _detail += f" · จุดตัดขาดทุนที่ล็อกไว้ยังใช้ได้ที่ ฿{_eff_stop:.2f}"
                     sell_status = {
                         'level': 'stale', 'color': 'secondary',
                         'label': '🕓 ผลสแกนเก่าแล้ว — สแกนใหม่ก่อนตัดสินใจ',
@@ -413,6 +457,9 @@ def portfolio_list(request):
                 'gain_loss_pct': gain_loss_pct,
                 'rsi': rsi_val,
                 'trailing_stop_data': ts_data,
+                # stop ที่ใช้ตัดสินใจจริง (ล็อกไว้กับไม้นี้ ขยับขึ้นทางเดียว)
+                'effective_stop': _eff_stop,
+                'stop_breach': _stop_breach,
                 'mom_data': mom_data,
                 'sell_status': sell_status,
                 'buy_score':       signals['buy_score'],
