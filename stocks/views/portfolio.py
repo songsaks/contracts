@@ -2,6 +2,11 @@ from .base import *
 from stocks.utils import MINERVINI_NEAR_HIGH_RATIO   # เกณฑ์ใกล้ High 52 สัปดาห์ — นิยามเดียวของทั้งระบบ
 import logging
 from django.db import transaction
+# ระดับโมดูล ไม่ใช่ในฟังก์ชัน — portfolio_list ยาวเกือบพันบรรทัดและเคยมี
+# `from django.utils import timezone` ซ่อนอยู่กลางฟังก์ชัน ซึ่งทำให้ชื่อนี้กลาย
+# เป็นตัวแปรโลคอลของทั้งฟังก์ชัน โค้ดที่ใช้ timezone ก่อนถึงบรรทัดนั้นจึงเจอ
+# UnboundLocalError ทุกครั้ง
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -738,7 +743,6 @@ def portfolio_list(request):
             seen_months.add(m_key)
 
     # ── Filter Transactions ──
-    from django.utils import timezone
     now = timezone.now()
     default_month = now.strftime('%Y-%m')
     
