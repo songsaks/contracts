@@ -18,8 +18,8 @@ from stocks.scan_outcomes import (
 # ฟิลด์ที่ดึงมาทำสถิติ — ระบุให้ชัดเพื่อไม่ให้ query ลากทั้งตารางมาโดยไม่จำเป็น
 _STAT_FIELDS = (
     'symbol', 'market', 'scan_date', 'price_at_scan', 'entry_strategy', 'sector',
-    'technical_score', 'buy_score', 'rs_rating', 'score_bucket',
-    'first_hit', 'r_multiple', 'mfe_pct', 'mae_pct', 'status',
+    'stop_loss', 'target_price', 'technical_score', 'buy_score', 'rs_rating', 'score_bucket',
+    'first_hit', 'r_multiple', 'mfe_pct', 'mae_pct', 'status', 'bars_evaluated', 'evaluated_at',
     *[f'ret_d{h}' for h in HORIZONS],
     *[f for f, _ in SETUP_FLAGS],
 )
@@ -76,6 +76,10 @@ def scan_quality_report(request):
                               horizon=horizon, min_n=3)
 
     pending = sum(1 for r in rows if r.get('status') == 'pending')
+    evaluated_count = sum(1 for r in rows if r.get('status') in ('partial', 'complete'))
+    max_bars = max((r.get('bars_evaluated') or 0 for r in rows), default=0)
+    days_left = max(horizon - max_bars, 0)
+    recent_tracked = [r for r in rows if (r.get('bars_evaluated') or 0) > 0 or r.get('status') != 'pending'][:60]
 
     return render(request, 'stocks/scan_quality.html', {
         'market': market,
@@ -89,5 +93,9 @@ def scan_quality_report(request):
         'by_sector': by_sector[:15],
         'total_rows': len(rows),
         'pending': pending,
+        'evaluated_count': evaluated_count,
+        'max_bars': max_bars,
+        'days_left': days_left,
+        'recent_tracked': recent_tracked,
         'has_data': overall['n'] > 0,
     })

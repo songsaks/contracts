@@ -54,18 +54,102 @@
   </div>
 
   {% if not has_data %}
-    <div class="sq-card p-4 text-center">
-      <div class="fs-1 mb-2">📊</div>
-      <h6 class="fw-bold">ยังไม่มีข้อมูลให้สรุป</h6>
-      <p class="text-muted mb-3" style="font-size:.88rem; max-width:40rem; margin:0 auto;">
-        ระบบเริ่มเก็บ snapshot ทุกครั้งที่รัน Precision Scan แล้ว
-        จากนั้นต้องรอให้ราคาเดินไปข้างหน้าอย่างน้อย {{ horizon }} วันทำการ แล้วรันคำสั่งนี้เพื่อเติมผล:
+    <div class="sq-card p-4 text-center mb-4">
+      <div class="fs-1 mb-2">⏳</div>
+      <h5 class="fw-bold mb-1">อยู่ระหว่างสะสมข้อมูลราคาตลาด (Tracking in Progress)</h5>
+      <p class="text-muted mb-3" style="font-size:.9rem; max-width:44rem; margin:0 auto;">
+        ระบบบันทึก Snapshot ไว้แล้ว <b>{{ total_rows }}</b> รายการ
+        {% if evaluated_count %}
+          — ดึงราคาตลาดจริงอัปเดตแล้ว <b class="text-success">{{ evaluated_count }}</b> รายการ!
+          <br>การวัดผลล่วงหน้า <b>{{ horizon }}D</b> ต้องใช้ราคาตลาดหลังวันสแกนอย่างน้อย <b>{{ horizon }} วันทำการ</b>
+          <br>ปัจจุบันตลาดเดินหน้ามาแล้ว <b>{{ max_bars }}</b> วันทำการ
+          <br><span class="badge bg-primary-subtle text-primary border px-2.5 py-1 mt-2">
+            <i class="fas fa-clock me-1"></i> อีกประมาณ {{ days_left }} วันทำการ ระบบจะเริ่มคำนวณและสรุปกราฟ Win Rate / Edge ให้อัตโนมัติ
+          </span>
+        {% else %}
+          — จากนั้นต้องรอให้ราคาเดินไปข้างหน้าอย่างน้อย {{ horizon }} วันทำการ แล้วรันคำสั่งนี้เพื่อเติมผล:
+          <br><code class="d-inline-block px-3 py-2 bg-light rounded mt-2">python manage.py evaluate_scan_outcomes</code>
+        {% endif %}
       </p>
-      <code class="d-inline-block px-3 py-2 bg-light rounded">python manage.py evaluate_scan_outcomes</code>
       {% if total_rows %}
-        <div class="mt-3"><span class="n-badge">เก็บ snapshot ไว้แล้ว {{ total_rows }} รายการ · รอวัดผล {{ pending }}</span></div>
+        <div class="d-flex justify-content-center gap-2 flex-wrap">
+          <span class="n-badge">📦 บันทึกประวัติ {{ total_rows }} รายการ</span>
+          <span class="n-badge text-success">✅ อัปเดตราคาแล้ว {{ evaluated_count }} รายการ</span>
+          <span class="n-badge text-muted">⏳ เพิ่งสแกนล่าสุด/รอวัดผล {{ pending }} รายการ</span>
+        </div>
       {% endif %}
     </div>
+
+    {% if recent_tracked %}
+    <!-- ── ตารางหุ้นที่กำลังติดตามผลจริง (Active Tracking Table) ── -->
+    <div class="sq-card mb-4">
+      <div class="hd d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h6 class="fw-bold"><i class="fas fa-satellite-dish me-1 text-primary"></i> รายการหุ้นที่ระบบกำลังติดตามผลจริง (Active Forward Tracking)</h6>
+          <div class="sub">หุ้นที่ระบบ Precision Scan บันทึกไว้ และดึงราคาตลาดจริงมาวัดผลงานระหว่างทาง</div>
+        </div>
+        <span class="badge bg-secondary-subtle text-secondary">{{ recent_tracked|length }} รายการล่าสุด</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table sq-table table-hover">
+          <thead>
+            <tr>
+              <th>หุ้น</th>
+              <th>วันที่สแกน</th>
+              <th class="text-end">ราคาเข้า</th>
+              <th class="text-end">TP / SL</th>
+              <th class="text-end">MFE (กำไรสูงสุด)</th>
+              <th class="text-end">MAE (ย่อลึกสุด)</th>
+              <th class="text-end">R ล่าสุด</th>
+              <th class="text-center">ความคืบหน้า</th>
+              <th class="text-center">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in recent_tracked %}
+            <tr>
+              <td>
+                <span class="fw-bold text-primary">{{ r.symbol }}</span>
+                {% if r.technical_score %}<span class="badge bg-light text-dark ms-1" style="font-size:0.68rem;">Score {{ r.technical_score }}</span>{% endif %}
+              </td>
+              <td class="text-muted" style="font-size:0.8rem;">{{ r.scan_date|date:"d M Y" }}</td>
+              <td class="text-end fw-semibold">{{ r.price_at_scan|floatformat:2 }}</td>
+              <td class="text-end muted" style="font-size:0.78rem;">
+                {% if r.target_price %}<span class="text-success">{{ r.target_price|floatformat:2 }}</span>{% else %}–{% endif %} / 
+                {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
+              </td>
+              <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
+                {% if r.mfe_pct %}+{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
+              </td>
+              <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
+                {% if r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
+              </td>
+              <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
+                {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
+              </td>
+              <td class="text-center">
+                <span class="badge bg-light text-dark border" style="font-size:0.72rem;">
+                  {{ r.bars_evaluated|default:0 }}/{{ horizon }} วัน
+                </span>
+              </td>
+              <td class="text-center">
+                {% if r.first_hit == 'TP' %}
+                  <span class="badge bg-success text-white">Hit TP 🎯</span>
+                {% elif r.first_hit == 'SL' %}
+                  <span class="badge bg-danger text-white">Hit SL 🛑</span>
+                {% elif r.status == 'partial' %}
+                  <span class="badge bg-info-subtle text-info">กำลังติดตาม</span>
+                {% else %}
+                  <span class="badge bg-secondary-subtle text-muted">รอข้อมูล</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
   {% else %}
 
   <!-- ── ภาพรวม ── -->
@@ -228,6 +312,74 @@
       </div>
     </div>
   </div>
+
+  {% if recent_tracked %}
+  <!-- ── รายการหุ้นล่าสุดที่นำมาคำนวณ ── -->
+  <div class="sq-card mt-3">
+    <div class="hd d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h6 class="fw-bold"><i class="fas fa-satellite-dish me-1 text-primary"></i> รายการหุ้นล่าสุดที่กำลังติดตามผล (Active Tracking)</h6>
+      <span class="badge bg-secondary-subtle text-secondary">{{ recent_tracked|length }} รายการ</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table sq-table table-hover">
+        <thead>
+          <tr>
+            <th>หุ้น</th>
+            <th>วันที่สแกน</th>
+            <th class="text-end">ราคาเข้า</th>
+            <th class="text-end">TP / SL</th>
+            <th class="text-end">MFE (กำไรสูงสุด)</th>
+            <th class="text-end">MAE (ย่อลึกสุด)</th>
+            <th class="text-end">R ล่าสุด</th>
+            <th class="text-center">ความคืบหน้า</th>
+            <th class="text-center">สถานะ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recent_tracked %}
+          <tr>
+            <td>
+              <span class="fw-bold text-primary">{{ r.symbol }}</span>
+              {% if r.technical_score %}<span class="badge bg-light text-dark ms-1" style="font-size:0.68rem;">Score {{ r.technical_score }}</span>{% endif %}
+            </td>
+            <td class="text-muted" style="font-size:0.8rem;">{{ r.scan_date|date:"d M Y" }}</td>
+            <td class="text-end fw-semibold">{{ r.price_at_scan|floatformat:2 }}</td>
+            <td class="text-end muted" style="font-size:0.78rem;">
+              {% if r.target_price %}<span class="text-success">{{ r.target_price|floatformat:2 }}</span>{% else %}–{% endif %} / 
+              {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
+            </td>
+            <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
+              {% if r.mfe_pct %}+{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
+            </td>
+            <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
+              {% if r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
+            </td>
+            <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
+              {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
+            </td>
+            <td class="text-center">
+              <span class="badge bg-light text-dark border" style="font-size:0.72rem;">
+                {{ r.bars_evaluated|default:0 }}/{{ horizon }} วัน
+              </span>
+            </td>
+            <td class="text-center">
+              {% if r.first_hit == 'TP' %}
+                <span class="badge bg-success text-white">Hit TP 🎯</span>
+              {% elif r.first_hit == 'SL' %}
+                <span class="badge bg-danger text-white">Hit SL 🛑</span>
+              {% elif r.status == 'partial' %}
+                <span class="badge bg-info-subtle text-info">กำลังติดตาม</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-muted">รอข้อมูล</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="text-muted mt-3" style="font-size:.78rem;">
     วิธีวัด: entry = ราคา ณ วันที่สแกนเจอ · R-multiple อิง stop loss ที่ตัวสแกนให้ไว้วันนั้น ·
