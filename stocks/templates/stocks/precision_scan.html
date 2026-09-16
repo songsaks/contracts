@@ -134,6 +134,11 @@
                 {% endif %}
             </form>
         </div>
+        <a href="{% url 'stocks:scan_quality_report' %}?market=SET" class="btn d-inline-flex align-items-center gap-2"
+           style="background:linear-gradient(135deg,#059669,#047857); color:white; border:none; box-shadow:0 4px 12px rgba(5,150,105,0.35);"
+           title="วัดผลจริงของสัญญาณและคะแนนย้อนหลัง (5D/10D/20D)">
+            <i class="fas fa-chart-line"></i> คุณภาพตัวสแกน (Edge)
+        </a>
         <a href="{% url 'stocks:momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
             <i class="fas fa-rocket"></i> ไปหน้า Momentum Scan เดิม
         </a>

@@ -645,6 +645,12 @@
                                     <span class="me-1">🇺🇸</span> US Precision
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item {% if request.resolver_match.url_name == 'scan_quality_report' %}active{% endif %}"
+                                   href="{% url 'stocks:scan_quality_report' %}">
+                                    <i class="fas fa-chart-line me-1 text-success"></i> คุณภาพตัวสแกน (Scan Quality &amp; Edge)
+                                </a>
+                            </li>
                             <li><hr class="dropdown-divider opacity-25 my-1"></li>
                             <li class="dropdown-section-label">🚀 Momentum &amp; Trend</li>
                             <li>
