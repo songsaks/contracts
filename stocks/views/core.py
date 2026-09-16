@@ -1,4 +1,9 @@
-from .base import * 
+from .base import *
+# ประกาศตรงนี้ให้ชัด ไม่พึ่งการ re-export จาก `import *` — และที่สำคัญกว่านั้น
+# ห้ามมี import ชื่อเดียวกันซ่อนอยู่กลางฟังก์ชัน เพราะจะทำให้ชื่อนั้นกลายเป็น
+# ตัวแปรโลคอลของทั้งฟังก์ชัน แล้วโค้ดที่ใช้ก่อนถึงบรรทัดนั้นเจอ UnboundLocalError
+import json
+import yfinance as yf
 
 from .base import (
     _get_usd_thb, _compute_signals, _get_market_condition, _get_precision_scan_data,
@@ -178,7 +183,6 @@ def dashboard(request):
         curr_p = price_map.get(p.symbol, 0)
         if curr_p == 0:
             try:
-                import yfinance as yf
                 t = yf.Ticker(p.symbol)
                 curr_p = t.fast_info['lastPrice']
             except: curr_p = float(p.entry_price or 0)
@@ -415,7 +419,6 @@ def analyze(request, symbol):
         # ====== เตรียมข้อมูลกราฟราคาและวอลลุ่ม ======
         # Prepare Chart Data (Price & Volume)
         import math
-        import json
         chart_labels = []
         chart_values = []
         chart_volumes = []
