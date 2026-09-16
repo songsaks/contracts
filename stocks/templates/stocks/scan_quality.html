@@ -1,0 +1,239 @@
+{% extends 'stocks/base_stocks.html' %}
+
+{% block title %}คุณภาพตัวสแกน — Scan Quality{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sq-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #312e81 100%);
+        border-radius: 1.25rem; padding: 1.75rem; color: #fff;
+    }
+    .sq-stat { background:#fff; border:1px solid #e5e7eb; border-radius:.9rem; padding:1rem 1.1rem; height:100%; }
+    .sq-stat .lbl { font-size:.72rem; color:#6b7280; text-transform:uppercase; letter-spacing:.03em; }
+    .sq-stat .val { font-size:1.6rem; font-weight:700; line-height:1.2; }
+    .sq-card { background:#fff; border:1px solid #e5e7eb; border-radius:.9rem; }
+    .sq-card > .hd { padding:.85rem 1.1rem; border-bottom:1px solid #f1f5f9; }
+    .sq-card > .hd h6 { margin:0; font-weight:700; }
+    .sq-card > .hd .sub { font-size:.75rem; color:#6b7280; }
+    .sq-table { font-size:.85rem; margin:0; }
+    .sq-table th { font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; font-weight:600; }
+    .sq-table td, .sq-table th { vertical-align:middle; }
+    .pos { color:#059669; font-weight:600; }
+    .neg { color:#dc2626; font-weight:600; }
+    .muted { color:#9ca3af; }
+    .edge-bar { height:6px; border-radius:3px; background:#f1f5f9; overflow:hidden; min-width:60px; }
+    .edge-bar > i { display:block; height:100%; }
+    .n-badge { font-size:.68rem; background:#f1f5f9; color:#475569; padding:.1rem .4rem; border-radius:.35rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <div class="sq-hero mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h4 class="fw-bold mb-1">คุณภาพตัวสแกน</h4>
+        <div style="opacity:.8; font-size:.88rem; max-width:52rem;">
+          วัดว่าคะแนนและธง setup ที่ตัวสแกนให้ไว้ <b>ทำนายผลได้จริงหรือไม่</b>
+          โดยตามราคาหลังวันที่สแกนเจอ — ไม่ใช่ backtest ย้อนหลัง แต่เป็นผลของสัญญาณที่ระบบเคยส่งออกมาจริง
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <div class="btn-group btn-group-sm">
+          <a href="?market=SET&horizon={{ horizon }}" class="btn {% if market == 'SET' %}btn-light{% else %}btn-outline-light{% endif %}">SET</a>
+          <a href="?market=US&horizon={{ horizon }}" class="btn {% if market == 'US' %}btn-light{% else %}btn-outline-light{% endif %}">US</a>
+        </div>
+        <div class="btn-group btn-group-sm">
+          {% for h in horizons %}
+          <a href="?market={{ market }}&horizon={{ h }}" class="btn {% if horizon == h %}btn-light{% else %}btn-outline-light{% endif %}">{{ h }}D</a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if not has_data %}
+    <div class="sq-card p-4 text-center">
+      <div class="fs-1 mb-2">📊</div>
+      <h6 class="fw-bold">ยังไม่มีข้อมูลให้สรุป</h6>
+      <p class="text-muted mb-3" style="font-size:.88rem; max-width:40rem; margin:0 auto;">
+        ระบบเริ่มเก็บ snapshot ทุกครั้งที่รัน Precision Scan แล้ว
+        จากนั้นต้องรอให้ราคาเดินไปข้างหน้าอย่างน้อย {{ horizon }} วันทำการ แล้วรันคำสั่งนี้เพื่อเติมผล:
+      </p>
+      <code class="d-inline-block px-3 py-2 bg-light rounded">python manage.py evaluate_scan_outcomes</code>
+      {% if total_rows %}
+        <div class="mt-3"><span class="n-badge">เก็บ snapshot ไว้แล้ว {{ total_rows }} รายการ · รอวัดผล {{ pending }}</span></div>
+      {% endif %}
+    </div>
+  {% else %}
+
+  <!-- ── ภาพรวม ── -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-lg-3">
+      <div class="sq-stat">
+        <div class="lbl">ชนะ (ผลบวกที่ {{ horizon }} วัน)</div>
+        <div class="val {% if overall.win_rate >= 50 %}pos{% else %}neg{% endif %}">{{ overall.win_rate|default:"–" }}%</div>
+        <div class="muted" style="font-size:.75rem;">จาก {{ overall.n }} สัญญาณ</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="sq-stat">
+        <div class="lbl">ผลตอบแทนเฉลี่ย</div>
+        <div class="val {% if overall.avg_return > 0 %}pos{% else %}neg{% endif %}">{{ overall.avg_return|default:"–" }}%</div>
+        <div class="muted" style="font-size:.75rem;">มัธยฐาน {{ overall.median_return|default:"–" }}%</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="sq-stat">
+        <div class="lbl">R เฉลี่ย (Expectancy)</div>
+        <div class="val {% if overall.avg_r > 0 %}pos{% else %}neg{% endif %}">{{ overall.avg_r|default:"–" }}R</div>
+        <div class="muted" style="font-size:.75rem;">TP ก่อน {{ overall.tp_first }} · SL ก่อน {{ overall.sl_first }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="sq-stat">
+        <div class="lbl">Profit Factor</div>
+        <div class="val {% if overall.profit_factor >= 1 %}pos{% else %}neg{% endif %}">{{ overall.profit_factor|default:"–" }}</div>
+        <div class="muted" style="font-size:.75rem;">กำไรรวม ÷ ขาดทุนรวม</div>
+      </div>
+    </div>
+  </div>
+
+  {% if pending %}
+  <div class="alert alert-light border py-2 px-3 mb-3" style="font-size:.82rem;">
+    <b>{{ pending }}</b> รายการยังรอครบหน้าต่างวัดผล จึงยังไม่ถูกนับในสถิติข้างบน
+    (นับเฉพาะรายการที่รู้ผลแล้ว เพื่อไม่ให้ตัวเลขถูกเจือจาง)
+  </div>
+  {% endif %}
+
+  <!-- ── คะแนนทำนายผลได้ไหม ── -->
+  <div class="sq-card mb-3">
+    <div class="hd">
+      <h6>คะแนนเทคนิคทำนายผลได้จริงไหม</h6>
+      <div class="sub">ถ้าคะแนนมีความหมาย แถวบนควรดีกว่าแถวล่างอย่างเห็นได้ชัด — ถ้าตัวเลขพอๆ กัน แปลว่าคะแนนยังไม่ช่วยคัด</div>
+    </div>
+    <div class="table-responsive">
+      <table class="table sq-table">
+        <thead><tr>
+          <th>ช่วงคะแนน</th><th class="text-end">จำนวน</th><th class="text-end">ชนะ</th>
+          <th class="text-end">เฉลี่ย</th><th class="text-end">R เฉลี่ย</th>
+          <th class="text-end">TP/SL</th><th class="text-end">MFE / MAE</th>
+        </tr></thead>
+        <tbody>
+        {% for b in by_score %}
+          <tr>
+            <td class="fw-bold">{{ b.key }}</td>
+            <td class="text-end"><span class="n-badge">{{ b.n }}</span></td>
+            <td class="text-end {% if b.win_rate >= 50 %}pos{% else %}neg{% endif %}">{{ b.win_rate }}%</td>
+            <td class="text-end {% if b.avg_return > 0 %}pos{% else %}neg{% endif %}">{{ b.avg_return }}%</td>
+            <td class="text-end {% if b.avg_r > 0 %}pos{% else %}neg{% endif %}">{{ b.avg_r }}R</td>
+            <td class="text-end muted">{{ b.tp_first }} / {{ b.sl_first }}</td>
+            <td class="text-end muted">+{{ b.avg_mfe }}% / {{ b.avg_mae }}%</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center muted py-3">ข้อมูลยังไม่พอ</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── ธง setup อันไหนมี edge ── -->
+  <div class="sq-card mb-3">
+    <div class="hd">
+      <h6>ธง Setup อันไหนมี Edge จริง</h6>
+      <div class="sub">
+        เทียบ R เฉลี่ยของ "ติดธงนี้" กับ "ไม่ติดธงนี้" — <b>Edge</b> คือส่วนต่าง
+        ถ้าใกล้ 0 หรือติดลบ แปลว่าธงนั้นไม่ได้ช่วยคัดอะไร แต่ยังกินเวลาคำนวณทุกรอบสแกน
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table sq-table">
+        <thead><tr>
+          <th>Setup</th>
+          <th class="text-end">ติดธง (n)</th><th class="text-end">R</th>
+          <th class="text-end">ไม่ติด (n)</th><th class="text-end">R</th>
+          <th class="text-end">Edge</th><th style="width:90px;"></th>
+        </tr></thead>
+        <tbody>
+        {% for f in flags %}
+          <tr>
+            <td class="fw-bold">{{ f.label }}</td>
+            <td class="text-end"><span class="n-badge">{{ f.on.n }}</span></td>
+            <td class="text-end {% if f.on.avg_r > 0 %}pos{% else %}neg{% endif %}">{{ f.on.avg_r }}R</td>
+            <td class="text-end"><span class="n-badge">{{ f.off.n }}</span></td>
+            <td class="text-end muted">{{ f.off.avg_r }}R</td>
+            <td class="text-end {% if f.edge_r > 0 %}pos{% else %}neg{% endif %}">
+              {% if f.edge_r > 0 %}+{% endif %}{{ f.edge_r }}R
+            </td>
+            <td>
+              <div class="edge-bar">
+                <i style="width:{{ f.edge_width|floatformat:0 }}%;
+                          background:{% if f.edge_r > 0 %}#10b981{% else %}#ef4444{% endif %};"></i>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center muted py-3">ต้องมีอย่างน้อย 5 ตัวอย่างทั้งสองฝั่งถึงจะเทียบได้</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="sq-card h-100">
+        <div class="hd"><h6>แยกตาม Entry Strategy</h6><div class="sub">เรียงตาม R เฉลี่ย</div></div>
+        <div class="table-responsive">
+          <table class="table sq-table">
+            <thead><tr><th>Preset</th><th class="text-end">n</th><th class="text-end">ชนะ</th><th class="text-end">R</th></tr></thead>
+            <tbody>
+            {% for p in by_preset %}
+              <tr>
+                <td>{{ p.key|truncatechars:34 }}</td>
+                <td class="text-end"><span class="n-badge">{{ p.n }}</span></td>
+                <td class="text-end {% if p.win_rate >= 50 %}pos{% else %}neg{% endif %}">{{ p.win_rate }}%</td>
+                <td class="text-end {% if p.avg_r > 0 %}pos{% else %}neg{% endif %}">{{ p.avg_r }}R</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-center muted py-3">ข้อมูลยังไม่พอ</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="sq-card h-100">
+        <div class="hd"><h6>แยกตาม Sector</h6><div class="sub">เรียงตาม R เฉลี่ย</div></div>
+        <div class="table-responsive">
+          <table class="table sq-table">
+            <thead><tr><th>Sector</th><th class="text-end">n</th><th class="text-end">ชนะ</th><th class="text-end">R</th></tr></thead>
+            <tbody>
+            {% for s in by_sector %}
+              <tr>
+                <td>{{ s.key|truncatechars:34 }}</td>
+                <td class="text-end"><span class="n-badge">{{ s.n }}</span></td>
+                <td class="text-end {% if s.win_rate >= 50 %}pos{% else %}neg{% endif %}">{{ s.win_rate }}%</td>
+                <td class="text-end {% if s.avg_r > 0 %}pos{% else %}neg{% endif %}">{{ s.avg_r }}R</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-center muted py-3">ข้อมูลยังไม่พอ</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-muted mt-3" style="font-size:.78rem;">
+    วิธีวัด: entry = ราคา ณ วันที่สแกนเจอ · R-multiple อิง stop loss ที่ตัวสแกนให้ไว้วันนั้น ·
+    ถ้าแท่งเดียวกันแตะทั้ง TP และ SL จะนับเป็น SL (ข้อมูลรายวันไม่บอกว่าอันไหนก่อน จึงเลือกทางที่ไม่เข้าข้างตัวเอง)
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}

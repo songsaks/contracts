@@ -2993,6 +2993,11 @@ def precision_momentum_scanner(request):
 
                     if bulk_candidates:
                         PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
+                        # เก็บ snapshot ไว้ตามผลย้อนหลัง (ScanOutcome) — ตัว candidate
+                        # ถูกลบทิ้งทุกรอบและตัดประวัติเหลือ 3 วัน จึงวัดผล 20 วันไม่ได้
+                        # ฟังก์ชันนี้กลืน error ในตัวเอง ผลสแกนจะไม่พังเพราะบรรทัดนี้
+                        from stocks.scan_outcomes import record_candidates
+                        record_candidates(user, 'SET', scan_run_time, bulk_candidates)
 
                 # เก็บประวัติแค่ 3 "วัน" ล่าสุด (ไม่ใช่ 3 "ครั้ง" ล่าสุด) — ถ้าเดิมนับเป็นจำนวนครั้ง คนที่สแกนวันละ
                 # หลายรอบจะไล่ลบประวัติของวันก่อนๆ หมดภายในวันเดียว ทำให้ POC Trend ไม่มีทางข้ามวันได้เลย
@@ -6339,6 +6344,11 @@ def us_precision_scanner(request):
 
                     if bulk_candidates:
                         PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
+                        # เก็บ snapshot ไว้ตามผลย้อนหลัง (ScanOutcome) — ตัว candidate
+                        # ถูกลบทิ้งทุกรอบและตัดประวัติเหลือ 3 วัน จึงวัดผล 20 วันไม่ได้
+                        # ฟังก์ชันนี้กลืน error ในตัวเอง ผลสแกนจะไม่พังเพราะบรรทัดนี้
+                        from stocks.scan_outcomes import record_candidates
+                        record_candidates(user, 'US', scan_run_time, bulk_candidates)
 
                 # เก็บประวัติแค่ 3 "วัน" ล่าสุด (ไม่ใช่ 3 "ครั้ง" ล่าสุด) — ถ้าเดิมนับเป็นจำนวนครั้ง คนที่สแกนวันละ
                 # หลายรอบจะไล่ลบประวัติของวันก่อนๆ หมดภายในวันเดียว ทำให้ POC Trend ไม่มีทางข้ามวันได้เลย
