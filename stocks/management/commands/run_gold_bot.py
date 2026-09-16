@@ -2,7 +2,7 @@ import os
 import time
 import datetime
 import pandas as pd
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 import yfinance as yf
 from django.core.management.base import BaseCommand
 from django.utils import timezone

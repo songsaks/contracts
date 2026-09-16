@@ -9,7 +9,7 @@ django.setup()
 
 import pandas as pd
 import yfinance as yf
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 from django.utils import timezone
 from stocks.models import ScannableSymbol, PrecisionScanCandidate
 from stocks.utils import analyze_momentum_technical_v2

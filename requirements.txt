@@ -123,7 +123,15 @@ overrides==7.7.0
 packaging==26.0
 pandas==3.0.1
 pandas-stubs==3.0.0.260204
-pandas-ta==0.3.14b1
+# pandas-ta==0.3.14b1 ถูกถอดออกจาก PyPI แล้ว (เหลือแต่ 0.4.x ที่ต้องการ Python >= 3.12)
+# และตัวมันเองก็ import ไม่ผ่านกับ numpy 2.x ที่ pin ไว้ข้างบน (เรียก np.NaN ซึ่งถูกถอดไปแล้ว)
+# pandas-ta-classic คือ fork ที่แยกออกมาจาก 0.3.14b1 ตัวนั้นพอดี (รุ่นแรกของ fork ใช้เลข
+# version เดียวกัน) ตรวจแล้วว่า ema/sma/rsi/atr/adx/macd/bbands ให้ค่าเท่าเดิมทุกตัว
+# ต้อง >= 0.3.78 เพราะรุ่นก่อนหน้า ta.mfi() พังกับ pandas 3.x ที่ pin ไว้ข้างบน
+# (เทียบ 0.3.14b2 กับ 0.3.78 แล้ว: ค่าตรงกัน 16/16 ต่างแค่ mfi ที่รุ่นเก่าพัง)
+# อย่าย้ายไป pandas-ta 0.4.x: ค่า Bollinger Bands ต่างจากสาย 0.3.x และต้องการ Python >= 3.12
+# โค้ดเรียกผ่าน stocks/pandas_ta_compat.py ซึ่งรองรับทั้งสองชื่อแพ็กเกจ
+pandas-ta-classic==0.3.78
 parso==0.8.6
 pdfminer.six==20251230
 pdfplumber==0.11.9

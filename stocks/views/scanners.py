@@ -238,7 +238,7 @@ def mean_reversion_scanner(request):
                 from datetime import timedelta as _td
 
                 import pandas as pd
-                import pandas_ta as ta
+                from stocks.pandas_ta_compat import ta
                 import pytz
                 import yfinance as yf
                 
@@ -381,7 +381,7 @@ def mean_reversion_scanner(request):
                 from datetime import timedelta as _td
 
                 import pandas as pd
-                import pandas_ta as ta
+                from stocks.pandas_ta_compat import ta
                 import pytz
                 import yfinance as yf
                 from django.contrib.auth import get_user_model
@@ -737,7 +737,7 @@ def recommendations(request):
     from datetime import datetime
 
     import pandas as pd
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
     import yfinance as yf
 
     def process_single_stock(sym):
@@ -1000,7 +1000,7 @@ def us_recommendations(request):
     from datetime import datetime
 
     import pandas as pd
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
 
     cache_symbol = 'US_REC_ALL'
     cached_data = AnalysisCache.objects.filter(user=request.user, symbol=cache_symbol).first()
@@ -1196,7 +1196,7 @@ def us_recommendations(request):
 #   ใช้ร่วมกันทั้ง SET และ US momentum scanner เพื่อให้ผลตรงกัน
 # ============================================================
 def _momentum_extra_signals(df, current_price, idx_1m=0.0, idx_3m=0.0):
-    import pandas_ta as _ta
+    from stocks.pandas_ta_compat import ta as _ta
     out = {'stage2': False, 'bb_squeeze': False, 'macd_crossover': False,
            'rel_1m': 0.0, 'rel_3m': 0.0}
     # Stage 2 (Minervini): ราคา > SMA150 และ SMA150 กำลังชี้ขึ้น
@@ -1307,7 +1307,7 @@ def momentum_scanner(request):
                 try:
                     import numpy as _np
                     import pandas as _pd
-                    import pandas_ta as _ta
+                    from stocks.pandas_ta_compat import ta as _ta
                     import yfinance as _yf
                     from django.contrib.auth import get_user_model
                     from django.core.cache import cache as _c
@@ -2050,7 +2050,7 @@ def precision_momentum_scanner(request):
                 from datetime import time as _dtime
                 from datetime import timedelta as _td
 
-                import pandas_ta as ta
+                from stocks.pandas_ta_compat import ta
                 import pytz as _pytz
                 from django.contrib.auth import get_user_model
                 from django.core.cache import cache as _cache
@@ -3772,7 +3772,7 @@ def entry_finder(request, symbol):
 
         # คำนวณ EMA บน df เต็ม (600 วัน) ก่อน เพื่อให้ EMA200 warm-up ครบ
         # ถ้าคำนวณบน subset 120 วัน → EMA200 จะเป็น NaN ทั้งหมด
-        import pandas_ta as ta
+        from stocks.pandas_ta_compat import ta
         df['EMA10']  = ta.ema(df['Close'], length=10)
         df['EMA20']  = ta.ema(df['Close'], length=20)
         df['EMA50']  = ta.ema(df['Close'], length=50)
@@ -4075,7 +4075,7 @@ def multi_factor_scanner(request):
             django.setup()
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            import pandas_ta as ta
+            from stocks.pandas_ta_compat import ta
             from django.contrib.auth import get_user_model
             from django.core.cache import cache as _cache
 
@@ -4343,7 +4343,7 @@ def us_multi_factor_scanner(request):
             django.setup()
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            import pandas_ta as ta
+            from stocks.pandas_ta_compat import ta
             from django.contrib.auth import get_user_model
             from django.core.cache import cache as _cache
 
@@ -4629,7 +4629,7 @@ def us_momentum_scanner(request):
                     from datetime import timedelta as _td
 
                     import pandas as _pd
-                    import pandas_ta as _ta
+                    from stocks.pandas_ta_compat import ta as _ta
                     from django.contrib.auth import get_user_model
                     from django.core.cache import cache as _c
                     from django.utils import timezone as _tz
@@ -5407,7 +5407,7 @@ def us_precision_scanner(request):
                 from datetime import time as _dtime
                 from datetime import timedelta as _td
 
-                import pandas_ta as ta
+                from stocks.pandas_ta_compat import ta
                 import pytz as _pytz
                 from django.contrib.auth import get_user_model
                 from django.core.cache import cache as _cache
@@ -7161,7 +7161,7 @@ def _value_scanner_impl(request, market):
     from datetime import datetime as _dt
     from datetime import timezone as _tz
 
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
 
     run_scan = request.GET.get('scan') == 'true'
     current_sort = request.GET.get('sort', 'score')
@@ -7371,7 +7371,7 @@ def us_sepa_scanner(request):
                 from datetime import datetime as _dt
                 from datetime import timedelta as _td
 
-                import pandas_ta as ta
+                from stocks.pandas_ta_compat import ta
                 import pytz as _pytz
                 from django.contrib.auth import get_user_model
                 from django.core.cache import cache as _c
@@ -7881,7 +7881,7 @@ def cup_handle_scanner(request):
                     from datetime import timedelta as _td
 
                     import pandas as _pd
-                    import pandas_ta as _ta
+                    from stocks.pandas_ta_compat import ta as _ta
                     import pytz as _pytz
                     import yfinance as _yf
                     from django.contrib.auth import get_user_model
@@ -8179,7 +8179,7 @@ def us_cup_handle_scanner(request):
                     from datetime import timedelta as _td
 
                     import pandas as _pd
-                    import pandas_ta as _ta
+                    from stocks.pandas_ta_compat import ta as _ta
                     import pytz as _pytz
                     import yfinance as _yf
                     from django.contrib.auth import get_user_model
@@ -8786,7 +8786,7 @@ def debug_scan_symbol(request, symbol):
         return JsonResponse({'error': 'staff only'}, status=403)
 
     import pandas as pd
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
     import yfinance as yf
 
     from stocks.utils import (

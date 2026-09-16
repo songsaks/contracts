@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 import requests
 import yfinance as yf
 from django.conf import settings
@@ -2617,7 +2617,7 @@ def find_supply_demand_zones(df):
     # Step 4: คำนวณ Confidence Score (0–100) จากหลายปัจจัย
     score = 40  # คะแนนพื้นฐานสำหรับการพบ zone
 
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
     # คำนวณ EMA และ RSI ถ้ายังไม่มี
     if 'EMA200' not in df.columns:
         df['EMA200'] = ta.ema(df['Close'], length=200)
@@ -2684,7 +2684,7 @@ def analyze_momentum_technical(df):
     if df is None or len(df) < 50:
         return {'score': 0, 'rvol': 0, 'rsi': 0, 'ema200': 0, 'ema50': 0}
 
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
     df = df.copy()
 
     # คำนวณ Indicator ทั้งหมดที่ต้องใช้
@@ -2939,7 +2939,7 @@ def find_supply_demand_zones_v2(df):
     if df is None or len(df) < 50:
         return None
 
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
     df = df.copy()
 
     # คำนวณขนาด Body และค่าเฉลี่ย Body/Volume
@@ -3091,7 +3091,7 @@ def analyze_momentum_technical_v2(df):
                 'ema20_aligned': False}
 
     import pandas as pd
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
     df = df.copy()
 
     df['EMA200'] = ta.ema(df['Close'], length=200)
@@ -3473,7 +3473,7 @@ def _test_cup_from_pivot(df, pivot_high_abs, pivot_high_val, dates, n):
     ทดสอบ cup pattern จาก pivot ที่กำหนด
     Returns dict หรือ None
     """
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
 
     last_price = float(df['Close'].iloc[-1])
 

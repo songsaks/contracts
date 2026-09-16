@@ -2,7 +2,7 @@ import concurrent.futures
 import os
 
 import pandas as pd
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 import yfinance as yf
 from django.conf import settings
 from yahooquery import Ticker as YQTicker

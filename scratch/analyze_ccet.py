@@ -9,7 +9,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 import yfinance as yf
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 from stocks.utils import analyze_momentum_technical_v2
 
 def analyze_ccet():

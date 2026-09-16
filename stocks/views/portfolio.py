@@ -1221,7 +1221,7 @@ def portfolio_scan(request):
     if request.method == "POST" or request.GET.get('scan') == 'true':
         import datetime
 
-        import pandas_ta as ta
+        from stocks.pandas_ta_compat import ta
 
         for item in portfolio_items:
             symbol = item.symbol.upper().replace('.BK', '')
