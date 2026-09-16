@@ -402,8 +402,30 @@
                                         </span>
                                     </div>
                                     <div class="h4 fw-black text-danger mb-0">
-                                        {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
+                                        {# stop ที่ล็อกไว้กับไม้นี้ — ตัวเดียวกับที่ใช้ตัดสินใจและที่โชว์ในมุมมองตาราง #}
+                                        {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.effective_stop|default:item.trailing_stop_data.trailing_stop|floatformat:2 }}
                                     </div>
+                                    {% if item.stop_breach.over_limit %}
+                                    <div class="text-danger fw-bold" style="font-size:0.6rem;line-height:1.2;"
+                                         title="ขาดทุน {{ item.stop_breach.loss_pct }}% เกินเพดาน {{ item.stop_breach.max_loss_pct }}%">
+                                        เลยจุดตัดขาดทุนมา {{ item.stop_breach.excess_pct }}%
+                                    </div>
+                                    {% endif %}
+                                    {% if item.rr_now.status == 'unreliable' %}
+                                    <div class="text-warning fw-bold" style="font-size:0.62rem;line-height:1.2;"
+                                         title="{{ item.rr_now.detail }}">
+                                        ⚠️ R:R เชื่อไม่ได้ — SL ชิดแค่ {{ item.rr_now.risk_pct }}%
+                                    </div>
+                                    {% elif item.rr_now.rr %}
+                                    <div class="text-{{ item.rr_now.color }}" style="font-size:0.62rem;line-height:1.2;{% if item.rr_now.is_warning %}font-weight:700;{% endif %}"
+                                         title="{{ item.rr_now.detail }}">
+                                        {% if item.rr_now.is_warning %}⚠️ {% endif %}R:R จากราคานี้ 1:{{ item.rr_now.rr|floatformat:1 }}
+                                    </div>
+                                    {% elif item.rr_now.status == 'target_hit' %}
+                                    <div class="text-primary fw-bold" style="font-size:0.62rem;line-height:1.2;" title="{{ item.rr_now.detail }}">
+                                        🎯 ราคาเลยเป้าหมายแล้ว
+                                    </div>
+                                    {% endif %}
                                     <div class="small text-muted mt-1" style="font-size: 0.62rem; line-height: 1.2;">
                                         {% if item.trailing_stop_data.is_turtle %}
                                             {% if item.trailing_stop_data.trailing_stop == item.trailing_stop_data.initial_stop %}
@@ -845,6 +867,22 @@
                                 <span class="fw-bold text-primary">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2 }}</span>
                                 {% if item.trailing_stop_data.pyramid_units %}
                                 <div class="text-primary fw-bold" style="font-size:0.6rem;">{{ item.trailing_stop_data.pyramid_units|intcomma }} หุ้น</div>
+                                {% endif %}
+                                <!-- R:R จากราคาตรงนี้ ไม่ใช่ RR ของ setup ตอนสแกน -->
+                                {% if item.rr_now.status == 'unreliable' %}
+                                <div class="text-warning fw-bold" style="font-size:0.6rem;line-height:1.15;"
+                                     title="{{ item.rr_now.detail }}">
+                                    ⚠️ R:R เชื่อไม่ได้ (SL ชิด {{ item.rr_now.risk_pct }}%)
+                                </div>
+                                {% elif item.rr_now.rr %}
+                                <div class="text-{{ item.rr_now.color }}" style="font-size:0.6rem;line-height:1.15;{% if item.rr_now.is_warning %}font-weight:700;{% endif %}"
+                                     title="{{ item.rr_now.detail }}{% if item.rr_now.target_is_stale %} (เป้าหมายมาจากผลสแกนที่เก่าแล้ว){% endif %}">
+                                    {% if item.rr_now.is_warning %}⚠️ {% endif %}R:R 1:{{ item.rr_now.rr|floatformat:1 }}
+                                </div>
+                                {% elif item.rr_now.status == 'target_hit' %}
+                                <div class="text-primary fw-bold" style="font-size:0.6rem;line-height:1.15;" title="{{ item.rr_now.detail }}">
+                                    🎯 ถึงเป้าแล้ว
+                                </div>
                                 {% endif %}
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>

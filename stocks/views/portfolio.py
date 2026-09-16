@@ -391,6 +391,18 @@ def portfolio_list(request):
 
             _stop_breach = breach_report(item.entry_price, current_price, _eff_stop)
 
+            # ====== R:R จากราคาตรงนี้ ไม่ใช่จากขอบโซนตอนสแกน ======
+            # risk_reward_ratio ที่เก็บไว้คิดจากสมมติฐานว่าเข้าที่ขอบบนของ demand zone
+            # ซึ่งเป็น RR ของ setup พอถือแล้วราคาขยับ ไม่เคยมีใครคิดใหม่ว่า
+            # "จากตรงนี้ไปข้างหน้ายังคุ้มอยู่ไหม" — ใช้ stop ที่ล็อกไว้เป็นฐานความเสี่ยง
+            # เพราะนั่นคือจุดที่จะออกจริง ไม่ใช่ stop จากผลสแกนที่ไหลลงตามราคา
+            from stocks.risk_reward import assess as _assess_rr, badge_color as _rr_color
+            _rr_now = _assess_rr(current_price, _eff_stop,
+                                 getattr(mom_data, 'supply_zone_start', None))
+            _rr_now['color'] = _rr_color(_rr_now['status'])
+            # เป้าหมายมาจากผลสแกน ถ้าผลสแกนเก่า ตัวเลข RR ก็เชื่อได้น้อยลงตาม
+            _rr_now['target_is_stale'] = bool(getattr(mom_data, 'is_scan_stale', False))
+
             # ====== สถานะ "ควรขายเมื่อไหร่ / ขายเท่าไหร่" — ใช้ logic เดียวกับ alert_engine.py ======
             from stocks.alert_engine import _recommended_sell_qty, _tp_partial_sell_pct
             from stocks.utils import simple_trailing_stop
@@ -460,6 +472,8 @@ def portfolio_list(request):
                 # stop ที่ใช้ตัดสินใจจริง (ล็อกไว้กับไม้นี้ ขยับขึ้นทางเดียว)
                 'effective_stop': _eff_stop,
                 'stop_breach': _stop_breach,
+                # R:R จากราคาปัจจุบัน ไม่ใช่ RR ของ setup ตอนสแกน
+                'rr_now': _rr_now,
                 'mom_data': mom_data,
                 'sell_status': sell_status,
                 'buy_score':       signals['buy_score'],
