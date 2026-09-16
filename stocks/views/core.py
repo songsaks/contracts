@@ -15,7 +15,7 @@ def dashboard(request):
     """
     watchlist = Watchlist.objects.filter(user=request.user)
     items = []
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
 
     from stocks.utils import analyze_momentum_technical
 

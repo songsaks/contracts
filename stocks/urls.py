@@ -131,6 +131,9 @@ urlpatterns = [
     path('daily-reports/trigger/', views.trigger_daily_agent_report_ajax, name='trigger_daily_agent_report_ajax'),
     path('daily-reports/<int:pk>/delete/', views.delete_daily_agent_report, name='delete_daily_agent_report'),
     path('daily-reports/<int:pk>/read/', views.mark_daily_agent_report_read, name='mark_daily_agent_report_read'),
+
+    # คุณภาพตัวสแกน — ตามผลว่าคะแนน/ธง setup ทำนายอะไรได้จริงบ้าง
+    path('scan-quality/', views.scan_quality_report, name='scan_quality_report'),
 ]
 
 

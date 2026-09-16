@@ -24,6 +24,88 @@ class PrecisionScanRun(models.Model):
     class Meta:
         ordering = ['-started_at']
 
+
+class ScanOutcome(models.Model):
+    """
+    "หุ้นที่สแกนเจอวันนั้น สุดท้ายเป็นยังไง" — ตารางที่ทำให้วัดคุณภาพตัวสแกนได้
+
+    ทำไมต้อง copy ค่ามาเก็บซ้ำแทนที่จะ FK ไป PrecisionScanCandidate:
+    ตัว candidate ถูกลบทิ้งและสร้างใหม่ทุกรอบสแกน และยังถูกตัดประวัติเหลือแค่
+    3 วันล่าสุด ถ้าอ้างอิงด้วย FK ข้อมูลจะหายก่อนที่หน้าต่างวัดผล 20 วันจะจบเสมอ
+
+    หนึ่งแถว = "หุ้นตัวนี้ ของ user คนนี้ โผล่ในผลสแกนวันนี้" (วันละครั้ง)
+    สแกนซ้ำหลายรอบในวันเดียวกันจะอัปเดตแถวเดิม ไม่สร้างใหม่ เพราะสัญญาณของ
+    วันเดียวกันคือโอกาสเดียวกัน ถ้านับซ้ำ สถิติจะเอียงไปทางหุ้นที่บังเอิญถูกสแกนบ่อย
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    market = models.CharField(max_length=10, default='SET', db_index=True)
+    symbol = models.CharField(max_length=20, db_index=True)
+    scan_date = models.DateField(db_index=True)
+    scan_run = models.DateTimeField()
+
+    # ====== snapshot ณ วันที่สแกนเจอ ======
+    price_at_scan = models.FloatField()
+    stop_loss = models.FloatField(null=True, blank=True)
+    target_price = models.FloatField(null=True, blank=True)
+    risk_reward_ratio = models.FloatField(null=True, blank=True)
+    entry_strategy = models.CharField(max_length=100, blank=True, default='')
+    sector = models.CharField(max_length=100, blank=True, default='')
+
+    technical_score = models.IntegerField(default=0)
+    buy_score = models.IntegerField(default=0)
+    rs_rating = models.IntegerField(default=0)
+    score_bucket = models.CharField(max_length=10, blank=True, default='', db_index=True)
+
+    rsi = models.FloatField(default=0.0)
+    adx = models.FloatField(default=0.0)
+    rvol = models.FloatField(default=1.0)
+    cmf = models.FloatField(null=True, blank=True)
+    volume_surge = models.FloatField(default=1.0)
+
+    # ธง setup ที่อยากพิสูจน์ว่าอันไหนมี edge จริง (ดู scan_outcomes.SETUP_FLAGS)
+    vcp_setup = models.BooleanField(default=False)
+    htf_setup = models.BooleanField(default=False)
+    pocket_pivot = models.BooleanField(default=False)
+    pp_at_ma50 = models.BooleanField(default=False)
+    episodic_pivot = models.BooleanField(default=False)
+    stage2 = models.BooleanField(default=False)
+    is_explosive = models.BooleanField(default=False)
+    is_52w_breakout = models.BooleanField(default=False)
+    ema20_aligned = models.BooleanField(default=False)
+    wyckoff_spring = models.BooleanField(default=False)
+    vdu_near_zone = models.BooleanField(default=False)
+    macd_crossover = models.BooleanField(default=False)
+    bb_squeeze = models.BooleanField(default=False)
+    inside_bar = models.BooleanField(default=False)
+
+    # ====== ผลลัพธ์ที่เกิดขึ้นจริงหลังวันสแกน ======
+    price_d5 = models.FloatField(null=True, blank=True)
+    price_d10 = models.FloatField(null=True, blank=True)
+    price_d20 = models.FloatField(null=True, blank=True)
+    ret_d5 = models.FloatField(null=True, blank=True)
+    ret_d10 = models.FloatField(null=True, blank=True)
+    ret_d20 = models.FloatField(null=True, blank=True)
+    mfe_pct = models.FloatField(null=True, blank=True)   # กำไรสูงสุดที่เคยเห็นระหว่างทาง
+    mae_pct = models.FloatField(null=True, blank=True)   # ขาดทุนหนักสุดที่เคยเห็นระหว่างทาง
+    first_hit = models.CharField(max_length=4, blank=True, default='')  # 'TP' / 'SL' / ''
+    r_multiple = models.FloatField(null=True, blank=True)
+    bars_evaluated = models.IntegerField(default=0)
+    status = models.CharField(max_length=10, default='pending', db_index=True)
+    evaluated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-scan_date', 'symbol']
+        # กันนับซ้ำ: หุ้นตัวเดียวกัน ตลาดเดียวกัน วันเดียวกัน ของ user คนเดียวกัน = แถวเดียว
+        unique_together = [('user', 'market', 'symbol', 'scan_date')]
+        indexes = [
+            models.Index(fields=['user', 'market', 'status']),
+            models.Index(fields=['user', 'scan_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.symbol} @ {self.scan_date} ({self.status})"
+
+
 # ====== ประเภทสินทรัพย์ ======
 
 class AssetCategory(models.TextChoices):
@@ -162,6 +244,19 @@ class Portfolio(models.Model):
     tp1_hit = models.BooleanField(default=False, blank=True, verbose_name="ล็อกกำไรบางส่วนแล้ว (TP1)")
     # ราคา ณ ตอนแตะโซนขายทำกำไรครั้งแรก (สำหรับอ้างอิง/แสดงผล)
     tp1_price = models.FloatField(null=True, blank=True, verbose_name="ราคา ณ TP1")
+
+    # ====== Stop Loss ที่ยึดกับไม้นี้จริงๆ (ไม่ใช่ตัวเลขจากผลสแกนล่าสุด) ======
+    # เดิมตารางนี้ไม่มีฟิลด์ stop เลย ช่อง SL บนหน้าจอจึงดึงมาจากผลสแกน ซึ่งคำนวณ
+    # โซน demand ใหม่จากราคาปัจจุบันทุกครั้ง พอราคาลง stop ก็ไหลลงตาม
+    # กลายเป็นว่าไม่มีอะไรยึดจุดตัดขาดทุนไว้กับวันที่ซื้อเลย
+    initial_stop = models.FloatField(
+        null=True, blank=True, verbose_name="Stop ตอนเข้าซื้อ",
+        help_text="จุดตัดขาดทุนที่ตั้งไว้ตอนเปิดสถานะ ไม่เปลี่ยนตามราคาที่ไหลลง")
+    # stop ที่ใช้จริง — ขยับขึ้นได้อย่างเดียว (ดู stocks/stop_ratchet.py)
+    locked_stop = models.FloatField(
+        null=True, blank=True, verbose_name="Stop ที่ล็อกไว้",
+        help_text="ขยับขึ้นตามกำไรได้ แต่ไม่เคยเลื่อนลง")
+    stop_updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Portfolio"

@@ -168,6 +168,60 @@
     </div>
 
 
+    <!-- เพดานความเสี่ยงที่พอร์ตทะลุอยู่ — เพดานพวกนี้ระบบตั้งไว้เองใน position_sizing.py
+         แต่เดิมไม่มีอะไรบังคับตอนเพิ่มหุ้น จึงทะลุได้เงียบๆ -->
+    {% if concentration.has_breach or portfolio_heat.status == 'over' or portfolio_heat.status == 'unknown' or portfolio_heat.breached_count %}
+    <div class="col-lg-12">
+        <div class="p-3 rounded-3 mb-3" style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.35);">
+            <div class="fw-bold mb-2" style="font-size:0.88rem;color:{% if portfolio_heat.breached_count %}#b91c1c{% else %}#b45309{% endif %};">
+                {% if portfolio_heat.breached_count %}🩸 มีไม้หลุดจุดตัดขาดทุนแล้ว — จัดการก่อนเปิดไม้ใหม่
+                {% else %}⚖️ พอร์ตทะลุเพดานความเสี่ยงที่ตั้งไว้{% endif %}
+            </div>
+            <div class="d-flex flex-wrap gap-4" style="font-size:0.82rem;">
+                {# ราคาต่ำกว่า stop ที่ล็อกไว้ = ตามกติกาของพอร์ตเองควรออกไปแล้ว
+                   ไม่ถูกนับรวมใน heat เพราะไม่มีจุดตัดเหลือให้วัดว่าจะลงต่ออีกเท่าไหร่ #}
+                {% if portfolio_heat.breached_count %}
+                <div>
+                    <div class="text-muted" style="font-size:0.72rem;">หลุดจุดตัดขาดทุนแล้ว</div>
+                    <div><span class="text-danger fw-bold">{{ portfolio_heat.breached_count }} ตัว</span>
+                        <span class="text-muted">{{ portfolio_heat.breached|join:", " }}</span></div>
+                    {% if portfolio_heat.breached_loss %}
+                    <div class="text-muted" style="font-size:0.72rem;">
+                        ขาดทุนที่ยังไม่รับรู้รวม ฿{{ portfolio_heat.breached_loss|floatformat:0|intcomma }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if concentration.has_breach %}
+                <div>
+                    <div class="text-muted" style="font-size:0.72rem;">น้ำหนักต่อตัว (เพดาน {{ concentration.max_weight_pct|floatformat:0 }}%)</div>
+                    {% for b in concentration.breaches %}
+                    <div><span class="fw-bold">{{ b.symbol }}</span>
+                        <span class="text-danger fw-bold">{{ b.weight_pct }}%</span>
+                        <span class="text-muted">(เกิน {{ b.excess_pct }}%)</span></div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if portfolio_heat.status == 'over' or portfolio_heat.status == 'unknown' %}
+                <div>
+                    <div class="text-muted" style="font-size:0.72rem;">Portfolio Heat (เพดาน {{ portfolio_heat.max_heat_pct|floatformat:0 }}%)</div>
+                    <div><span class="fw-bold {% if portfolio_heat.status == 'over' %}text-danger{% endif %}">{{ portfolio_heat.heat_pct }}%</span>
+                        <span class="text-muted">{{ portfolio_heat.label }}</span></div>
+                    {% if portfolio_heat.unprotected_count %}
+                    <div class="text-muted" style="font-size:0.72rem;">
+                        ยังไม่มีจุดตัดขาดทุน {{ portfolio_heat.unprotected_count }} ตัว: {{ portfolio_heat.unprotected|join:", " }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="text-muted mt-2" style="font-size:0.72rem;">
+                ระบบไม่ได้ห้ามถือ แค่บอกให้รู้ — Heat คือถ้าทุกไม้หลุดจุดตัดขาดทุนพร้อมกันวันนี้ พอร์ตจะเสียกี่ %
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Portfolio Grid -->
     <div class="col-lg-12">
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
@@ -363,8 +417,30 @@
                                         </span>
                                     </div>
                                     <div class="h4 fw-black text-danger mb-0">
-                                        {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
+                                        {# stop ที่ล็อกไว้กับไม้นี้ — ตัวเดียวกับที่ใช้ตัดสินใจและที่โชว์ในมุมมองตาราง #}
+                                        {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.display_stop|floatformat:2 }}
                                     </div>
+                                    {% if item.stop_breach.over_limit %}
+                                    <div class="text-danger fw-bold" style="font-size:0.6rem;line-height:1.2;"
+                                         title="ขาดทุน {{ item.stop_breach.loss_pct }}% เกินเพดาน {{ item.stop_breach.max_loss_pct }}%">
+                                        เลยจุดตัดขาดทุนมา {{ item.stop_breach.excess_pct }}%
+                                    </div>
+                                    {% endif %}
+                                    {% if item.rr_now.status == 'unreliable' %}
+                                    <div class="text-warning fw-bold" style="font-size:0.62rem;line-height:1.2;"
+                                         title="{{ item.rr_now.detail }}">
+                                        ⚠️ R:R เชื่อไม่ได้ — SL ชิดแค่ {{ item.rr_now.risk_pct }}%
+                                    </div>
+                                    {% elif item.rr_now.rr %}
+                                    <div class="text-{{ item.rr_now.color }}" style="font-size:0.62rem;line-height:1.2;{% if item.rr_now.is_warning %}font-weight:700;{% endif %}"
+                                         title="{{ item.rr_now.detail }}">
+                                        {% if item.rr_now.is_warning %}⚠️ {% endif %}R:R จากราคานี้ 1:{{ item.rr_now.rr|floatformat:1 }}
+                                    </div>
+                                    {% elif item.rr_now.status == 'target_hit' %}
+                                    <div class="text-primary fw-bold" style="font-size:0.62rem;line-height:1.2;" title="{{ item.rr_now.detail }}">
+                                        🎯 ราคาเลยเป้าหมายแล้ว
+                                    </div>
+                                    {% endif %}
                                     <div class="small text-muted mt-1" style="font-size: 0.62rem; line-height: 1.2;">
                                         {% if item.trailing_stop_data.is_turtle %}
                                             {% if item.trailing_stop_data.trailing_stop == item.trailing_stop_data.initial_stop %}
@@ -782,10 +858,22 @@
                             </td>
                             <!-- SL -->
                             <td class="text-end col-hide-md" style="font-size:0.82rem;">
-                                {% if item.mom_data and item.mom_data.stop_loss %}
-                                <span title="{% if item.trailing_stop_data.color == 'danger' %}SELL NOW! (หลุดจุดคัท){% else %}{% if item.obj.strategy == 'Turtle S1' or item.obj.strategy == 'Turtle S2' %}RIDE TREND (รันเทรนด์){% else %}HOLDING (ถือครอง){% endif %}{% endif %}" class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
-                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.stop_loss|floatformat:2 }}
+                                {% if item.effective_stop %}
+                                <span title="จุดตัดขาดทุนที่ล็อกไว้กับไม้นี้ — ขยับขึ้นตามกำไรได้ แต่ไม่เลื่อนลงตามราคา{% if item.mom_data.stop_loss %} (ผลสแกนล่าสุดให้ไว้ที่ {{ item.mom_data.stop_loss|floatformat:2 }}){% endif %}" class="fw-bold {% if item.stop_breach.stop_hit or item.stop_breach.over_limit %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
+                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.effective_stop|floatformat:2 }}
                                 </span>
+                                {% if item.stop_breach.over_limit %}
+                                <div class="text-danger fw-bold" style="font-size:0.58rem;line-height:1.1;"
+                                     title="ขาดทุน {{ item.stop_breach.loss_pct }}% เกินเพดาน {{ item.stop_breach.max_loss_pct }}% ที่ระบบตั้งไว้">
+                                    เลยจุดตัด {{ item.stop_breach.excess_pct }}%
+                                </div>
+                                {% endif %}
+                                {% if item.mom_data.is_scan_stale %}
+                                <div class="text-secondary" style="font-size:0.58rem;line-height:1.1;"
+                                     title="ตัวเลขนี้เป็นของ{{ item.mom_data.scan_freshness_label }} ไม่ใช่ของวันนี้ — สแกนใหม่ก่อนใช้ตัดสินใจ">
+                                    🕓 {{ item.mom_data.scan_freshness_label }}
+                                </div>
+                                {% endif %}
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- TP -->
@@ -794,6 +882,22 @@
                                 <span class="fw-bold text-primary">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2 }}</span>
                                 {% if item.trailing_stop_data.pyramid_units %}
                                 <div class="text-primary fw-bold" style="font-size:0.6rem;">{{ item.trailing_stop_data.pyramid_units|intcomma }} หุ้น</div>
+                                {% endif %}
+                                <!-- R:R จากราคาตรงนี้ ไม่ใช่ RR ของ setup ตอนสแกน -->
+                                {% if item.rr_now.status == 'unreliable' %}
+                                <div class="text-warning fw-bold" style="font-size:0.6rem;line-height:1.15;"
+                                     title="{{ item.rr_now.detail }}">
+                                    ⚠️ R:R เชื่อไม่ได้ (SL ชิด {{ item.rr_now.risk_pct }}%)
+                                </div>
+                                {% elif item.rr_now.rr %}
+                                <div class="text-{{ item.rr_now.color }}" style="font-size:0.6rem;line-height:1.15;{% if item.rr_now.is_warning %}font-weight:700;{% endif %}"
+                                     title="{{ item.rr_now.detail }}{% if item.rr_now.target_is_stale %} (เป้าหมายมาจากผลสแกนที่เก่าแล้ว){% endif %}">
+                                    {% if item.rr_now.is_warning %}⚠️ {% endif %}R:R 1:{{ item.rr_now.rr|floatformat:1 }}
+                                </div>
+                                {% elif item.rr_now.status == 'target_hit' %}
+                                <div class="text-primary fw-bold" style="font-size:0.6rem;line-height:1.15;" title="{{ item.rr_now.detail }}">
+                                    🎯 ถึงเป้าแล้ว
+                                </div>
                                 {% endif %}
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
@@ -1300,6 +1404,10 @@
                         <div class="fw-bold text-danger mb-1" style="font-size:0.82rem;">❌ ไม่สามารถบันทึกได้ — กรุณาตรวจสอบข้อมูล</div>
                         <ul id="port-error-list" class="mb-0 ps-3" style="font-size:0.82rem;color:#ef4444;"></ul>
                     </div>
+                    <!-- คำเตือนเรื่องน้ำหนักไม้ — บันทึกสำเร็จแล้ว แต่ต้องให้ผู้ใช้เห็นก่อน reload -->
+                    <div id="port-warn-box" class="d-none mb-3 p-3 rounded-3" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.4);">
+                        <div id="port-warn-text" class="fw-semibold" style="font-size:0.82rem;color:#b45309;"></div>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Symbol (e.g. PTT.BK)</label>
@@ -1585,6 +1693,15 @@
         .then(r => r.json().then(json => ({ ok: r.ok, json })))
         .then(({ ok, json }) => {
             if (ok && json.success) {
+                if (json.warning) {
+                    // บันทึกไปแล้ว แต่ทะลุเพดานน้ำหนัก — ต้องให้เห็นก่อน ไม่งั้น reload กลืนไปเลย
+                    document.getElementById('port-warn-text').textContent = json.warning;
+                    document.getElementById('port-warn-box').classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.textContent = 'รับทราบ';
+                    btn.onclick = function () { location.reload(); };
+                    return;
+                }
                 bootstrap.Modal.getInstance(document.getElementById('addPortfolioModal')).hide();
                 resetPortfolioModal();
                 location.reload();
@@ -1620,6 +1737,11 @@
         document.getElementById('port-modal-title').innerText = 'Add Position to Portfolio';
         const eb = document.getElementById('port-error-box');
         if (eb) { eb.classList.add('d-none'); document.getElementById('port-error-list').innerHTML = ''; }
+        // ล้างคำเตือนรอบก่อน ไม่งั้นเปิดโมดัลใหม่จะเห็นคำเตือนของหุ้นตัวเดิมค้างอยู่
+        const wb = document.getElementById('port-warn-box');
+        if (wb) { wb.classList.add('d-none'); document.getElementById('port-warn-text').textContent = ''; }
+        const sb = document.getElementById('port-save-btn');
+        if (sb) { sb.disabled = false; sb.textContent = 'Save'; sb.onclick = submitPortfolioForm; }
     }
 
     // ── Cash Flow Month Filter ──────────────────────────────────────

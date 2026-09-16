@@ -627,7 +627,7 @@
 
                     <!-- Momentum Dropdown -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'momentum_scanner,us_momentum_scanner,sector_rotation_dashboard,minervini_sepa_scanner,us_sepa_scanner,cup_handle_scanner,us_cup_handle_scanner,turtle_scanner,mean_reversion_scanner,sepa_manual,scanner_guide,ai_manual_scanner' %}active{% endif %}"
+                        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'momentum_scanner,us_momentum_scanner,sector_rotation_dashboard,minervini_sepa_scanner,us_sepa_scanner,cup_handle_scanner,us_cup_handle_scanner,turtle_scanner,mean_reversion_scanner,sepa_manual,scanner_guide,ai_manual_scanner,scan_quality_report' %}active{% endif %}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-rocket"></i> Momentum
                         </a>
@@ -733,6 +733,12 @@
                                 <a class="dropdown-item {% if request.resolver_match.url_name == 'ai_manual_scanner' %}active{% endif %}"
                                    href="{% url 'stocks:ai_manual_scanner' %}">
                                     <i class="fas fa-robot me-1 text-danger"></i> AI Precision Portfolio Scanner
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.resolver_match.url_name == 'scan_quality_report' %}active{% endif %}"
+                                   href="{% url 'stocks:scan_quality_report' %}">
+                                    <i class="fas fa-chart-line me-1 text-success"></i> Scan Quality &amp; Edge (ผลจริงหลังสแกน)
                                 </a>
                             </li>
                         </ul>

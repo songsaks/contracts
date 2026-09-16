@@ -12,6 +12,7 @@ from django.core.cache import cache
 from django.utils import timezone as dj_timezone
 
 from .models import AssetCategory, MarketType, Portfolio, Watchlist, PrecisionScanCandidate, StockAlertEvent
+from .scan_freshness import fresh_only, is_stale
 from .utils import simple_trailing_stop
 
 # ตลาดที่ไม่ควรเติม .BK (หุ้น US, Crypto, Forex ฯลฯ ใช้ symbol ตามที่กรอกตรงๆ)
@@ -171,13 +172,21 @@ def _breakout_cache_key(user_id, symbol, market):
 
 
 def _latest_scan(symbol, market=None, user=None):
+    """
+    ผลสแกนล่าสุดของหุ้นตัวนี้ — เฉพาะที่ยัง "สด" เท่านั้น
+
+    ผลสแกนเก่าคือโซน demand/supply และ stop loss ของสภาพตลาดเมื่อหลายสัปดาห์ก่อน
+    ถ้าเอามาขับ alert ระบบจะบอกให้ซื้อที่โซนที่ไม่มีอยู่จริงแล้ว
+    คืน None เมื่อเก่าเกินกำหนด ซึ่งผู้เรียกจะตกไปใช้ _cached_fallback_signals
+    ที่คำนวณสดจากราคาแทน (ดีกว่าทั้งการใช้ของเก่าและการเงียบไปเฉยๆ)
+    """
     clean_symbol = symbol.replace('.BK', '')
     qs = PrecisionScanCandidate.objects.filter(symbol=clean_symbol)
     if market:
         qs = qs.filter(market=market)
     if user is not None:
         qs = qs.filter(user=user)
-    return qs.order_by('-scan_run').first()
+    return fresh_only(qs.order_by('-scan_run').first())
 
 
 def _watchlist_scan(symbol, user):
@@ -330,10 +339,8 @@ def _get_sepa_context(symbol, user, market=None):
         ).order_by('-scan_run').first()
         if not latest_sepa:
             return ""
-        # เช็คว่า scan run นี้ยังสด (ไม่เกิน 7 วัน)
-        from django.utils import timezone as tz
-        age = tz.now() - latest_sepa.scan_run
-        if age.days > 7:
+        # เช็คว่า scan run นี้ยังสด — ใช้เกณฑ์เดียวกับที่อื่นทั้งระบบ
+        if is_stale(latest_sepa.scan_run):
             return ""
         # สร้างข้อความ
         sig_parts = []
@@ -361,10 +368,8 @@ def _get_cup_handle_context(symbol, user):
         ).order_by('-scan_run').first()
         if not latest_ch:
             return ""
-        # เช็คว่า scan run นี้ยังสด (ไม่เกิน 7 วัน)
-        from django.utils import timezone as tz
-        age = tz.now() - latest_ch.scan_run
-        if age.days > 7:
+        # เช็คว่า scan run นี้ยังสด — ใช้เกณฑ์เดียวกับที่อื่นทั้งระบบ
+        if is_stale(latest_ch.scan_run):
             return ""
         # สร้างข้อความ
         stage_label = getattr(latest_ch, 'stage', 'forming') or 'forming'

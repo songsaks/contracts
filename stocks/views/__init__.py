@@ -8,3 +8,4 @@ from .charts import *
 from .trading_bots import *
 from .alerts import *
 from .sectors import *
+from .scan_quality import *

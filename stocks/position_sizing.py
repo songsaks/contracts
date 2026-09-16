@@ -148,27 +148,64 @@ def calculate_portfolio_heat(positions, equity, max_heat_pct=DEFAULT_MAX_HEAT_PC
     Portfolio Heat = ถ้าทุกไม้ที่เปิดอยู่หลุด stop พร้อมกันวันนี้ พอร์ตเสียกี่ %
 
     positions: iterable ของ dict — ต้องมี symbol, quantity, current_price, stop_price
+               และควรมี entry_price ด้วย (ดูเรื่อง stop เหนือราคาข้างล่าง)
                ไม้ที่ไม่มี stop จะถูกนับแยกไว้ เพราะความเสี่ยงของมันคือ "ไม่จำกัด"
                ซึ่งอันตรายกว่าไม้ที่มี stop กว้าง ไม่ใช่ปลอดภัยกว่า
 
     หมายเหตุ: คิดจาก current_price ไม่ใช่ entry_price — ความเสี่ยงที่แท้จริงคือ
-    เงินที่จะเสียนับจาก "ตอนนี้" ไม่ใช่ตอนซื้อ ไม้ที่กำไรจน stop สูงกว่าราคาปัจจุบัน
-    ถือว่าความเสี่ยงเป็น 0 (ล็อกกำไรแล้ว)
+    เงินที่จะเสียนับจาก "ตอนนี้" ไม่ใช่ตอนซื้อ
+
+    stop สูงกว่าราคาปัจจุบัน เกิดได้สองแบบที่ความหมายตรงข้ามกันสิ้นเชิง:
+
+      ราคาวิ่งขึ้นจน stop ไล่ตามขึ้นไป → ล็อกกำไรแล้ว ความเสี่ยงข้างหน้าเป็น 0 จริง
+      ราคาร่วงลงมาต่ำกว่า stop        → หลุด stop แล้ว ควรออกไปตั้งแต่เมื่อไหร่ก็ไม่รู้
+
+    เดิมโค้ดนี้เห็นสองกรณีเป็นอย่างเดียวกันแล้วให้ risk = 0 ทั้งคู่ ผลคือพอร์ตที่
+    มีไม้หลุด stop ค้างอยู่หลายตัวจะขึ้นว่า "อยู่ในเกณฑ์" ซึ่งเป็นไฟเขียวให้เปิด
+    ไม้ใหม่ทั้งที่ควรไปจัดการของเก่าก่อน — อันตรายกว่าตัวเลขคลาดเคลื่อนเฉยๆ
+
+    ไม้ที่หลุด stop จะไม่ถูกยัดตัวเลขสมมติเข้าไปใน heat_pct เพราะมันไม่มีจุดตัด
+    เหลืออยู่แล้ว จะลงต่ออีกเท่าไหร่ไม่มีใครรู้ — ใช้วิธีเดียวกับไม้ที่ไม่มี stop
+    คือนับแยกไว้แล้วบังคับ status ไม่ให้ขึ้นเขียว ดีกว่าแต่งความแม่นยำปลอมๆ
+
+    ถ้าไม่ส่ง entry_price มา จะถือว่า "หลุด stop" ไว้ก่อน ไม่ใช่ล็อกกำไร เพราะ
+    การเดาเข้าข้างตัวเองในเรื่องความเสี่ยงอันตรายกว่าการประเมินตัวเองต่ำไป
     """
     equity = float(equity or 0)
-    rows, total_risk, unprotected = [], 0.0, []
+    rows, total_risk, unprotected, breached = [], 0.0, [], []
+    breached_loss = 0.0
 
     for p in positions or []:
         qty = float(p.get('quantity') or 0)
         cur = float(p.get('current_price') or 0)
         stop = float(p.get('stop_price') or 0)
+        entry = float(p.get('entry_price') or 0)
         sym = p.get('symbol', '?')
         if qty <= 0 or cur <= 0:
             continue
         if stop <= 0:
             unprotected.append(sym)
             continue
-        # stop สูงกว่าราคาปัจจุบัน = ล็อกกำไรไว้แล้ว ไม่นับเป็นความเสี่ยง
+
+        # ล็อกกำไรได้จริงก็ต่อเมื่อราคายังอยู่เหนือทุน ไม่ใช่แค่ stop อยู่เหนือราคา
+        locked_profit = stop >= cur and entry > 0 and cur > entry
+        is_breached = stop >= cur and not locked_profit
+
+        if is_breached:
+            breached.append(sym)
+            loss = (entry - cur) * qty if entry > 0 else 0.0
+            breached_loss += max(0.0, loss)
+            rows.append({
+                'symbol': sym,
+                'risk_amount': 0.0,
+                'risk_pct': 0.0,
+                'stop_price': round(stop, 2),
+                'locked_profit': False,
+                'breached': True,
+                'unrealized_loss': round(max(0.0, loss), 2),
+            })
+            continue
+
         risk = max(0.0, (cur - stop) * qty)
         total_risk += risk
         rows.append({
@@ -176,13 +213,21 @@ def calculate_portfolio_heat(positions, equity, max_heat_pct=DEFAULT_MAX_HEAT_PC
             'risk_amount': round(risk, 2),
             'risk_pct': round(risk / equity * 100, 2) if equity > 0 else 0.0,
             'stop_price': round(stop, 2),
-            'locked_profit': stop >= cur,
+            'locked_profit': locked_profit,
+            'breached': False,
+            'unrealized_loss': 0.0,
         })
 
-    rows.sort(key=lambda r: r['risk_amount'], reverse=True)
+    # ไม้ที่หลุด stop ขึ้นก่อน เพราะเป็นของที่ต้องลงมือทำ ไม่ใช่แค่ตัวเลขให้ดู
+    rows.sort(key=lambda r: (not r['breached'], -r['risk_amount']))
     heat_pct = round(total_risk / equity * 100, 2) if equity > 0 else 0.0
 
-    if unprotected:
+    if breached:
+        status = 'breached'
+        label = f'มีไม้หลุด stop {len(breached)} ตัว — จัดการก่อนเปิดไม้ใหม่'
+        if unprotected:
+            label += f' (และยังไม่ตั้ง stop อีก {len(unprotected)} ตัว)'
+    elif unprotected:
         status, label = 'unknown', 'ประเมินไม่ได้ — มีไม้ที่ยังไม่ตั้ง stop'
     elif heat_pct > max_heat_pct:
         status, label = 'over', 'เกินเพดาน — ไม่ควรเปิดไม้ใหม่'
@@ -195,10 +240,14 @@ def calculate_portfolio_heat(positions, equity, max_heat_pct=DEFAULT_MAX_HEAT_PC
         'heat_pct': heat_pct,
         'total_risk': round(total_risk, 2),
         'max_heat_pct': float(max_heat_pct),
-        'room_pct': round(max(0.0, max_heat_pct - heat_pct), 2),
+        # มีไม้หลุด stop ค้างอยู่ = ไม่เหลือที่ให้เปิดไม้ใหม่ ไม่ว่าตัวเลข heat จะต่ำแค่ไหน
+        'room_pct': 0.0 if breached else round(max(0.0, max_heat_pct - heat_pct), 2),
         'status': status,
         'label': label,
         'positions': rows,
         'unprotected': unprotected,
         'unprotected_count': len(unprotected),
+        'breached': breached,
+        'breached_count': len(breached),
+        'breached_loss': round(breached_loss, 2),
     }

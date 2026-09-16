@@ -35,7 +35,7 @@ if len(sys.argv) > 1:
 
 import numpy as np
 import pandas as pd
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 
 # pandas_ta ที่ใช้ต้องคำนวณได้จริง — stub ที่คืน None เงียบๆ เคยทำให้เทสต์พัง
 # กลางทางแล้วดูเหมือนโค้ดจริงมีบั๊ก

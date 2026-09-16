@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.core.cache import cache
 from stocks.models import Watchlist, Portfolio, UserTelegramProfile, PrecisionScanCandidate
+from stocks.scan_freshness import fresh_only
 from stocks.telegram_utils import send_telegram_message
 from stocks.utils import simple_trailing_stop
 import yfinance as yf
@@ -72,7 +73,9 @@ class Command(BaseCommand):
                     
                 # ไปดึง Scanner Data ล่าสุดของหุ้นตัวนี้ (Clean v7 Scanner)
                 clean_symbol = w.symbol.replace('.BK', '')
-                latest_scan = PrecisionScanCandidate.objects.filter(symbol=clean_symbol).order_by('-scan_run').first()
+                latest_scan = fresh_only(
+                    PrecisionScanCandidate.objects.filter(symbol=clean_symbol)
+                    .order_by('-scan_run').first())
                 if latest_scan and latest_scan.demand_zone_start:
                     # ถ้าราคาไหลลงมาตกมาที่โซนเข้าซื้อ หรือย่อแตะ EMA20 (demand_zone_start ของ v7 มักคือ EMA20/Buy zone)
                     if price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end:
@@ -99,7 +102,9 @@ class Command(BaseCommand):
                     continue
                     
                 clean_symbol = p.symbol.replace('.BK', '')
-                latest_scan = PrecisionScanCandidate.objects.filter(symbol=clean_symbol).order_by('-scan_run').first()
+                latest_scan = fresh_only(
+                    PrecisionScanCandidate.objects.filter(symbol=clean_symbol)
+                    .order_by('-scan_run').first())
                 if latest_scan:
                     alert_msg = ""
                     cache_key = ""

@@ -2,6 +2,11 @@ from .base import *
 from stocks.utils import MINERVINI_NEAR_HIGH_RATIO   # เกณฑ์ใกล้ High 52 สัปดาห์ — นิยามเดียวของทั้งระบบ
 import logging
 from django.db import transaction
+# ระดับโมดูล ไม่ใช่ในฟังก์ชัน — portfolio_list ยาวเกือบพันบรรทัดและเคยมี
+# `from django.utils import timezone` ซ่อนอยู่กลางฟังก์ชัน ซึ่งทำให้ชื่อนี้กลาย
+# เป็นตัวแปรโลคอลของทั้งฟังก์ชัน โค้ดที่ใช้ timezone ก่อนถึงบรรทัดนั้นจึงเจอ
+# UnboundLocalError ทุกครั้ง
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +170,7 @@ def portfolio_list(request):
             is_us = item.market == MarketType.US
 
             # ====== คำนวณ ATR Trailing Stop ======
+            from stocks.stop_ratchet import hard_floor as _hard_floor
             from stocks.utils import calculate_atr_trailing_stop
             atr_ts = calculate_atr_trailing_stop(
                 df=hist if not hist.empty else None,
@@ -222,7 +228,10 @@ def portfolio_list(request):
                     'pyramid_status': 'PYRAMID NOW! 🚀' if current_price >= pyramid_price else 'WAITING ⏳'
                 })
             elif is_pms and atr_ts:
-                pms_stop = float(atr_ts['highest']) - (2.0 * float(item.atr or 0))
+                # เพดานขาดทุนเดียวกับที่ calculate_atr_trailing_stop ใส่ไว้ —
+                # สาขานี้เขียนทับ trailing_stop เอง จึงต้องใส่เพดานกลับเข้ามาด้วย
+                pms_stop = max(float(atr_ts['highest']) - (2.0 * float(item.atr or 0)),
+                               _hard_floor(item.entry_price))
                 atr_ts.update({
                     'trailing_stop': pms_stop,
                     'is_pms': True,
@@ -232,7 +241,8 @@ def portfolio_list(request):
             elif is_dividend and atr_ts:
                 # Dividend: Safety first, 15% Max drawdown from cost or custom multiplier
                 multiplier = float(item.trail_multiplier or 2.5)
-                div_stop = float(item.entry_price or 0) - (multiplier * float(item.atr or 0))
+                div_stop = max(float(item.entry_price or 0) - (multiplier * float(item.atr or 0)),
+                               _hard_floor(item.entry_price))
                 atr_ts.update({
                     'trailing_stop': div_stop,
                     'is_dividend': True,
@@ -242,7 +252,8 @@ def portfolio_list(request):
             elif is_value and atr_ts:
                 # Value: Deep value holding
                 multiplier = float(item.trail_multiplier or 3.0)
-                val_stop = float(atr_ts['highest']) - (multiplier * float(item.atr or 0))
+                val_stop = max(float(atr_ts['highest']) - (multiplier * float(item.atr or 0)),
+                               _hard_floor(item.entry_price))
                 atr_ts.update({
                     'trailing_stop': val_stop,
                     'is_value': True,
@@ -274,12 +285,23 @@ def portfolio_list(request):
             from stocks.utils import analyze_momentum_technical_v2
 
             # 1. ลองหาผล Precision Scan ล่าสุดก่อน (ตรงกับ Precision Scanner ทุกค่า)
-            prec_data = _prec_map.get(clean_symbol)
+            # ติดอายุกำกับไว้ด้วย — ผลสแกนไม่มีวันหมดอายุในตัวเอง ถ้าไม่บอกอายุ
+            # หน้าจอจะโชว์ SL/TP/คะแนนของเมื่อ 3 สัปดาห์ก่อนเหมือนเป็นข้อมูลสดๆ
+            from stocks.scan_freshness import annotate as _annotate_freshness
+            prec_data = _annotate_freshness(
+                PrecisionScanCandidate.objects
+                .filter(user=request.user, symbol=clean_symbol)
+                .order_by('-scan_run').first()
+            )
 
             if prec_data and not request.GET.get('refresh') == 'true':
                 # ใช้ข้อมูลจาก Precision Scanner โดยตรง
                 class QuickMom: pass
                 mom_data = QuickMom()
+                # ค่าชุดนี้เป็นของ "วันที่สแกน" ไม่ใช่ของวันนี้ — พกอายุติดไปด้วยเสมอ
+                mom_data.is_scan_stale        = prec_data.is_scan_stale
+                mom_data.scan_age_days        = prec_data.scan_age_days
+                mom_data.scan_freshness_label = prec_data.scan_freshness_label
                 mom_data.technical_score   = prec_data.technical_score
                 mom_data.rvol              = prec_data.rvol
                 mom_data.rvol_bullish      = prec_data.rvol_bullish
@@ -394,10 +416,60 @@ def portfolio_list(request):
                 'reversal_reasons': [], 'stage_label': '—', 'stage_color': 'secondary',
             }
 
+            # สาขาอื่นที่ไม่ได้มาจากผลสแกน คำนวณสดจากราคาอยู่แล้ว จึงถือว่าไม่เก่า
+            if mom_data is not None and not hasattr(mom_data, 'is_scan_stale'):
+                mom_data.is_scan_stale = False
+                mom_data.scan_age_days = 0
+                mom_data.scan_freshness_label = 'คำนวณสดจากราคา'
+
+            # ====== Stop ที่ไม่เคยเลื่อนลง ======
+            # ยึด stop ไว้กับไม้นี้จริงๆ แทนที่จะเชื่อตัวเลขจากผลสแกนล่าสุด
+            # (ผลสแกนคำนวณโซนใหม่จากราคาปัจจุบัน พอราคาลง stop ก็ไหลลงตาม)
+            from stocks.stop_ratchet import breach_report, effective_stop
+            _trail_candidate = (atr_ts or {}).get('trailing_stop')
+            # stop จากผลสแกนใช้เป็นตัวเสนอได้ "เฉพาะตอนยังไม่เคยล็อกอะไรไว้"
+            # คือตอนเพิ่งซื้อ ถ้าล็อกไปแล้วมันขึ้นได้แต่ห้ามดึงลง ซึ่ง ratchet จัดการให้
+            if item.initial_stop is None and not getattr(mom_data, 'is_scan_stale', True):
+                # จับเฉพาะจากผลสแกนที่ยังสด — ยึด stop ไว้กับตัวเลขที่หมดอายุแล้ว
+                # ก็ไม่ต่างจากไม่ยึดอะไรเลย
+                _scan_stop = getattr(mom_data, 'stop_loss', None)
+                if _scan_stop and float(_scan_stop) > 0:
+                    item.initial_stop = float(_scan_stop)
+                    item.save(update_fields=['initial_stop'])
+
+            _eff_stop = effective_stop(
+                item.entry_price,
+                initial_stop=item.initial_stop,
+                locked_stop=item.locked_stop,
+                trailing_stop=_trail_candidate,
+            )
+            # ขยับขึ้นเมื่อไหร่ก็บันทึกไว้ เพื่อให้รอบหน้าถอยกลับไม่ได้
+            if _eff_stop and float(item.locked_stop or 0) < _eff_stop - 1e-9:
+                item.locked_stop = _eff_stop
+                item.stop_updated_at = timezone.now()
+                item.save(update_fields=['locked_stop', 'stop_updated_at'])
+
+            _stop_breach = breach_report(item.entry_price, current_price, _eff_stop)
+
+            # ====== R:R จากราคาตรงนี้ ไม่ใช่จากขอบโซนตอนสแกน ======
+            # risk_reward_ratio ที่เก็บไว้คิดจากสมมติฐานว่าเข้าที่ขอบบนของ demand zone
+            # ซึ่งเป็น RR ของ setup พอถือแล้วราคาขยับ ไม่เคยมีใครคิดใหม่ว่า
+            # "จากตรงนี้ไปข้างหน้ายังคุ้มอยู่ไหม" — ใช้ stop ที่ล็อกไว้เป็นฐานความเสี่ยง
+            # เพราะนั่นคือจุดที่จะออกจริง ไม่ใช่ stop จากผลสแกนที่ไหลลงตามราคา
+            from stocks.risk_reward import assess as _assess_rr, badge_color as _rr_color
+            _rr_now = _assess_rr(current_price, _eff_stop,
+                                 getattr(mom_data, 'supply_zone_start', None))
+            _rr_now['color'] = _rr_color(_rr_now['status'])
+            # เป้าหมายมาจากผลสแกน ถ้าผลสแกนเก่า ตัวเลข RR ก็เชื่อได้น้อยลงตาม
+            _rr_now['target_is_stale'] = bool(getattr(mom_data, 'is_scan_stale', False))
+
             # ====== สถานะ "ควรขายเมื่อไหร่ / ขายเท่าไหร่" — ใช้ logic เดียวกับ alert_engine.py ======
             from stocks.alert_engine import _recommended_sell_qty, _tp_partial_sell_pct
             from stocks.utils import simple_trailing_stop
             sell_status = None
+            # stop จากผลสแกนเก่า = โซนของสภาพตลาดเมื่อหลายสัปดาห์ก่อน ห้ามเอามาสั่ง
+            # "ตัดขาดทุนทั้งหมด" — ตกไปใช้ ATR trailing stop ที่คำนวณจากราคาล่าสุดแทน
+            _scan_stale = bool(getattr(mom_data, 'is_scan_stale', False))
             _is_turtle_pos = bool(item.strategy) and 'turtle' in item.strategy.lower()
             if mom_data and current_price > 0:
                 entry_p = float(item.entry_price or 0)
@@ -410,12 +482,34 @@ def portfolio_list(request):
                             'label': '🔒 ล็อกกำไรแล้ว — กำลังเทรล',
                             'detail': f"หลุด ฿{trail_stop:.2f} เมื่อไหร่ ขายที่เหลือทั้งหมด {_recommended_sell_qty(item.quantity, item.market, 1.0):,} หุ้น",
                         }
-                elif getattr(mom_data, 'stop_loss', None) and current_price <= mom_data.stop_loss:
+                elif _stop_breach['over_limit']:
+                    # ขาดทุนเกินเพดานที่ระบบตั้งไว้เอง — ควรออกไปตั้งแต่ก่อนหน้านี้แล้ว
+                    # เดิมไม่มีอะไรจับเคสนี้เลยเพราะ stop ไหลลงตามราคาไปเรื่อยๆ
+                    qty = _recommended_sell_qty(item.quantity, item.market, 1.0)
+                    sell_status = {
+                        'level': 'sl', 'color': 'danger',
+                        'label': f"🩸 ขาดทุนเกินเพดาน {_stop_breach['max_loss_pct']:.0f}%",
+                        'detail': (f"ตอนนี้ขาดทุน {_stop_breach['loss_pct']:.1f}% "
+                                   f"(เลยจุดตัดขาดทุนมา {_stop_breach['excess_pct']:.1f}%) — "
+                                   f"จุดที่ควรออกคือ ฿{_eff_stop:.2f} · ถือครบ {qty:,} หุ้น"),
+                    }
+                elif _stop_breach['stop_hit']:
                     qty = _recommended_sell_qty(item.quantity, item.market, 1.0)
                     sell_status = {
                         'level': 'sl', 'color': 'danger',
                         'label': '🩸 หลุด Stop Loss',
-                        'detail': f"ควรตัดขาดทุนทั้งหมด {qty:,} หุ้น ที่ ฿{mom_data.stop_loss:.2f}",
+                        'detail': f"ควรตัดขาดทุนทั้งหมด {qty:,} หุ้น ที่ ฿{_eff_stop:.2f}",
+                    }
+                elif _scan_stale and getattr(mom_data, 'stop_loss', None):
+                    # ผลสแกนเก่าเกินไป — ตัวเลขโซน/คะแนนที่เห็นไม่ใช่ของวันนี้
+                    # (จุดตัดขาดทุนไม่กระทบ เพราะยึดกับ locked_stop ไม่ใช่ผลสแกน)
+                    _detail = f"ตัวเลขโซน/คะแนนที่เห็นเป็นของ{mom_data.scan_freshness_label}"
+                    if _eff_stop:
+                        _detail += f" · จุดตัดขาดทุนที่ล็อกไว้ยังใช้ได้ที่ ฿{_eff_stop:.2f}"
+                    sell_status = {
+                        'level': 'stale', 'color': 'secondary',
+                        'label': '🕓 ผลสแกนเก่าแล้ว — สแกนใหม่ก่อนตัดสินใจ',
+                        'detail': _detail,
                     }
                 elif not _is_turtle_pos and getattr(mom_data, 'supply_zone_start', None) and current_price >= mom_data.supply_zone_start and is_in_profit:
                     tp_pct = _tp_partial_sell_pct(item.strategy or '')
@@ -435,6 +529,14 @@ def portfolio_list(request):
                 'gain_loss_pct': gain_loss_pct,
                 'rsi': rsi_val,
                 'trailing_stop_data': ts_data,
+                # stop ที่ใช้ตัดสินใจจริง (ล็อกไว้กับไม้นี้ ขยับขึ้นทางเดียว)
+                'effective_stop': _eff_stop,
+                # ตัวเลขที่เอาไปโชว์ — คิดตรงนี้ให้จบ ไม่ปล่อยให้เทมเพลตไปหยิบ
+                # ค่าซ้อนชั้นจาก trailing_stop_data ซึ่งเป็น None ได้
+                'display_stop': _eff_stop or _trail_candidate,
+                'stop_breach': _stop_breach,
+                # R:R จากราคาปัจจุบัน ไม่ใช่ RR ของ setup ตอนสแกน
+                'rr_now': _rr_now,
                 'mom_data': mom_data,
                 'sell_status': sell_status,
                 'buy_score':       signals['buy_score'],
@@ -460,6 +562,10 @@ def portfolio_list(request):
                 'obj': item, 'current_price': 0, 'day_change': 0, 'market_value': 0,
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
                 'trailing_stop_data': None, 'mom_data': None,
+                # แถวสถานะ error ต้องมีคีย์ครบเท่าแถวปกติ ไม่งั้นเทมเพลตที่อ้าง
+                # ค่าพวกนี้จะพาทั้งหน้าล้มไปด้วย แทนที่จะเสียแค่แถวเดียว
+                'effective_stop': None, 'display_stop': None,
+                'stop_breach': None, 'rr_now': None,
                 'is_us': item.market == MarketType.US,
                 'symbol_base': item.symbol.split('.')[0],
                 'market': item.market,
@@ -692,7 +798,6 @@ def portfolio_list(request):
             seen_months.add(m_key)
 
     # ── Filter Transactions ──
-    from django.utils import timezone
     now = timezone.now()
     default_month = now.strftime('%Y-%m')
     
@@ -791,8 +896,42 @@ def portfolio_list(request):
     total_fund_value = sum(float(f.market_value) for f in funds)
     total_fund_pl = total_fund_value - total_fund_cost
 
+    # ── เพดานความเสี่ยงของพอร์ต ──
+    # position_sizing.py มีเพดานครบอยู่แล้ว แต่เดิมต่อไว้กับหน้าเครื่องคิดเลขอย่างเดียว
+    # ตอนเพิ่มหุ้นจริงไม่มีใครเช็ค พอร์ตจึงทะลุเพดานตัวเองได้โดยไม่มีอะไรบอก
+    from stocks.portfolio_risk import concentration_report
+    from stocks.position_sizing import DEFAULT_MAX_HEAT_PCT, calculate_portfolio_heat
+
+    _equity_thb = (total_set_value + (total_us_value + total_crypto_value + total_cash_usd) * usd_thb
+                   + total_cash_thb + total_fund_value)
+    # แปลงทุกไม้เป็นบาทก่อนเทียบน้ำหนัก ไม่งั้นหุ้น US จะดูเล็กกว่าความจริง ~30 เท่า
+    _risk_positions, _heat_rows = [], []
+    for it in items:
+        _fx = usd_thb if it.get('market') in (MarketType.US, MarketType.CRYPTO) else 1.0
+        _risk_positions.append({
+            'symbol': it['obj'].symbol,
+            'value': float(it.get('market_value') or 0) * _fx,
+        })
+        _stop = it.get('effective_stop')
+        if _stop:
+            _heat_rows.append({
+                'symbol': it['obj'].symbol,
+                'quantity': float(it['obj'].quantity or 0),
+                'current_price': float(it.get('current_price') or 0) * _fx,
+                'stop_price': float(_stop) * _fx,
+                # ต้องมีทุน ไม่งั้นแยกไม่ออกว่า stop ที่อยู่เหนือราคาคือล็อกกำไร
+                # หรือหลุด stop แล้ว ซึ่งเป็นคนละเรื่องกันคนละทิศ
+                'entry_price': float(it['obj'].entry_price or 0) * _fx,
+            })
+
+    concentration = concentration_report(_risk_positions, _equity_thb)
+    portfolio_heat = calculate_portfolio_heat(_heat_rows, _equity_thb,
+                                              max_heat_pct=DEFAULT_MAX_HEAT_PCT)
+
     context = {
         'items': items,
+        'concentration': concentration,
+        'portfolio_heat': portfolio_heat,
         'total_market_value': total_market_value,
         'total_gain_loss': total_gain_loss,
         'total_set_value': total_set_value,
@@ -997,9 +1136,42 @@ def add_to_portfolio(request):
                     'trail_multiplier': form.cleaned_data.get('trail_multiplier', 2.5),
                 }
             )
+
+            # ── เตือนถ้าไม้นี้ใหญ่เกินเพดานน้ำหนัก (เตือนอย่างเดียว ไม่บล็อก) ──
+            # ฟอร์มนี้มีช่อง "ราคาทุน" แปลว่าเป็นการบันทึกไม้ที่ซื้อไปแล้ว ถ้าบล็อก
+            # ไม่ให้บันทึก พอร์ตจะไม่ตรงกับความจริง ซึ่งแย่กว่าการถือไม้ที่ใหญ่เกินไป
+            # คิดจากราคาทุนเพราะยังไม่ได้ดึงราคาตลาด — ตัวเลขจะไม่ตรงเป๊ะกับหน้าพอร์ต
+            # แต่พอบอกได้ว่ากำลังเปิดไม้ที่ใหญ่เกินเพดานไหม
+            warning = None
+            try:
+                from stocks.models import PortfolioCash
+                from stocks.portfolio_risk import add_position_warning
+
+                _fx = _get_usd_thb()
+
+                def _to_thb(mkt, amount):
+                    return amount * (_fx if mkt in (MarketType.US, MarketType.CRYPTO) else 1.0)
+
+                new_value = _to_thb(market, float(form.cleaned_data['quantity'])
+                                    * float(form.cleaned_data['entry_price']))
+                existing = [
+                    _to_thb(p.market, float(p.quantity or 0) * float(p.entry_price or 0))
+                    for p in Portfolio.objects.filter(user=request.user).exclude(symbol=symbol)
+                ]
+                cash = sum(
+                    float(c.balance) * (_fx if c.currency == 'USD' else 1.0)
+                    for c in PortfolioCash.objects.filter(user=request.user)
+                )
+                warning = add_position_warning(symbol, new_value, existing, cash)
+            except Exception as e:
+                # การเตือนต้องไม่ทำให้การบันทึกล้มเหลว
+                logger.warning("คำนวณคำเตือนน้ำหนักไม่สำเร็จ: %s", e)
+
             if is_ajax:
-                return JsonResponse({'success': True, 'symbol': symbol})
+                return JsonResponse({'success': True, 'symbol': symbol, 'warning': warning})
             messages.success(request, f"บันทึก {symbol} เข้าพอร์ตเรียบร้อยแล้ว")
+            if warning:
+                messages.warning(request, warning)
         else:
             # รวม errors ทุก field พร้อม label ที่อ่านเข้าใจง่าย
             field_labels = {
@@ -1056,8 +1228,12 @@ def sell_stock(request, pk):
 
             # ── Currency Conversion (Tithe calculation requirement) ──
             # ดึงอัตราแลกเปลี่ยน ณ เดี๋ยวนี้ (ตอนขาย)
+            # Crypto ก็ตั้งราคาเป็น USD เหมือนหุ้น US — เดิมเช็คแค่ MarketType.US
+            # ทำให้กำไรคริปโตถูกบันทึกเป็น "บาท" ทั้งที่เป็นดอลลาร์ และเพราะ
+            # portfolio_income เลือกใช้ profit_loss_thb ก่อนเสมอ ตัวเลขรายได้/ทศางค์
+            # จึงต่ำกว่าความเป็นจริงราว 30 เท่า (ที่อื่นในไฟล์นี้ใช้ (US, CRYPTO) อยู่แล้ว)
             fx_rate = 1.0
-            if portfolio_item.market == MarketType.US:
+            if portfolio_item.market in (MarketType.US, MarketType.CRYPTO):
                 fx_rate = _get_usd_thb()
             
             # บันทึกประวัติการขาย พร้อม market จาก Portfolio
@@ -1111,7 +1287,7 @@ def portfolio_scan(request):
     if request.method == "POST" or request.GET.get('scan') == 'true':
         import datetime
 
-        import pandas_ta as ta
+        from stocks.pandas_ta_compat import ta
 
         for item in portfolio_items:
             symbol = item.symbol.upper().replace('.BK', '')
@@ -1325,26 +1501,39 @@ def realized_pl_report(request):
     thai_daily_trades = defaultdict(float)
     
     for s in sold_stocks:
-        if s.market and s.market != MarketType.SET:
-            s.is_us = s.market == MarketType.US
+        # แยก 2 คำถามออกจากกันแบบเดียวกับ portfolio_income.monthly_income:
+        #   needs_fx = "ราคาเป็น USD ต้องแปลงเป็นบาทไหม"  (US + Crypto)
+        #   is_thai  = "ต้องคิดค่าคอมฯ โบรกเกอร์ไทยไหม"    (SET เท่านั้น)
+        # เดิมใช้ is_us ตัวเดียวตอบทั้งสองข้อ คริปโตจึงไม่ถูกแปลงค่าเงิน
+        # และยังถูกโยนเข้ากองคำนวณค่าคอมฯ หุ้นไทยอีกด้วย
+        if s.market:
+            needs_fx = s.market in (MarketType.US, MarketType.CRYPTO)
+            is_thai = s.market == MarketType.SET
         else:
-            s.is_us = _is_us_symbol(s.symbol, us_set)
-        
+            needs_fx = _is_us_symbol(s.symbol, us_set)
+            is_thai = not needs_fx
+        # เทมเพลตใช้ is_usd เลือกสัญลักษณ์สกุลเงิน ($ / ฿) ส่วน is_us ใช้ติดป้าย "US"
+        # คริปโตราคาเป็น USD แต่ไม่ใช่หุ้น US จึงต้องแยกสองธงนี้ออกจากกัน
+        s.is_usd = needs_fx
+        s.is_us = (s.market == MarketType.US)
+
         # ลอจิกใหม่: ถ้ามี profit_loss_thb (ที่บันทึกตอนขาย) ให้ใช้ค่านั้นเลย
         # ถ้าเป็น 0 หรือเป็นข้อมูลเก่า ให้คำนวณจาก usd_thb ปัจจุบัน (fallback)
         if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb != 0:
             s.pl_thb = float(s.profit_loss_thb)
         else:
-            s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
+            s.pl_thb = float(s.profit_loss) * usd_thb if needs_fx else float(s.profit_loss)
 
         # Calculate trade value (quantity * (buy_price + sell_price))
-        if s.is_us:
+        if needs_fx:
             # For US stocks, use settlement rate if available
             rate = float(s.settlement_rate) if (hasattr(s, 'settlement_rate') and s.settlement_rate) else usd_thb
             s.trade_value_thb = float(s.quantity * (s.buy_price + s.sell_price)) * rate
         else:
             s.trade_value_thb = float(s.quantity * (s.buy_price + s.sell_price))
-            # Track daily trade value for Thai stocks to calculate Asia Plus commission
+
+        # Track daily trade value for Thai stocks to calculate Asia Plus commission
+        if is_thai:
             date_key = s.sold_at.date()
             thai_daily_trades[date_key] += s.trade_value_thb
 
@@ -1792,6 +1981,7 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
             'quantity': float(p.quantity or 0),
             'current_price': px * fx,      # คิด heat เป็นสกุลเดียว (บาท) ทั้งพอร์ต
             'stop_price': stop_used * fx,
+            'entry_price': float(p.entry_price or 0) * fx,
         })
 
     cash_thb = PortfolioCash.objects.filter(user=user, currency='THB').first()
@@ -1815,8 +2005,11 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
     prefill = None
     if symbol:
         clean = symbol.split('.')[0].upper()
-        prefill = (PrecisionScanCandidate.objects
-                   .filter(user=user, symbol=clean).order_by('-scan_run').first())
+        # ราคา/stop ที่เอามาคำนวณขนาดไม้ต้องสดเท่านั้น — ราคาของเมื่อ 3 สัปดาห์ก่อน
+        # ทำให้ระยะ stop ผิด แล้วจำนวนหุ้นที่แนะนำผิดตามไปทั้งก้อน
+        from stocks.scan_freshness import fresh_only as _fresh_only
+        prefill = _fresh_only(PrecisionScanCandidate.objects
+                              .filter(user=user, symbol=clean).order_by('-scan_run').first())
         if prefill:
             market = getattr(prefill, 'market', MarketType.SET) or MarketType.SET
             if entry is None:
@@ -1826,9 +2019,14 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
 
     result = None
     if entry and stop:
-        cash_for_market = cash_usd if market == MarketType.US else cash_thb
+        # entry/stop ของตลาด US และ Crypto เป็น USD ทั้งคู่ ส่วน equity ข้างบนรวมเป็นบาทไว้แล้ว
+        # ต้องแปลง equity กลับเป็น USD ให้อยู่สกุลเดียวกับ entry/stop ก่อนคำนวณ
+        # เดิมเช็คแค่ MarketType.US ทำให้ฝั่งคริปโตเอา "บาท ÷ ดอลลาร์" มาหารกัน
+        # ขนาดไม้ที่ได้จึงใหญ่เกินจริงราวเท่าตัวของอัตราแลกเปลี่ยน (~32 เท่า)
+        is_usd_market = market in (MarketType.US, MarketType.CRYPTO)
+        cash_for_market = cash_usd if is_usd_market else cash_thb
         result = calculate_position_size(
-            equity=equity if market != MarketType.US else equity / usd_thb,
+            equity=(equity / usd_thb) if is_usd_market else equity,
             entry_price=float(entry), stop_price=float(stop), risk_pct=risk_pct,
             cash_available=cash_for_market, max_weight_pct=max_weight_pct,
             market=market, current_heat_pct=heat['heat_pct'], max_heat_pct=max_heat_pct,

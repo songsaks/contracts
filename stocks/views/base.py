@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 
 import google.genai as genai
 import pandas as pd
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 import requests
 import yfinance as yf
 from django.conf import settings
@@ -914,7 +914,7 @@ def _score_value_candidate(info, df, roic_spread=None):
     roic_spread (ROIC − WACC, %) ถ่วงคะแนน Quality เมื่อผู้เรียกส่งมาให้ — ผู้เรียกเป็นคนคำนวณ
     เพราะฟังก์ชันคำนวณอยู่ในชั้น scanners ส่งเป็น None ได้เมื่อไม่มีข้อมูล (เช่น ธนาคาร)
     """
-    import pandas_ta as ta
+    from stocks.pandas_ta_compat import ta
 
     val_score = 0
     qual_score = 0

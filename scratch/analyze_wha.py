@@ -8,7 +8,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 import yfinance as yf
-import pandas_ta as ta
+from stocks.pandas_ta_compat import ta
 
 def analyze_wha():
     print("Downloading WHA.BK data...")
