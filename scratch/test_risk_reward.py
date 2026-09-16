@@ -219,9 +219,13 @@ class WiredInTests(unittest.TestCase):
                          'เคส "เชื่อไม่ได้" ต้องไม่ถูกโชว์เป็นตัวเลขสวยๆ ในมุมมองไหนเลย')
 
     def test_card_view_uses_the_locked_stop_too(self):
-        self.assertIn('item.effective_stop|default:item.trailing_stop_data.trailing_stop',
-                      self.tpl_src,
+        # เคยเขียนเป็น item.effective_stop|default:item.trailing_stop_data.trailing_stop
+        # ซึ่งพังทั้งหน้าเมื่อ trailing_stop_data เป็น None (อาร์กิวเมนต์ของ filter
+        # ไม่ถูก Django จับ VariableDoesNotExist) — ย้ายไปคิดในวิวเป็น display_stop
+        # รายละเอียดและเทสต์ของบั๊กนั้นอยู่ใน scratch/test_portfolio_error_row.py
+        self.assertIn('item.display_stop', self.tpl_src,
                       'มุมมองการ์ดต้องโชว์ stop ตัวเดียวกับมุมมองตาราง')
+        self.assertNotIn('default:item.trailing_stop_data', self.tpl_src)
 
     def test_thresholds_are_defined_once(self):
         mod = (ROOT / 'stocks' / 'risk_reward.py').read_text(encoding='utf-8')

@@ -471,6 +471,9 @@ def portfolio_list(request):
                 'trailing_stop_data': ts_data,
                 # stop ที่ใช้ตัดสินใจจริง (ล็อกไว้กับไม้นี้ ขยับขึ้นทางเดียว)
                 'effective_stop': _eff_stop,
+                # ตัวเลขที่เอาไปโชว์ — คิดตรงนี้ให้จบ ไม่ปล่อยให้เทมเพลตไปหยิบ
+                # ค่าซ้อนชั้นจาก trailing_stop_data ซึ่งเป็น None ได้
+                'display_stop': _eff_stop or _trail_candidate,
                 'stop_breach': _stop_breach,
                 # R:R จากราคาปัจจุบัน ไม่ใช่ RR ของ setup ตอนสแกน
                 'rr_now': _rr_now,
@@ -499,6 +502,10 @@ def portfolio_list(request):
                 'obj': item, 'current_price': 0, 'day_change': 0, 'market_value': 0,
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
                 'trailing_stop_data': None, 'mom_data': None,
+                # แถวสถานะ error ต้องมีคีย์ครบเท่าแถวปกติ ไม่งั้นเทมเพลตที่อ้าง
+                # ค่าพวกนี้จะพาทั้งหน้าล้มไปด้วย แทนที่จะเสียแค่แถวเดียว
+                'effective_stop': None, 'display_stop': None,
+                'stop_breach': None, 'rr_now': None,
                 'is_us': item.market == MarketType.US,
                 'symbol_base': item.symbol.split('.')[0],
                 'market': item.market,

@@ -403,7 +403,7 @@
                                     </div>
                                     <div class="h4 fw-black text-danger mb-0">
                                         {# stop ที่ล็อกไว้กับไม้นี้ — ตัวเดียวกับที่ใช้ตัดสินใจและที่โชว์ในมุมมองตาราง #}
-                                        {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.effective_stop|default:item.trailing_stop_data.trailing_stop|floatformat:2 }}
+                                        {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.display_stop|floatformat:2 }}
                                     </div>
                                     {% if item.stop_breach.over_limit %}
                                     <div class="text-danger fw-bold" style="font-size:0.6rem;line-height:1.2;"
