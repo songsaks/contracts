@@ -1006,8 +1006,12 @@ def sell_stock(request, pk):
 
             # ── Currency Conversion (Tithe calculation requirement) ──
             # ดึงอัตราแลกเปลี่ยน ณ เดี๋ยวนี้ (ตอนขาย)
+            # Crypto ก็ตั้งราคาเป็น USD เหมือนหุ้น US — เดิมเช็คแค่ MarketType.US
+            # ทำให้กำไรคริปโตถูกบันทึกเป็น "บาท" ทั้งที่เป็นดอลลาร์ และเพราะ
+            # portfolio_income เลือกใช้ profit_loss_thb ก่อนเสมอ ตัวเลขรายได้/ทศางค์
+            # จึงต่ำกว่าความเป็นจริงราว 30 เท่า (ที่อื่นในไฟล์นี้ใช้ (US, CRYPTO) อยู่แล้ว)
             fx_rate = 1.0
-            if portfolio_item.market == MarketType.US:
+            if portfolio_item.market in (MarketType.US, MarketType.CRYPTO):
                 fx_rate = _get_usd_thb()
             
             # บันทึกประวัติการขาย พร้อม market จาก Portfolio
@@ -1275,26 +1279,39 @@ def realized_pl_report(request):
     thai_daily_trades = defaultdict(float)
     
     for s in sold_stocks:
-        if s.market and s.market != MarketType.SET:
-            s.is_us = s.market == MarketType.US
+        # แยก 2 คำถามออกจากกันแบบเดียวกับ portfolio_income.monthly_income:
+        #   needs_fx = "ราคาเป็น USD ต้องแปลงเป็นบาทไหม"  (US + Crypto)
+        #   is_thai  = "ต้องคิดค่าคอมฯ โบรกเกอร์ไทยไหม"    (SET เท่านั้น)
+        # เดิมใช้ is_us ตัวเดียวตอบทั้งสองข้อ คริปโตจึงไม่ถูกแปลงค่าเงิน
+        # และยังถูกโยนเข้ากองคำนวณค่าคอมฯ หุ้นไทยอีกด้วย
+        if s.market:
+            needs_fx = s.market in (MarketType.US, MarketType.CRYPTO)
+            is_thai = s.market == MarketType.SET
         else:
-            s.is_us = _is_us_symbol(s.symbol, us_set)
-        
+            needs_fx = _is_us_symbol(s.symbol, us_set)
+            is_thai = not needs_fx
+        # เทมเพลตใช้ is_usd เลือกสัญลักษณ์สกุลเงิน ($ / ฿) ส่วน is_us ใช้ติดป้าย "US"
+        # คริปโตราคาเป็น USD แต่ไม่ใช่หุ้น US จึงต้องแยกสองธงนี้ออกจากกัน
+        s.is_usd = needs_fx
+        s.is_us = (s.market == MarketType.US)
+
         # ลอจิกใหม่: ถ้ามี profit_loss_thb (ที่บันทึกตอนขาย) ให้ใช้ค่านั้นเลย
         # ถ้าเป็น 0 หรือเป็นข้อมูลเก่า ให้คำนวณจาก usd_thb ปัจจุบัน (fallback)
         if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb != 0:
             s.pl_thb = float(s.profit_loss_thb)
         else:
-            s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
+            s.pl_thb = float(s.profit_loss) * usd_thb if needs_fx else float(s.profit_loss)
 
         # Calculate trade value (quantity * (buy_price + sell_price))
-        if s.is_us:
+        if needs_fx:
             # For US stocks, use settlement rate if available
             rate = float(s.settlement_rate) if (hasattr(s, 'settlement_rate') and s.settlement_rate) else usd_thb
             s.trade_value_thb = float(s.quantity * (s.buy_price + s.sell_price)) * rate
         else:
             s.trade_value_thb = float(s.quantity * (s.buy_price + s.sell_price))
-            # Track daily trade value for Thai stocks to calculate Asia Plus commission
+
+        # Track daily trade value for Thai stocks to calculate Asia Plus commission
+        if is_thai:
             date_key = s.sold_at.date()
             thai_daily_trades[date_key] += s.trade_value_thb
 
@@ -1778,9 +1795,14 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
 
     result = None
     if entry and stop:
-        cash_for_market = cash_usd if market == MarketType.US else cash_thb
+        # entry/stop ของตลาด US และ Crypto เป็น USD ทั้งคู่ ส่วน equity ข้างบนรวมเป็นบาทไว้แล้ว
+        # ต้องแปลง equity กลับเป็น USD ให้อยู่สกุลเดียวกับ entry/stop ก่อนคำนวณ
+        # เดิมเช็คแค่ MarketType.US ทำให้ฝั่งคริปโตเอา "บาท ÷ ดอลลาร์" มาหารกัน
+        # ขนาดไม้ที่ได้จึงใหญ่เกินจริงราวเท่าตัวของอัตราแลกเปลี่ยน (~32 เท่า)
+        is_usd_market = market in (MarketType.US, MarketType.CRYPTO)
+        cash_for_market = cash_usd if is_usd_market else cash_thb
         result = calculate_position_size(
-            equity=equity if market != MarketType.US else equity / usd_thb,
+            equity=(equity / usd_thb) if is_usd_market else equity,
             entry_price=float(entry), stop_price=float(stop), risk_pct=risk_pct,
             cash_available=cash_for_market, max_weight_pct=max_weight_pct,
             market=market, current_heat_pct=heat['heat_pct'], max_heat_pct=max_heat_pct,

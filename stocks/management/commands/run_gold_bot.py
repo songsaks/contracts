@@ -103,15 +103,30 @@ class Command(BaseCommand):
                     accounts = TradingAccount.objects.filter(is_active=True, user_id=user_id)
                     has_open_position = False
                     
+                    # RobotBridge(user=...) จะไปหยิบ "บัญชี active ตัวแรก" ของ user เสมอ
+                    # ซึ่งแปลว่าลูปนี้เคยเช็คบัญชีเดิมซ้ำทุกรอบ ถ้า user มีหลายบัญชี
+                    # ออเดอร์ที่ค้างอยู่ในบัญชีอื่นจะมองไม่เห็น แล้วบอทเปิดไม้ซ้อนได้
+                    positions_unknown = False
                     for acc in accounts:
-                        bridge = RobotBridge(user=acc.user)
-                        positions = bridge.get_open_positions()
+                        bridge = RobotBridge(account=acc)
+                        positions = bridge.fetch_open_positions()
+                        if positions is None:
+                            # ดึงรายการไม่สำเร็จ ≠ ไม่มีออเดอร์ค้าง — ห้ามเดาเป็นอย่างหลัง
+                            positions_unknown = True
+                            continue
                         if any(pos.get('symbol') == self.BROKER_SYMBOL for pos in positions):
                             has_open_position = True
                             break
-                    
+
                     if has_open_position:
                         session_saw_position = True
+
+                    if positions_unknown and not has_open_position:
+                        # สถานะพอร์ตไม่ชัดเจน รอบนี้ขอข้ามการหาสัญญาณไปก่อน
+                        self.update_heartbeat(user_id, status="ACTIVE",
+                                              message="เช็คสถานะพอร์ตกับโบรกเกอร์ไม่สำเร็จ — ข้ามรอบนี้เพื่อกันเปิดไม้ซ้อน")
+                        time.sleep(60)
+                        continue
 
                     # ถ้าใช้โหมด Once และเคยมีออเดอร์เปิดจริง และตอนนี้ปิดหมดแล้ว = จบงาน
                     if run_once and session_saw_position and not has_open_position:

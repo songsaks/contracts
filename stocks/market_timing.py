@@ -83,6 +83,39 @@ def _count_distribution_days(closes, volumes, end_idx, ftd_idx=None, lookback=25
     return count
 
 
+def _unavailable_status(market, reason):
+    """
+    สถานะสำหรับกรณี "ประเมินภาวะตลาดไม่ได้" (ดึงข้อมูลดัชนีไม่สำเร็จ/ข้อมูลสั้นเกินไป)
+
+    เดิมกรณีนี้คืน GREEN LIGHT พร้อม distribution_count = 1 ซึ่งเป็นการ "แต่งสัญญาณ"
+    ให้ดูปลอดภัยทั้งที่ระบบไม่รู้อะไรเลย หน้า AI Action Plan ถึงกับบอกผู้ใช้ว่า
+    "ตลาด GREEN — ซื้อผู้นำได้ตามปกติ" ตอนที่ yfinance ล่ม ซึ่งอันตรายที่สุด
+    เพราะข้อมูลมักดึงไม่ได้พร้อมกับตอนตลาดผันผวนแรง
+
+    จึงคืน YELLOW แทน — เป็นรหัสที่ทุกหน้าจอรองรับอยู่แล้ว และความหมาย
+    "ระมัดระวัง คุมความเสี่ยงสั้นลง" คือท่าที่ถูกต้องเมื่อยังไม่รู้สภาพตลาด
+    """
+    return {
+        'market': market,
+        'data_ok': False,
+        'distribution_count': 0,
+        'dist_trend': [],
+        'dist_direction': 'flat',
+        'dist_trend_label': 'ประเมินไม่ได้',
+        'dist_trend_action': 'คุมความเสี่ยงไว้ก่อน',
+        'ftd_detected': False,
+        'days_since_ftd': None,
+        'status_code': 'YELLOW',
+        'status_label': 'ประเมินภาวะตลาดไม่ได้ — ยังไม่มีข้อมูลดัชนี',
+        'status_color': '#f59e0b',
+        'bg_color': '#fffbeb',
+        'border_color': '#fde68a',
+        'description': (f'ดึงข้อมูลดัชนีไม่สำเร็จ ({reason}) จึงยังนับวันแจกของไม่ได้ '
+                        'ถือว่ายังไม่ยืนยันว่าตลาดปลอดภัย ให้คุมความเสี่ยงสั้นลงและ'
+                        'เลี่ยงการไล่ซื้อ Breakout จนกว่าข้อมูลจะกลับมา'),
+    }
+
+
 def get_market_timing_status(market='SET'):
     """
     คำนวณ Market Timing Indicator ตามหลักการของ William O'Neil (CAN SLIM):
@@ -105,23 +138,10 @@ def get_market_timing_status(market='SET'):
         df = yf.download(symbol, period='90d', interval='1d', progress=False)
 
         if df is None or df.empty or len(df) < 25:
-            res = {
-                'market': market,
-                'distribution_count': 1,
-                'dist_trend': [],
-                'dist_direction': 'flat',
-                'dist_trend_label': '',
-                'dist_trend_action': '',
-                'ftd_detected': False,
-                'days_since_ftd': None,
-                'status_code': 'GREEN',
-                'status_label': 'GREEN LIGHT: สภาวะตลาดปกติ',
-                'status_color': '#10b981',
-                'bg_color': '#ecfdf5',
-                'border_color': '#a7f3d0',
-                'description': 'ตลาดอยู่ในสภาวะปกติ เหมาะแก่การค้นหาหุ้นเบรกเอาต์'
-            }
-            cache.set(cache_key, res, timeout=1800)
+            bars = 0 if df is None or df.empty else len(df)
+            res = _unavailable_status(market, f'ได้ข้อมูลมาเพียง {bars} แท่ง ต้องการอย่างน้อย 25')
+            # cache สั้นๆ พอกันไม่ให้ยิงซ้ำถี่ แต่ไม่ค้างสถานะ "ไม่รู้" ไว้นานครึ่งชั่วโมง
+            cache.set(cache_key, res, timeout=300)
             return res
 
         # Standardize columns
@@ -185,6 +205,7 @@ def get_market_timing_status(market='SET'):
 
         res = {
             'market': market,
+            'data_ok': True,
             'distribution_count': distribution_count,
             'dist_trend': dist_trend,
             'dist_direction': dist_direction,
@@ -203,21 +224,6 @@ def get_market_timing_status(market='SET'):
         cache.set(cache_key, res, timeout=3600)
         return res
 
-    except Exception:
-        res = {
-            'market': market,
-            'distribution_count': 1,
-            'dist_trend': [],
-            'dist_direction': 'flat',
-            'dist_trend_label': '',
-            'dist_trend_action': '',
-            'ftd_detected': False,
-            'days_since_ftd': None,
-            'status_code': 'GREEN',
-            'status_label': 'GREEN LIGHT: สภาวะตลาดเปิดให้เล่น',
-            'status_color': '#10b981',
-            'bg_color': '#ecfdf5',
-            'border_color': '#a7f3d0',
-            'description': 'ตลาดอยู่ในสภาวะปกติ เหมาะแก่การค้นหาหุ้นเบรกเอาต์'
-        }
-        return res
+    except Exception as e:
+        # ไม่ cache กรณี exception — รอบหน้าจะได้ลองดึงใหม่ทันที
+        return _unavailable_status(market, str(e)[:120] or 'เกิดข้อผิดพลาดระหว่างดึงข้อมูล')

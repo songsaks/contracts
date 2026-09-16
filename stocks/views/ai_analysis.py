@@ -29,7 +29,14 @@ def _build_exit_action_plan(*, market_label, market_timing, cs, current_price, e
                      and mt['days_since_ftd'] <= 5)
 
     # 1) ภาวะตลาด
-    if code == 'RED':
+    if mt.get('data_ok') is False:
+        # ดึงข้อมูลดัชนีไม่ได้ — บอกตรงๆ ว่าไม่รู้ ดีกว่าโชว์ตัวเลข "แจกของ 0 วัน"
+        # ซึ่งอ่านแล้วเหมือนตลาดสะอาดทั้งที่ระบบยังประเมินไม่ได้เลย
+        steps.append({'n': 1, 'title': 'เช็ค Market Timing', 'tone': 'warning',
+                      'detail': f'ประเมินภาวะตลาด {market_label} ไม่ได้ — ดึงข้อมูลดัชนีไม่สำเร็จ '
+                                f'ถือว่ายังไม่ยืนยันว่าปลอดภัย คุมความเสี่ยงสั้นลงและเลี่ยงไล่ซื้อ Breakout '
+                                f'จนกว่าข้อมูลจะกลับมา'})
+    elif code == 'RED':
         steps.append({'n': 1, 'title': 'เช็ค Market Timing', 'tone': 'danger',
                       'detail': f'ตลาด {market_label} เป็น RED (แจกของ {dist} วันใน 25 วัน) — '
                                 f'ลดสถานะเชิงรุก ขยับ Stop Loss ขึ้นชิด และงดซื้อเพิ่มจนกว่าจะมี Follow-Through Day'})
