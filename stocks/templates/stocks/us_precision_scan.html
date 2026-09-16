@@ -2048,6 +2048,11 @@
                     <!-- หมวด C: จังหวะเข้า -->
                     <div class="d-flex flex-wrap gap-3 align-items-center">
                         <span class="badge rounded-pill px-2 py-1" style="background:#fef2f2;color:#dc2626;font-size:0.62rem;font-weight:700;min-width:118px;">C · จังหวะเข้า</span>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(79,70,229,0.08));border:1px solid rgba(124,58,237,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
+                            <input class="form-check-input" type="checkbox" id="edgeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-bold" for="edgeFilterUS" style="cursor:pointer; color:#7c3aed;">⭐ Historical Edge Only</label>
+                            <span style="font-size:0.85rem;color:#7c3aed;cursor:pointer;" title="Historical Edge Only: กรองเฉพาะหุ้นที่มี Setup ที่มีสถิติกำไร (Win Rate / Expectancy) ยืนยันจาก Scan Quality Analytics ย้อนหลัง"><i class="fas fa-question-circle"></i></span>
+                        </div>
                         <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
                             <input class="form-check-input" type="checkbox" id="buyableFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
                             <label class="form-check-label small fw-bold" for="buyableFilterUS" style="cursor:pointer; color:#059669;">🎯 อยู่ในโซนซื้อ (In Zone)</label>
@@ -2341,6 +2346,7 @@
                         {% for item in candidates %}
                         <tr class="{% if item.symbol in trailing_status %}row-trailing-active{% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}"
     data-symbol="{{ item.symbol }}"
+    data-edge="{{ item.edge_tier|default:'none' }}"
     data-price="{{ item.live_price|default:item.price }}"
     data-chg-pct="{{ item.live_change_pct|default:0 }}"
     data-zone-start="{{ item.demand_zone_start|default:0 }}"
@@ -2432,6 +2438,11 @@
                                     </div>
                                     <div>
                                         <span class="fw-bold">{{ item.symbol }}</span>
+                                        {% if item.edge_tier == 'high' %}
+                                        <span class="badge px-1 py-0 shadow-sm" style="background:linear-gradient(135deg,#059669,#047857);color:white;font-size:0.55rem;border:1px solid #10b981;" title="{{ item.edge_tooltip }}">⭐ High Edge</span>
+                                        {% elif item.edge_tier == 'positive' %}
+                                        <span class="badge px-1 py-0 bg-success-subtle text-success border border-success-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge</span>
+                                        {% endif %}
                                         {% if item.htf_setup %}
                                         <span class="badge px-1 py-0" style="background:#ef4444;color:white;font-size:0.55rem;" title="High Tight Flag / Power Play: Surge +{{ item.htf_surge_pct|floatformat:0 }}% Base {{ item.htf_base_depth|floatformat:0 }}%">🚀 HTF</span>
                                         {% endif %}
@@ -3892,10 +3903,11 @@ function applyPreset(presetType) {
     const squeezeOn  = document.getElementById('squeezeOnFilterUS');
     const ep         = document.getElementById('epFilterUS');
     const safe       = document.getElementById('safeFilterUS');
+    const edge       = document.getElementById('edgeFilterUS');
     const abcd       = document.getElementById('abcdFilterUS');
 
     // Reset all
-    [rsi, stage2, pp, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, cmfPos, insideBar, accDist, buyable, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe, abcd].forEach(el => {
+    [rsi, stage2, pp, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, cmfPos, insideBar, accDist, buyable, edge, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe, abcd].forEach(el => {
         if (el) el.checked = false;
     });
 
@@ -4006,6 +4018,7 @@ function _applyFiltersUS() {
         var rrOn           = document.getElementById('rrFilterUS')           && document.getElementById('rrFilterUS').checked;
         var rsFilterOn     = document.getElementById('rsFilterUS')           && document.getElementById('rsFilterUS').checked;
         var abcdOn         = document.getElementById('abcdFilterUS')         && document.getElementById('abcdFilterUS').checked;
+        var edgeOn         = document.getElementById('edgeFilterUS')         && document.getElementById('edgeFilterUS').checked;
         var secEl  = document.getElementById('sectorFilterUS');
         var secVal = secEl ? secEl.value : '';
 
@@ -4075,7 +4088,11 @@ function _applyFiltersUS() {
             var _zoneConfirm = (cmf >= 0.1 || pp || rvol >= 1.2);
             var isBuyable = s2 && !extended && rsi <= 68 && rsRatingVal >= 70 && cmf >= 0.05 && _zoneConfirm && (inzone || prox <= 3 || nearMa50);
 
+            var edgeTier = row.dataset.edge || 'none';
+            var isEdge = (edgeTier === 'high' || edgeTier === 'positive');
+
             var show = (!rsiOn       || rsi < 70) &&
+                       (!edgeOn      || isEdge) &&
                        (!buyableOn   || isBuyable) &&
                        (!s2On        || s2) &&
                        (!ppOn        || pp) &&
@@ -4162,7 +4179,7 @@ function _applyFiltersUS() {
 var FILTER_IDS_US = ['rsiFilter70US','stage2FilterUS','ppFilterUS','cmfPositiveFilterUS',
                      'volSurgeFilterUS','ichiFilterUS','launcherFilterUS','vcpFilterUS','vpFilterUS',
                      'itlFilterUS','canslimFilterUS','buynowFilterUS','insideBarFilterUS','accDistFilterUS','buyableFilterUS',
-                     'trendTemplateFilterUS','sectorConfirmedFilterUS','abcdFilterUS'];
+                     'edgeFilterUS','trendTemplateFilterUS','sectorConfirmedFilterUS','abcdFilterUS'];
 
 function _saveFilterStateUS() {
     try {

@@ -134,6 +134,7 @@ urlpatterns = [
 
     # คุณภาพตัวสแกน — ตามผลว่าคะแนน/ธง setup ทำนายอะไรได้จริงบ้าง
     path('scan-quality/', views.scan_quality_report, name='scan_quality_report'),
+    path('api/scan-quality-ai/', views.api_scan_quality_ai_analysis, name='api_scan_quality_ai_analysis'),
 ]
 
 

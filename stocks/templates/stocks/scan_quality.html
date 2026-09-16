@@ -39,7 +39,13 @@
           โดยตามราคาหลังวันที่สแกนเจอ — ไม่ใช่ backtest ย้อนหลัง แต่เป็นผลของสัญญาณที่ระบบเคยส่งออกมาจริง
         </div>
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <button type="button" class="btn btn-sm fw-bold d-inline-flex align-items-center gap-2"
+                onclick="runScanQualityAi()"
+                style="background:linear-gradient(135deg,#06b6d4,#0891b2); color:white; border:none; box-shadow:0 4px 12px rgba(6,182,212,0.35); border-radius:8px; padding:0.4rem 0.85rem;"
+                title="ให้ Gemini AI วิเคราะห์ความได้เปรียบทางสถิติและแนะนำกลยุทธ์การเทรด">
+          <i class="fas fa-robot"></i> <span>AI วิเคราะห์ Edge &amp; กลยุทธ์</span>
+        </button>
         <div class="btn-group btn-group-sm">
           <a href="?market=SET&horizon={{ horizon }}" class="btn {% if market == 'SET' %}btn-light{% else %}btn-outline-light{% endif %}">SET</a>
           <a href="?market=US&horizon={{ horizon }}" class="btn {% if market == 'US' %}btn-light{% else %}btn-outline-light{% endif %}">US</a>
@@ -388,4 +394,101 @@
 
   {% endif %}
 </div>
+
+<!-- AI Strategy Modal -->
+<div class="modal fade" id="scanQualityAiModal" tabindex="-1" aria-labelledby="scanQualityAiModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-0 pb-3" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:38px;height:38px;background:rgba(6,182,212,0.25);color:#38bdf8;font-size:1.1rem;">
+            <i class="fas fa-robot"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold fs-6 mb-0" id="scanQualityAiModalLabel">AI Quant Strategist — วิเคราะห์ Edge &amp; แผนการเทรด ({{ market }})</h5>
+            <small class="text-white-50" style="font-size:0.75rem;">ประเมินผลจริงจากฐานข้อมูล ScanOutcome ด้วย Google Gemini AI</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4" id="aiModalBody" style="min-height: 280px; font-size: 0.92rem; line-height: 1.65;">
+        <div class="text-center py-5" id="aiModalLoading">
+          <div class="spinner-border text-info mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+          <div class="fw-bold text-dark fs-6" id="aiLoadingTitle">AI กำลังอ่านและวิเคราะห์สถิติผลลัพธ์ย้อนหลัง...</div>
+          <div class="text-muted small mt-1">ประเมิน Win Rate, Expected R, Setup Flags และพฤติกรรมราคา MFE/MAE เพื่อสกัดเป็นกลยุทธ์</div>
+        </div>
+        <div id="aiModalText" class="markdown-content d-none"></div>
+      </div>
+      <div class="modal-footer border-top bg-light d-flex justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="runScanQualityAi()">
+          <i class="fas fa-sync-alt me-1"></i> วิเคราะห์ใหม่
+        </button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="btnCopyAiAnalysis" onclick="copyAiAnalysis()" style="display:none;">
+            <i class="fas fa-copy me-1"></i> คัดลอกรายงาน
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" data-bs-dismiss="modal">ปิด</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let _cachedAiAnalysis = null;
+
+function runScanQualityAi() {
+    const modalEl = document.getElementById('scanQualityAiModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    const loadingEl = document.getElementById('aiModalLoading');
+    const textEl = document.getElementById('aiModalText');
+    const copyBtn = document.getElementById('btnCopyAiAnalysis');
+
+    loadingEl.style.display = 'block';
+    textEl.classList.add('d-none');
+    copyBtn.style.display = 'none';
+
+    fetch("{% url 'stocks:api_scan_quality_ai_analysis' %}?market={{ market }}&horizon={{ horizon }}")
+        .then(response => response.json())
+        .then(data => {
+            loadingEl.style.display = 'none';
+            if (!data.success) {
+                textEl.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${data.error || 'เกิดข้อผิดพลาดในการวิเคราะห์'}</div>`;
+                textEl.classList.remove('d-none');
+                return;
+            }
+
+            _cachedAiAnalysis = data.analysis;
+            // Parse Markdown simple and cleanly
+            let html = data.analysis
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/^### (.*)$/gm, '<h6 class="fw-bold text-primary mt-4 mb-2 pb-1 border-bottom"><i class="fas fa-chevron-right me-1 small"></i>$1</h6>')
+                .replace(/^## (.*)$/gm, '<h5 class="fw-bold text-dark mt-3 mb-2">$1</h5>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-dark">$1</strong>')
+                .replace(/^- (.*)$/gm, '<div class="ps-3 mb-1">• $1</div>')
+                .replace(/\n\n/g, '<div class="my-2"></div>');
+
+            textEl.innerHTML = html;
+            textEl.classList.remove('d-none');
+            copyBtn.style.display = 'inline-block';
+        })
+        .catch(err => {
+            loadingEl.style.display = 'none';
+            textEl.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>การเชื่อมต่อขัดข้อง: ${err.message}</div>`;
+            textEl.classList.remove('d-none');
+        });
+}
+
+function copyAiAnalysis() {
+    if (!_cachedAiAnalysis) return;
+    navigator.clipboard.writeText(_cachedAiAnalysis).then(() => {
+        const btn = document.getElementById('btnCopyAiAnalysis');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check text-success me-1"></i> คัดลอกแล้ว!';
+        setTimeout(() => { btn.innerHTML = orig; }, 2000);
+    });
+}
+</script>
 {% endblock %}

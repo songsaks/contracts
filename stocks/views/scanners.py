@@ -3265,6 +3265,12 @@ def precision_momentum_scanner(request):
         for c in candidates:
             c.quality_score, c.quality_reasons = _compute_quality_score(c, upside_to_tp=c.upside_to_tp)
 
+        # ====== Historical Edge Annotation (Closed-Loop Feedback) ======
+        from stocks.scan_edge import annotate_candidates_with_edge
+        edge_summary = annotate_candidates_with_edge(candidates, request.user, market='SET')
+    else:
+        edge_summary = {'total_edge_count': 0, 'active_edge_map': {}}
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
@@ -3577,6 +3583,7 @@ def precision_momentum_scanner(request):
         'scan_data_date': None,  # คำนวณด้านล่าง
         'market_condition': market_condition,
         'markov_regime': markov_regime,
+        'edge_summary': edge_summary,
     }
     # คำนวณ scan_data_date จาก scanned_at - ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
     # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า
@@ -6616,6 +6623,12 @@ def us_precision_scanner(request):
         for c in candidates:
             c.quality_score, c.quality_reasons = _compute_quality_score(c, upside_to_tp=c.upside_to_tp)
 
+        # ====== Historical Edge Annotation (Closed-Loop Feedback) ======
+        from stocks.scan_edge import annotate_candidates_with_edge
+        edge_summary = annotate_candidates_with_edge(candidates, request.user, market='US')
+    else:
+        edge_summary = {'total_edge_count': 0, 'active_edge_map': {}}
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
@@ -6928,6 +6941,7 @@ def us_precision_scanner(request):
         'scan_data_date': None,  # คำนวณด้านล่าง
         'market_condition': market_condition,
         'markov_regime': markov_regime,
+        'edge_summary': edge_summary,
     }
     # คำนวณ scan_data_date จาก scanned_at - ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
     # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า
