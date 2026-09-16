@@ -119,10 +119,10 @@
                 {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
               </td>
               <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
-                {% if r.mfe_pct %}+{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
+                {% if r.mfe_pct and r.mfe_pct > 0 %}+{{ r.mfe_pct|floatformat:1 }}%{% elif r.mfe_pct %}{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
               </td>
               <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
-                {% if r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
+                {% if r.mae_pct and r.mae_pct > 0 %}+{{ r.mae_pct|floatformat:1 }}%{% elif r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
               </td>
               <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
                 {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
@@ -349,10 +349,10 @@
               {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
             </td>
             <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
-              {% if r.mfe_pct %}+{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
+              {% if r.mfe_pct and r.mfe_pct > 0 %}+{{ r.mfe_pct|floatformat:1 }}%{% elif r.mfe_pct %}{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
             </td>
             <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
-              {% if r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
+              {% if r.mae_pct and r.mae_pct > 0 %}+{{ r.mae_pct|floatformat:1 }}%{% elif r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
             </td>
             <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
               {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
