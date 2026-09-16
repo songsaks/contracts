@@ -816,8 +816,39 @@ def portfolio_list(request):
     total_fund_value = sum(float(f.market_value) for f in funds)
     total_fund_pl = total_fund_value - total_fund_cost
 
+    # ── เพดานความเสี่ยงของพอร์ต ──
+    # position_sizing.py มีเพดานครบอยู่แล้ว แต่เดิมต่อไว้กับหน้าเครื่องคิดเลขอย่างเดียว
+    # ตอนเพิ่มหุ้นจริงไม่มีใครเช็ค พอร์ตจึงทะลุเพดานตัวเองได้โดยไม่มีอะไรบอก
+    from stocks.portfolio_risk import concentration_report
+    from stocks.position_sizing import DEFAULT_MAX_HEAT_PCT, calculate_portfolio_heat
+
+    _equity_thb = (total_set_value + (total_us_value + total_crypto_value + total_cash_usd) * usd_thb
+                   + total_cash_thb + total_fund_value)
+    # แปลงทุกไม้เป็นบาทก่อนเทียบน้ำหนัก ไม่งั้นหุ้น US จะดูเล็กกว่าความจริง ~30 เท่า
+    _risk_positions, _heat_rows = [], []
+    for it in items:
+        _fx = usd_thb if it.get('market') in (MarketType.US, MarketType.CRYPTO) else 1.0
+        _risk_positions.append({
+            'symbol': it['obj'].symbol,
+            'value': float(it.get('market_value') or 0) * _fx,
+        })
+        _stop = it.get('effective_stop')
+        if _stop:
+            _heat_rows.append({
+                'symbol': it['obj'].symbol,
+                'quantity': float(it['obj'].quantity or 0),
+                'current_price': float(it.get('current_price') or 0) * _fx,
+                'stop_price': float(_stop) * _fx,
+            })
+
+    concentration = concentration_report(_risk_positions, _equity_thb)
+    portfolio_heat = calculate_portfolio_heat(_heat_rows, _equity_thb,
+                                              max_heat_pct=DEFAULT_MAX_HEAT_PCT)
+
     context = {
         'items': items,
+        'concentration': concentration,
+        'portfolio_heat': portfolio_heat,
         'total_market_value': total_market_value,
         'total_gain_loss': total_gain_loss,
         'total_set_value': total_set_value,
@@ -1025,9 +1056,42 @@ def add_to_portfolio(request):
                     'trail_multiplier': form.cleaned_data.get('trail_multiplier', 2.5),
                 }
             )
+
+            # ── เตือนถ้าไม้นี้ใหญ่เกินเพดานน้ำหนัก (เตือนอย่างเดียว ไม่บล็อก) ──
+            # ฟอร์มนี้มีช่อง "ราคาทุน" แปลว่าเป็นการบันทึกไม้ที่ซื้อไปแล้ว ถ้าบล็อก
+            # ไม่ให้บันทึก พอร์ตจะไม่ตรงกับความจริง ซึ่งแย่กว่าการถือไม้ที่ใหญ่เกินไป
+            # คิดจากราคาทุนเพราะยังไม่ได้ดึงราคาตลาด — ตัวเลขจะไม่ตรงเป๊ะกับหน้าพอร์ต
+            # แต่พอบอกได้ว่ากำลังเปิดไม้ที่ใหญ่เกินเพดานไหม
+            warning = None
+            try:
+                from stocks.models import PortfolioCash
+                from stocks.portfolio_risk import add_position_warning
+
+                _fx = _get_usd_thb()
+
+                def _to_thb(mkt, amount):
+                    return amount * (_fx if mkt in (MarketType.US, MarketType.CRYPTO) else 1.0)
+
+                new_value = _to_thb(market, float(form.cleaned_data['quantity'])
+                                    * float(form.cleaned_data['entry_price']))
+                existing = [
+                    _to_thb(p.market, float(p.quantity or 0) * float(p.entry_price or 0))
+                    for p in Portfolio.objects.filter(user=request.user).exclude(symbol=symbol)
+                ]
+                cash = sum(
+                    float(c.balance) * (_fx if c.currency == 'USD' else 1.0)
+                    for c in PortfolioCash.objects.filter(user=request.user)
+                )
+                warning = add_position_warning(symbol, new_value, existing, cash)
+            except Exception as e:
+                # การเตือนต้องไม่ทำให้การบันทึกล้มเหลว
+                logger.warning("คำนวณคำเตือนน้ำหนักไม่สำเร็จ: %s", e)
+
             if is_ajax:
-                return JsonResponse({'success': True, 'symbol': symbol})
+                return JsonResponse({'success': True, 'symbol': symbol, 'warning': warning})
             messages.success(request, f"บันทึก {symbol} เข้าพอร์ตเรียบร้อยแล้ว")
+            if warning:
+                messages.warning(request, warning)
         else:
             # รวม errors ทุก field พร้อม label ที่อ่านเข้าใจง่าย
             field_labels = {

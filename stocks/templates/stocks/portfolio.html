@@ -168,6 +168,45 @@
     </div>
 
 
+    <!-- เพดานความเสี่ยงที่พอร์ตทะลุอยู่ — เพดานพวกนี้ระบบตั้งไว้เองใน position_sizing.py
+         แต่เดิมไม่มีอะไรบังคับตอนเพิ่มหุ้น จึงทะลุได้เงียบๆ -->
+    {% if concentration.has_breach or portfolio_heat.status == 'over' or portfolio_heat.status == 'unknown' %}
+    <div class="col-lg-12">
+        <div class="p-3 rounded-3 mb-3" style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.35);">
+            <div class="fw-bold mb-2" style="font-size:0.88rem;color:#b45309;">
+                ⚖️ พอร์ตทะลุเพดานความเสี่ยงที่ตั้งไว้
+            </div>
+            <div class="d-flex flex-wrap gap-4" style="font-size:0.82rem;">
+                {% if concentration.has_breach %}
+                <div>
+                    <div class="text-muted" style="font-size:0.72rem;">น้ำหนักต่อตัว (เพดาน {{ concentration.max_weight_pct|floatformat:0 }}%)</div>
+                    {% for b in concentration.breaches %}
+                    <div><span class="fw-bold">{{ b.symbol }}</span>
+                        <span class="text-danger fw-bold">{{ b.weight_pct }}%</span>
+                        <span class="text-muted">(เกิน {{ b.excess_pct }}%)</span></div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if portfolio_heat.status == 'over' or portfolio_heat.status == 'unknown' %}
+                <div>
+                    <div class="text-muted" style="font-size:0.72rem;">Portfolio Heat (เพดาน {{ portfolio_heat.max_heat_pct|floatformat:0 }}%)</div>
+                    <div><span class="fw-bold {% if portfolio_heat.status == 'over' %}text-danger{% endif %}">{{ portfolio_heat.heat_pct }}%</span>
+                        <span class="text-muted">{{ portfolio_heat.label }}</span></div>
+                    {% if portfolio_heat.unprotected_count %}
+                    <div class="text-muted" style="font-size:0.72rem;">
+                        ยังไม่มีจุดตัดขาดทุน {{ portfolio_heat.unprotected_count }} ตัว: {{ portfolio_heat.unprotected|join:", " }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="text-muted mt-2" style="font-size:0.72rem;">
+                ระบบไม่ได้ห้ามถือ แค่บอกให้รู้ — Heat คือถ้าทุกไม้หลุดจุดตัดขาดทุนพร้อมกันวันนี้ พอร์ตจะเสียกี่ %
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Portfolio Grid -->
     <div class="col-lg-12">
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
@@ -1312,6 +1351,10 @@
                         <div class="fw-bold text-danger mb-1" style="font-size:0.82rem;">❌ ไม่สามารถบันทึกได้ — กรุณาตรวจสอบข้อมูล</div>
                         <ul id="port-error-list" class="mb-0 ps-3" style="font-size:0.82rem;color:#ef4444;"></ul>
                     </div>
+                    <!-- คำเตือนเรื่องน้ำหนักไม้ — บันทึกสำเร็จแล้ว แต่ต้องให้ผู้ใช้เห็นก่อน reload -->
+                    <div id="port-warn-box" class="d-none mb-3 p-3 rounded-3" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.4);">
+                        <div id="port-warn-text" class="fw-semibold" style="font-size:0.82rem;color:#b45309;"></div>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Symbol (e.g. PTT.BK)</label>
@@ -1597,6 +1640,15 @@
         .then(r => r.json().then(json => ({ ok: r.ok, json })))
         .then(({ ok, json }) => {
             if (ok && json.success) {
+                if (json.warning) {
+                    // บันทึกไปแล้ว แต่ทะลุเพดานน้ำหนัก — ต้องให้เห็นก่อน ไม่งั้น reload กลืนไปเลย
+                    document.getElementById('port-warn-text').textContent = json.warning;
+                    document.getElementById('port-warn-box').classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.textContent = 'รับทราบ';
+                    btn.onclick = function () { location.reload(); };
+                    return;
+                }
                 bootstrap.Modal.getInstance(document.getElementById('addPortfolioModal')).hide();
                 resetPortfolioModal();
                 location.reload();
@@ -1632,6 +1684,11 @@
         document.getElementById('port-modal-title').innerText = 'Add Position to Portfolio';
         const eb = document.getElementById('port-error-box');
         if (eb) { eb.classList.add('d-none'); document.getElementById('port-error-list').innerHTML = ''; }
+        // ล้างคำเตือนรอบก่อน ไม่งั้นเปิดโมดัลใหม่จะเห็นคำเตือนของหุ้นตัวเดิมค้างอยู่
+        const wb = document.getElementById('port-warn-box');
+        if (wb) { wb.classList.add('d-none'); document.getElementById('port-warn-text').textContent = ''; }
+        const sb = document.getElementById('port-save-btn');
+        if (sb) { sb.disabled = false; sb.textContent = 'Save'; sb.onclick = submitPortfolioForm; }
     }
 
     // ── Cash Flow Month Filter ──────────────────────────────────────
