@@ -586,7 +586,7 @@ def portfolio_exit_plan_prices(request):
 
     out = {}
     for p in pfs:
-        px = prices.get(p.symbol)
+        px = prices.get((p.symbol, p.market))
         if not px:
             continue
         entry = float(p.entry_price or 0)

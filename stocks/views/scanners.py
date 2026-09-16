@@ -1,4 +1,5 @@
 from .base import *
+from stocks.utils import MINERVINI_NEAR_HIGH_RATIO   # เกณฑ์ใกล้ High 52 สัปดาห์ — นิยามเดียวของทั้งระบบ
 import logging
 import time
 
@@ -2276,9 +2277,9 @@ def precision_momentum_scanner(request):
                             return None
 
                         # ====== Trend Template Filter ======
-                        near_high  = current_price >= year_high * 0.65
+                        near_high  = current_price >= year_high * MINERVINI_NEAR_HIGH_RATIO
                         if not near_high and not early_accumulation:
-                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 65% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < {MINERVINI_NEAR_HIGH_RATIO*100:.0f}% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
                             return None
 
                         import logging; logger = logging.getLogger('stocks')
@@ -4794,7 +4795,7 @@ def us_momentum_scanner(request):
                             rvol_val     = float(last['RVOL']) if _pd.notna(last.get('RVOL')) else 1.0
 
                             # ── Minervini Trend Template filters ──────
-                            if not (current_p > ema200 and current_p >= year_high * 0.65):
+                            if not (current_p > ema200 and current_p >= year_high * MINERVINI_NEAR_HIGH_RATIO):
                                 return None
                             if adx_val < 15:
                                 return None
@@ -4818,6 +4819,9 @@ def us_momentum_scanner(request):
                             elif is_bullish and rvol_val >= 1.0: score += 12
                             elif rvol_val >= 1.0:                score += 5
                             # Price strength (max 10)
+                            # ไล่ระดับคะแนน ไม่ใช่ประตูกรอง — ตัวกรอง Trend Template คือ
+                            # MINERVINI_NEAR_HIGH_RATIO ด้านบน สองบรรทัดนี้แค่ให้คะแนนหุ้น
+                            # ที่ยิ่งใกล้ High ยิ่งได้มาก จึงเป็นคนละตัวเลขกันโดยตั้งใจ
                             if current_p >= year_high * 0.90:    score += 10
                             elif current_p >= year_high * 0.80:  score += 5
                             # RS Rating bonus (max 15)
@@ -5631,9 +5635,9 @@ def us_precision_scanner(request):
                             return None
 
                         # ====== Trend Template Filter ======
-                        near_high  = current_price >= year_high * 0.75  # Minervini Trend Template: within 25% of 52w high
+                        near_high  = current_price >= year_high * MINERVINI_NEAR_HIGH_RATIO
                         if not near_high and not early_accumulation:
-                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ${current_price} < 75% of 52wH ${year_high} ({current_price/year_high*100:.0f}%)")
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ${current_price} < {MINERVINI_NEAR_HIGH_RATIO*100:.0f}% of 52wH ${year_high} ({current_price/year_high*100:.0f}%)")
                             return None
 
                         import logging; logger = logging.getLogger('stocks')

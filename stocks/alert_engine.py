@@ -94,15 +94,25 @@ def fetch_live_prices(symbol_market_pairs):
     """
     ดึงราคาปัจจุบันแบบ batch
     symbol_market_pairs: iterable ของ (symbol, market) — market ใช้ตัดสินว่าต้องเติม .BK หรือไม่
-    คืนค่าเป็น {original_symbol: price}
+
+    คืนค่าเป็น {(symbol, market): price} ไม่ใช่ {symbol: price}
+    เพราะ ticker ซ้ำกันข้ามตลาดได้จริง (TU / CPF / SCB มีทั้ง SET และ US) ถ้าคีย์ด้วย
+    symbol เปล่า ราคาของตลาดหนึ่งจะทับอีกตลาดหนึ่ง แล้วโพซิชันฝั่งที่ถูกทับจะถูก
+    ประเมิน SL/TP ด้วยราคาของหุ้นคนละตัว ซึ่งอันตรายกว่าการไม่มีราคาเสียอีก
+    ใช้ค้นด้วย prices.get((p.symbol, p.market))
     """
     pairs = list(dict.fromkeys(symbol_market_pairs))  # unique, คงลำดับ
     if not pairs:
         return {}
 
-    yf_symbols = [_to_yf_symbol(sym, mkt) for sym, mkt in pairs]
-    # yf_sym -> original_sym (กรณีชนกันเอาตัวหลัง ไม่เป็นไร ราคาเดียวกัน)
-    sym_map = {ys: orig for (orig, _m), ys in zip(pairs, yf_symbols)}
+    yf_symbols = list(dict.fromkeys(_to_yf_symbol(sym, mkt) for sym, mkt in pairs))
+    # yf_sym -> คู่ (symbol, market) ต้นทาง *ทุกคู่* ที่แปลงมาลงตัวเดียวกัน
+    # ต้องเก็บเป็นลิสต์ ไม่ใช่ทับกันเหลือตัวเดียว: พอร์ตเก็บ 'PTT.BK' ส่วน watchlist เก็บ 'PTT'
+    # ทั้งคู่แปลงเป็น 'PTT.BK' เหมือนกัน ถ้าเหลือคีย์เดียวอีกฝั่งจะไม่มีราคาให้ใช้
+    # แล้วหายไปเงียบๆ (พอร์ตหลุด alert SL/TP หรือ watchlist หลุด alert breakout สลับกันไป)
+    sym_map = {}
+    for (orig, mkt) in pairs:
+        sym_map.setdefault(_to_yf_symbol(orig, mkt), []).append((orig, mkt))
     live_prices = {}
 
     # ── หลัก: ยิง batch เดียวด้วย yf.download 1m — เร็วกว่า t.info ทีละตัวมาก ──
@@ -114,25 +124,29 @@ def fetch_live_prices(symbol_market_pairs):
                 ys = yf_symbols[0]
                 _close = df["Close"].dropna() if "Close" in df.columns else df.get(ys, df).get("Close")
                 if _close is not None and len(_close):
-                    live_prices[sym_map[ys]] = float(_close.iloc[-1])
+                    for key in sym_map[ys]:
+                        live_prices[key] = float(_close.iloc[-1])
             else:
                 for ys in yf_symbols:
                     try:
                         _close = df[ys]["Close"].dropna()
                         if len(_close):
-                            live_prices[sym_map[ys]] = float(_close.iloc[-1])
+                            for key in sym_map[ys]:
+                                live_prices[key] = float(_close.iloc[-1])
                     except Exception:
                         continue
     except Exception:
         pass
 
     # ── fallback: ตัวที่ batch ไม่ได้ราคา ให้ลอง fast_info ทีละตัว ──
-    missing = [(sym_map[ys], ys) for ys in yf_symbols if sym_map[ys] not in live_prices]
-    for original_sym, ys in missing:
+    missing = [ys for ys in yf_symbols
+               if any(key not in live_prices for key in sym_map[ys])]
+    for ys in missing:
         try:
             p = yf.Ticker(ys).fast_info.last_price
             if p:
-                live_prices[original_sym] = float(p)
+                for key in sym_map[ys]:
+                    live_prices[key] = float(p)
         except Exception:
             continue
 
@@ -146,12 +160,90 @@ def _symbol_key(symbol):
     return str(symbol or '').strip().upper().replace('.BK', '')
 
 
-def _latest_scan(symbol, market=None):
+def _breakout_cache_key(user_id, symbol, market):
+    """คีย์กันแจ้งเตือน BREAKOUT ซ้ำ — ใช้ร่วมกันทั้งฝั่งพอร์ตและฝั่ง watchlist
+
+    ต้องมี market ในคีย์ด้วย เพราะ ticker ซ้ำกันข้ามตลาดได้ (CPF / TU / SCB มีทั้ง
+    SET และ US) ถ้าตัด market ทิ้ง หุ้น US ที่ถืออยู่จะไปปิดปาก alert ของหุ้นไทย
+    ชื่อเดียวกันไปเลย
+    """
+    return f"stockalert_breakout_{user_id}_{_symbol_key(symbol)}_{market or ''}"
+
+
+def _latest_scan(symbol, market=None, user=None):
     clean_symbol = symbol.replace('.BK', '')
     qs = PrecisionScanCandidate.objects.filter(symbol=clean_symbol)
     if market:
         qs = qs.filter(market=market)
+    if user is not None:
+        qs = qs.filter(user=user)
     return qs.order_by('-scan_run').first()
+
+
+def _watchlist_scan(symbol, user):
+    """หาผลสแกนของรายการใน watchlist — โมเดล Watchlist ไม่มีฟิลด์ market ให้ใช้
+
+    ลำดับการตัดสิน:
+      1. ชื่อลงท้าย '.BK' = บอกตลาดมาในชื่อแล้ว (รูปแบบตาม help_text ของฟิลด์) ใช้ SET เลย
+      2. ชื่อเปล่าอย่าง 'TU' กำกวม — ดูว่า user คนนี้มีผลสแกนหุ้นชื่อนี้ในกี่ตลาด
+         ถ้าตลาดเดียวก็ไม่กำกวมจริง ใช้ตลาดนั้น (ครอบคลุมทั้ง 'NVDA' ฝั่ง US และ
+         'PTT' ฝั่งไทยที่ผู้ใช้พิมพ์สั้น)
+      3. มีทั้งสองตลาดถึงจะกำกวมจริง — เลือก SET ไว้ก่อนแบบคงเส้นคงวา เพราะ
+         _to_yf_symbol ก็ถือว่าชื่อเปล่าเป็นหุ้นไทยอยู่แล้ว ราคาและผลสแกนจะได้ตรงกัน
+         ห้ามปล่อยให้ "ตลาดไหนสแกนล่าสุด" เป็นตัวตัดสิน เพราะผลจะสลับไปมาเองระหว่างรอบ
+         ทำให้ได้ราคาผิดตัว เวลาตลาดผิด และคีย์กันซ้ำเปลี่ยนจนแจ้งเตือนซ้ำ
+
+    ทางแก้ที่ถูกต้องกว่านี้คือเพิ่มฟิลด์ market ให้ Watchlist (หรือบังคับเก็บ '.BK')
+    ซึ่งต้องมี migration จึงยังไม่ทำในนี้
+    """
+    sym = str(symbol or '').strip().upper()
+    if sym.endswith('.BK'):
+        return _latest_scan(sym, MarketType.SET, user=user)
+
+    # ต้อง .order_by() ล้าง Meta.ordering (['-scan_run', '-technical_score']) ก่อน .distinct()
+    # ไม่งั้น Django ใส่ฟิลด์ ordering เข้าไปใน SELECT DISTINCT ด้วย แล้วได้ market ซ้ำ
+    # กลับมาเท่าจำนวนแถวสแกนทั้งหมด (ตอนนี้ set() ช่วยกลบไว้ แต่ดึงข้อมูลเกินเปล่าๆ)
+    markets = set(
+        PrecisionScanCandidate.objects
+        .filter(symbol=sym, user=user)
+        .order_by()
+        .values_list('market', flat=True)
+        .distinct()
+    )
+    if len(markets) == 1:
+        return _latest_scan(sym, markets.pop(), user=user)
+    if MarketType.SET in markets:
+        return _latest_scan(sym, MarketType.SET, user=user)
+    return None
+
+
+# อายุ cache ของสัญญาณ fallback — สั้นพอให้ตัวเลขยังสด แต่ยาวกว่ารอบเช็ค (~90 วิ) มาก
+_FALLBACK_SIGNAL_TTL = 15 * 60
+# กรณีดึงไม่ได้ต้องหมดอายุเร็วกว่ากันคนละเรื่อง: สาเหตุที่พบบ่อยคือ yfinance ล่มชั่วคราว
+# หรือโดน throttle ซึ่งหายเองในไม่กี่นาที ถ้าใช้ TTL เดียวกับผลสำเร็จ = ปิดปาก alert
+# ของโพซิชันนั้นทั้งหมดรวมถึง STOP_LOSS ไปเต็ม 15 นาทีเพราะเน็ตสะดุดครั้งเดียว
+# 120 วิ ยาวกว่ารอบเช็คนิดหน่อย พอกันไม่ให้ยิงซ้ำถี่ แต่กลับมาลองใหม่ได้ไว
+_FALLBACK_SIGNAL_FAIL_TTL = 120
+
+
+def _cached_fallback_signals(symbol, market):
+    """สัญญาณ fallback ที่คำนวณสดจากราคา — cache ไว้ต่อ (symbol, market)
+
+    compute_fallback_alert_signals ดึงราคาย้อนหลัง 1 ปีจาก yfinance แบบ synchronous
+    ต่อหนึ่ง symbol และ evaluate_user_alerts ถูกเรียกจาก context processor ด้วย
+    (stocks/context_processors.py) แปลว่ามันอยู่บนเส้นทางเรนเดอร์หน้าเว็บ
+    ตั้งแต่ตอนกรอง user ในการหาผลสแกน โพซิชันที่เคยยืมผลสแกนของคนอื่นมาใช้ได้
+    จะตกมาทางนี้กันหมด ถ้าไม่ cache ไว้ หน้าเว็บจะค้างและโดน yfinance throttle
+    """
+    key = f"stockalert_fallback_{_symbol_key(symbol)}_{market or ''}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None          # เคยลองแล้วไม่มีข้อมูล เก็บเป็น False ไว้ ไม่ต้องยิงซ้ำ
+    from stocks.utils import compute_fallback_alert_signals
+    val = compute_fallback_alert_signals(symbol, market)
+    cache.set(key, val if val is not None else False,
+              timeout=_FALLBACK_SIGNAL_TTL if val is not None else _FALLBACK_SIGNAL_FAIL_TTL)
+    return val
 
 
 def _is_turtle_strategy(strategy):
@@ -373,17 +465,22 @@ def evaluate_user_alerts(user, config):
     # ถ้าส่ง market=None ให้ heuristic ตัดสิน _to_yf_symbol จะเติม .BK ให้ทุกตัวที่ไม่ใช่
     # _NON_SET_MARKETS ซึ่งรวม None ด้วย หุ้น US ใน watchlist จึงถูกถามราคาเป็น 'AAPL.BK'
     # = ไม่มีราคา = ถูก continue ทิ้งทุกรอบ ไม่เคยได้ alert เลย แถมเสีย request เปล่าทุก ~90 วิ
-    watchlist_scans = {w.symbol: _latest_scan(w.symbol) for w in watchlists}
+    watchlist_scans = {w.symbol: _watchlist_scan(w.symbol, user) for w in watchlists}
 
+    # ขอราคาเฉพาะตัวที่มีผลสแกน — ลูปท้ายฟังก์ชัน continue ทิ้งตัวที่ไม่มีผลสแกนอยู่แล้ว
+    # ถ้าใส่เข้าไปด้วย มันจะไปเป็นคู่ (symbol, None) ซึ่ง _to_yf_symbol เติม .BK ให้
+    # กลายเป็น ticker ที่ไม่มีอยู่จริง ('NVDA.BK') แล้วโดนยิงถามทั้ง batch และ fallback
+    # ทุก ~90 วินาที เพื่อเอาไปทิ้ง
     symbol_market_pairs = (
         {(p.symbol, p.market) for p in portfolios}
-        | {(w.symbol, getattr(watchlist_scans.get(w.symbol), 'market', None)) for w in watchlists}
+        | {(w.symbol, watchlist_scans[w.symbol].market)
+           for w in watchlists if watchlist_scans.get(w.symbol) is not None}
     )
     live_prices = fetch_live_prices(symbol_market_pairs)
 
     # มูลค่าพอร์ตหุ้นไทย (SET) รวม — ใช้เป็นฐานคำนวณ "ซื้อเพิ่มกี่บาท" ในสัญญาณ Breakout (เสี่ยง 1% ของพอร์ตนี้ต่อการเพิ่มโพซิชันหนึ่งครั้ง)
     total_set_value = sum(
-        float(pf.quantity) * float(live_prices.get(pf.symbol) or pf.entry_price or 0)
+        float(pf.quantity) * float(live_prices.get((pf.symbol, pf.market)) or pf.entry_price or 0)
         for pf in portfolios if pf.market == MarketType.SET
     )
 
@@ -437,7 +534,7 @@ def evaluate_user_alerts(user, config):
                     cache.set(_k, True, timeout=12 * 60 * 60)
 
     for p in portfolios:
-        price = live_prices.get(p.symbol)
+        price = live_prices.get((p.symbol, p.market))
         if not price:
             continue
 
@@ -460,13 +557,16 @@ def evaluate_user_alerts(user, config):
                     weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุด Trailing Stop ที่ {stop_level:.2f}'})
             continue
 
-        latest_scan = _latest_scan(p.symbol, p.market)
+        # ต้องกรอง user ด้วย ไม่งั้น order_by('-scan_run').first() จะหยิบผลสแกนของ
+        # user คนไหนก็ได้ที่สแกนหุ้นตัวนี้ล่าสุด แล้ว stop_loss / โซน supply / ขนาดซื้อเพิ่ม
+        # ของคนอื่นจะมาขับ alert ของเรา — ถ้าเราไม่มีผลสแกนเอง ให้ตกไปใช้ fallback
+        # ที่คำนวณสดจากราคา ซึ่งถูกต้องกว่าใช้ตัวเลขของคนอื่น
+        latest_scan = _latest_scan(p.symbol, p.market, user=user)
         used_fallback = False
         if not latest_scan:
             # ไม่มีข้อมูลใน PrecisionScanCandidate เลย (เช่น ถูกกรองออกด้วย RS pre-filter ของ scanner
             # ตั้งแต่ต้น) — คำนวณสัญญาณพื้นฐานสดจากราคาตรงแทน ดีกว่าข้ามหุ้นตัวนี้ไปเงียบๆ ไม่แจ้งอะไรเลย
-            from stocks.utils import compute_fallback_alert_signals
-            latest_scan = compute_fallback_alert_signals(p.symbol, p.market)
+            latest_scan = _cached_fallback_signals(p.symbol, p.market)
             used_fallback = True
             if not latest_scan:
                 continue
@@ -614,6 +714,11 @@ def evaluate_user_alerts(user, config):
             except Exception:
                 pass
 
+        # ตัวกันแจ้งเตือนซ้ำต้องอยู่ *ในตัวบล็อก* ไม่ใช่ในเงื่อนไข if — โซ่ if/elif นี้ออกแบบให้
+        # แต่ละสถานะเป็นทางแยกที่ไม่ทับกัน ถ้าเอา cache มาไว้ในเงื่อนไข พอถูกกันซ้ำสำเร็จ
+        # มันจะไหลลง elif แล้วยิง "ย่อเข้าโซนสะสม" / VDU ต่อจากใบ breakout ทันที
+        # ซึ่งขัดกันเองในสายตาผู้ใช้ (เพิ่งบอกว่าเบรคขึ้น 90 วินาทีต่อมาบอกว่าย่อลงโซน)
+        _brk_key = _breakout_cache_key(user.id, p.symbol, p.market)
         if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot or latest_scan.wyckoff_spring):
             # ── ระบุชนิด/ความแรงของสัญญาณให้ตรงกับ Precision scanner ──
             #   PK ⭐ (pp_at_ma50) = เด้งจาก SMA50 ในฐาน + CMF ≥ 0 → มั่นใจสูง (เทียบ badge PK★)
@@ -696,16 +801,23 @@ def evaluate_user_alerts(user, config):
                     knife_warning += "RSI oversold "
                 knife_warning += "— ไม่แนะนำซื้อเพิ่มตอนนี้ รอให้มั่นใจก่อน"
 
-            new_events.append(StockAlertEvent(
-                user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.BREAKOUT,
-                strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
-                message=(
-                    f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
-                    f"{_sig_label} "
-                    f"ที่ราคา {price:.2f} — "
-                    + ("✅ ควรพิจารณาซื้อเพิ่ม" if is_safe_add else "⚠️ HOLD ก่อน") + f"{add_amount_txt}{knife_warning}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
-                ),
-            ))
+            # กันซ้ำเฉพาะ "การยิงใบแจ้งเตือน" ไม่ใช่การเข้าบล็อก — คีย์ร่วมกับฝั่ง watchlist
+            # หุ้นที่ถืออยู่และอยู่ใน watchlist จึงได้ใบเดียว ไม่ว่าทางไหนยิงก่อน
+            if not cache.get(_brk_key):
+                new_events.append(StockAlertEvent(
+                    user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.BREAKOUT,
+                    strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
+                    message=(
+                        f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
+                        f"{_sig_label} "
+                        f"ที่ราคา {price:.2f} — "
+                        + ("✅ ควรพิจารณาซื้อเพิ่ม" if is_safe_add else "⚠️ HOLD ก่อน") + f"{add_amount_txt}{knife_warning}{pk_weak_caveat}{reversal_caveat}{reasons_msg}{_poc_note(latest_scan)}"
+                    ),
+                ))
+                cache.set(_brk_key, True, timeout=12 * 60 * 60)
+            # "หุ้นเด่น" ต้องนับทุกรอบที่สัญญาณยังอยู่ ไม่ใช่เฉพาะรอบที่ยิงใบแจ้งเตือน —
+            # ฝั่ง "หุ้นอ่อนแอ" (STOP_LOSS) ไม่มีตัวกันซ้ำ จึงเติมทุกรอบ ถ้าฝั่งนี้เติมรอบเดียว
+            # สัญญาณ "สับเปลี่ยนหุ้น" จะจับคู่ไม่ติดตั้งแต่รอบที่สอง = ฟีเจอร์ตายไปเฉยๆ
             # นับเป็น "หุ้นเด่น" เฉพาะสัญญาณแรง — เบรค 52w High / Wyckoff Spring / PK ⭐ (pp_at_ma50)
             # PK ธรรมดาอย่างเดียวยังยิง alert เป็นข้อมูล แต่ไม่ดันขึ้นสรุป (ตรงกับ scanner ที่ให้ PK⚡ เป็นข้อมูล, PK★ เป็นคุณภาพ)
             if latest_scan.is_52w_breakout or latest_scan.wyckoff_spring or _pk_strict:
@@ -789,7 +901,7 @@ def evaluate_user_alerts(user, config):
                 new_events.append(StockAlertEvent(
                     user=user, symbol=weak['symbol'], market=weak['market'],
                     alert_type=StockAlertEvent.AlertType.REALLOCATE,
-                    strategy='', price=live_prices.get(weak['symbol']) or 0,
+                    strategy='', price=live_prices.get((weak['symbol'], weak['market'])) or 0,
                     message=(
                         f"ภาพรวมพอร์ต: หุ้น {weak['symbol']} มีสัญญาณอ่อนแอ ({weak['reason']}) "
                         f"ขณะที่ {strong['symbol']} เกิดสัญญาณแข็งแกร่งกว่า ({strong['reason']}, คะแนน {strong['score']}) "
@@ -853,7 +965,7 @@ def evaluate_user_alerts(user, config):
                 new_events.append(StockAlertEvent(
                     user=user, symbol=held[0], market=_mk,
                     alert_type=StockAlertEvent.AlertType.SECTOR_ROTATION,
-                    strategy='', price=live_prices.get(held[0]) or 0.0,
+                    strategy='', price=live_prices.get((held[0], _mk)) or 0.0,
                     message=(
                         f"กลุ่ม \"{sec}\" ที่คุณถือหุ้นอยู่ ({', '.join(sorted(held))}) กำลังอ่อนแรงกว่าตลาด "
                         f"(หุ้น Stage 2 ในกลุ่มมีเพียง {_sec_str:.0f}% ต่ำกว่าค่ากลาง {_median:.0f}%) "
@@ -864,18 +976,12 @@ def evaluate_user_alerts(user, config):
                 cache.set(_k, True, timeout=24 * 60 * 60)
 
     if config.alert_watchlist_entry or config.alert_breakout_add:
-        # หุ้นที่ "ได้ใบ BREAKOUT จากฝั่งพอร์ตไปแล้วจริงๆ ในรอบนี้" — ดูจาก event ที่สร้างไว้
-        # ไม่ใช่เดาจากรายชื่อหุ้นที่ถือ เพราะฝั่งพอร์ตยิงเฉพาะ 52w/PK/Wyckoff (ไม่มี Preset 7)
-        # และ position กลยุทธ์ Turtle ถูก continue ออกไปก่อนถึงบล็อกนั้นด้วย
-        # ถ้าเดาว่า "ถืออยู่ = ได้ใบแล้ว" หุ้นที่มีแต่สัญญาณ Preset 7 จะไม่ได้ใบจากทางไหนเลย
-        breakout_alerted = {_symbol_key(e.symbol) for e in new_events
-                            if e.alert_type == StockAlertEvent.AlertType.BREAKOUT}
         for w in watchlists:
-            price = live_prices.get(w.symbol)
-            if not price:
-                continue
             latest_scan = watchlist_scans.get(w.symbol)
             if not latest_scan:
+                continue
+            price = live_prices.get((w.symbol, latest_scan.market))
+            if not price:
                 continue
 
             now = dj_timezone.now()
@@ -885,10 +991,9 @@ def evaluate_user_alerts(user, config):
             # กรอง is_market_open ตั้งแต่ต้นฟังก์ชัน ตรงนี้ต้องกรองเอง ไม่งั้นข้อความ
             # "BREAKOUT วันนี้" จะถูกยิงกลางดึกจากผลสแกนของเมื่อวาน ขัดกับสัญญาที่
             # check_web_alerts.py เขียนไว้ว่าเช็คเวลาตลาดให้แล้ว
-            # (กรองเฉพาะบล็อกนี้ ไม่คลุมบล็อกโซนซื้อด้านล่างซึ่งไม่เคยมีเงื่อนไขเวลาตลาด)
-            if (config.alert_breakout_add
-                    and is_market_open(latest_scan.market)
-                    and _symbol_key(w.symbol) not in breakout_alerted):
+            # กรองเฉพาะบล็อกนี้ ไม่คลุมบล็อกโซนซื้อด้านล่าง ซึ่งไม่มีเงื่อนไขเวลาตลาดมาแต่เดิม
+            # (ก่อนฟีเจอร์ breakout จะถูกเพิ่มเข้ามา) — การเปลี่ยนพฤติกรรมนั้นเป็นคนละเรื่องกับบั๊กนี้
+            if config.alert_breakout_add and is_market_open(latest_scan.market):
                 _is_ext = bool(getattr(latest_scan, 'is_extended', False))
                 _rvol = float(getattr(latest_scan, 'rvol', 0) or 0)
                 _b52 = bool(getattr(latest_scan, 'is_52w_breakout', False))
@@ -908,7 +1013,7 @@ def evaluate_user_alerts(user, config):
 
                 is_breakout_signal = _b52 or _pk or _wy or _buy_now
                 if is_breakout_signal and not _is_ext:
-                    cache_key = f"stockalert_wl_breakout_{user.id}_{w.symbol}"
+                    cache_key = _breakout_cache_key(user.id, w.symbol, latest_scan.market)
                     if not cache.get(cache_key):
                         if _b52:
                             sig_title = "เบรค 52w High 🔥"
@@ -931,8 +1036,13 @@ def evaluate_user_alerts(user, config):
                         cache.set(cache_key, True, timeout=12 * 60 * 60)
 
             # ── 2. ตรวจจับการย่อเข้าโซนซื้อ (Buy Zone Entry) สำหรับหุ้นใน Watchlist ──
-            if config.alert_watchlist_entry and latest_scan.demand_zone_start:
-                in_zone = price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end
+            # ต้องเช็ค demand_zone_end ด้วย ไม่ใช่แค่ start — ฟิลด์นี้ null ได้ (models.py:336)
+            # และ scanner เขียนสองฟิลด์แยกกัน ถ้าเป็น None จะ price >= None = TypeError
+            # ซึ่งหลุดออกไปก่อน bulk_create ทำให้ alert ทั้งรอบของ user คนนั้นหายหมด
+            # (ฝั่งพอร์ตเช็คสองขอบอยู่แล้ว)
+            if (config.alert_watchlist_entry and latest_scan.demand_zone_start
+                    and latest_scan.demand_zone_end):
+                in_zone = latest_scan.demand_zone_end <= price <= latest_scan.demand_zone_start
                 if in_zone:
                     from stocks.views.base import _compute_signals
                     _sig = _compute_signals(latest_scan, current_price=price)

@@ -150,6 +150,14 @@ def auto_backtest_strategy(df, strategy_type='momentum_rsi', period_days=250):
 # ใช้แสดงผล (SL = sl_pct ต่ำกว่าราคาเข้า, TP = SL-distance * rr_target)
 # ใช้สำหรับตอบคำถาม "เกณฑ์นี้ win rate จริงเท่าไหร่" ไม่ใช่การยืนยัน order
 # ----------------------------------------------------------------------
+# ข้อที่ 7 ของ Minervini Trend Template: ราคาต้องอยู่ภายใน 25% ของ High 52 สัปดาห์
+# ตัวนิยามอยู่ที่ check_trend_template ในไฟล์นี้ ตัวคัดกรองทุกตัวต้อง import ค่านี้ไปใช้
+# (scanners.py 3 จุด, portfolio.py 1 จุด) ห้ามพิมพ์ตัวเลขทับ — เคยพิมพ์กระจาย 4 ที่
+# แล้วเพี้ยนกันเป็น 0.60 / 0.65 / 0.75 ทั้งที่ทุกที่เขียนกำกับว่าเป็นเกณฑ์เดียวกัน
+# ต้องประกาศก่อน _QP_POPULATION_CAVEAT ด้านล่างซึ่งเอาไปคิดเป็นเปอร์เซ็นต์ในข้อความ
+MINERVINI_NEAR_HIGH_RATIO = 0.75
+
+
 PRESET_DEFINITIONS = {
     'superformance': 'Stage2 + Pocket Pivot + CMF≥0.1 + VCP (ไม่รวม RS≥80 และ EPS/Rev ≥20%)',
     'launcher_breakout': 'Stage2 + Launcher≥70 + VCP + Inside Bar',
@@ -189,7 +197,8 @@ _VCP_CAVEAT = ('VCP ที่ใช้เป็นตัวแทนอย่า
 # ข้อจำกัดที่ใช้กับปุ่มลัดทุกปุ่ม — ติดไปกับผลทุกแถวของชุด qp*
 _QP_POPULATION_CAVEAT = (
     'ชุดหุ้นที่ทดสอบไม่เท่ากับชุดที่ปุ่มเห็น — หน้าสแกนคัดหุ้นออกก่อนขึ้นตารางด้วย '
-    'มูลค่าซื้อขายเฉลี่ย ≥10 ล้านบาท, ราคา ≥฿1, ADX ≥15 และราคา ≥65% ของ High 52 สัปดาห์ '
+    'มูลค่าซื้อขายเฉลี่ย ≥10 ล้านบาท, ราคา ≥฿1, ADX ≥15 และราคา '
+    f'≥{MINERVINI_NEAR_HIGH_RATIO * 100:.0f}% ของ High 52 สัปดาห์ '
     '(สองข้อหลังยกเว้นให้หุ้นที่เข้าเกณฑ์ Early Accumulation) ส่วน backtest ทดสอบทุกแท่งของหุ้นใน pool '
     'จึงนับสัญญาณจากแท่งที่หน้าสแกนไม่เคยแสดง — ใช้เทียบกันเองระหว่างปุ่มได้ '
     'แต่ตัวเลขไม่ใช่ผลของ "หุ้นที่โผล่บนปุ่ม" เป๊ะๆ'
@@ -360,7 +369,7 @@ def _build_preset_indicators(df):
         + ((sma50_tt > d['SMA150']) & (sma50_tt > sma200_tt)).astype(int)
         + (d['Close'] > sma50_tt).astype(int)
         + (d['Close'] >= year_low * 1.25).astype(int)
-        + (d['Close'] >= year_high * 0.75).astype(int)
+        + (d['Close'] >= year_high * MINERVINI_NEAR_HIGH_RATIO).astype(int)
     )
     # ต้นฉบับคืน score 0 เมื่อข้อมูลไม่พอ: ต้องมี ≥210 แท่ง *และ* SMA200 ที่ไม่ใช่ NaN ≥22 ค่า
     # เงื่อนไขหลังเข้มกว่า — SMA200 เริ่มมีค่าที่แท่งที่ 200 จึงต้องถึงแท่งที่ 221 (index 220)
@@ -1104,7 +1113,7 @@ def check_trend_template(df, rs_rating=0):
             'sma50_above_150_200':    sma50_v > sma150_v and sma50_v > sma200_v,
             'price_above_sma50':      price > sma50_v,
             'price_25pct_above_low':  price >= year_low * 1.25,
-            'price_within_25pct_of_high': price >= year_high * 0.75,
+            'price_within_25pct_of_high': price >= year_high * MINERVINI_NEAR_HIGH_RATIO,
             'rs_strong':              rs_rating >= 70,
         }
         score = sum(1 for v in checks.values() if v)

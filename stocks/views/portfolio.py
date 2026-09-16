@@ -1,4 +1,5 @@
 from .base import *
+from stocks.utils import MINERVINI_NEAR_HIGH_RATIO   # เกณฑ์ใกล้ High 52 สัปดาห์ — นิยามเดียวของทั้งระบบ
 import logging
 from django.db import transaction
 
@@ -1172,9 +1173,15 @@ def portfolio_scan(request):
                 adx = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
                 gap_to_high = ((year_high - current_price) / current_price) * 100
 
-                # ====== เกณฑ์กรอง Trend Template (เหมือน momentum_scanner) ======
+                # ====== เกณฑ์กรอง Trend Template ======
+                # ใช้ค่าคงที่ตัวเดียวกับสแกนเนอร์ (ของเดิมพิมพ์ 0.60 ไว้เองทั้งที่คอมเมนต์
+                # อ้างว่าเหมือน momentum_scanner) แต่ยัง *ไม่* เหมือนกันเป๊ะอยู่ดี:
+                # สแกนเนอร์ยกเว้นเกณฑ์นี้ให้หุ้นที่เข้าข่าย early_accumulation (วอลุ่มพุ่ง /
+                # ราคาบีบตัว / วอลุ่มแห้ง) ส่วนตรงนี้บังคับทุกตัวไม่มียกเว้น
+                # ผลคือหุ้นที่โผล่บนหน้าสแกนอาจไม่โผล่ที่นี่ — ตั้งใจให้หน้านี้เข้มกว่า
+                # ถ้าจะให้ตรงกันต้องยกตัวคำนวณ early_accumulation มาด้วย ซึ่งเป็นงานคนละก้อน
                 is_uptrend = (current_price > ema200)
-                near_high = (current_price >= year_high * 0.60)
+                near_high = (current_price >= year_high * MINERVINI_NEAR_HIGH_RATIO)
 
                 if is_uptrend and near_high:
                     sector = "Unknown"
@@ -1771,7 +1778,7 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
     equity = 0.0
     heat_rows = []
     for p in holdings:
-        px = prices.get(p.symbol)
+        px = prices.get((p.symbol, p.market))
         if not px:
             continue
         fx = usd_thb if p.market != MarketType.SET else 1.0
