@@ -47,6 +47,9 @@
 .ps-heat-warm  { background:linear-gradient(90deg,#fbbf24,#d97706); }
 .ps-heat-over  { background:linear-gradient(90deg,#f87171,#dc2626); }
 .ps-heat-unknown { background:linear-gradient(90deg,#cbd5e1,#94a3b8); }
+/* หลุด stop แล้ว — แยกสีจาก over เพราะคนละเรื่อง: over คือเสี่ยงเกินเพดาน
+   ส่วน breached คือมีของค้างที่ควรขายไปแล้ว */
+.ps-heat-breached { background:linear-gradient(90deg,#b91c1c,#7f1d1d); }
 .ps-chip { display:inline-block; padding:3px 11px; border-radius:999px; font-size:0.7rem; font-weight:800; }
 
 .ps-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
@@ -215,7 +218,7 @@
           <span class="text-muted" style="font-size:0.85rem;">จากเพดาน {{ heat.max_heat_pct }}%</span>
         </div>
         <span class="ps-chip"
-              style="background:{% if heat.status == 'over' %}#fef2f2;color:#b91c1c{% elif heat.status == 'warm' %}#fffbeb;color:#b45309{% elif heat.status == 'unknown' %}#f1f5f9;color:#475569{% else %}#f0fdf4;color:#15803d{% endif %};">
+              style="background:{% if heat.status == 'breached' %}#fef2f2;color:#7f1d1d{% elif heat.status == 'over' %}#fef2f2;color:#b91c1c{% elif heat.status == 'warm' %}#fffbeb;color:#b45309{% elif heat.status == 'unknown' %}#f1f5f9;color:#475569{% else %}#f0fdf4;color:#15803d{% endif %};">
           {{ heat.label }}
         </span>
       </div>
@@ -230,6 +233,19 @@
         (รวมเงินสด ฿{{ total_cash|floatformat:0|intcomma }})
         · เหลือพื้นที่รับความเสี่ยงอีก {{ heat.room_pct }}%
       </div>
+
+      {% if heat.breached_count %}
+      <div class="ps-note mb-3" style="border-left-color:#b91c1c;">
+        <i class="fa-solid fa-circle-exclamation" style="color:#b91c1c;"></i>
+        <span>
+          <b>{{ heat.breached_count }}</b> ตัวราคาต่ำกว่า Stop Loss ที่ตั้งไว้แล้ว
+          ({% for s in heat.breached %}{{ s }}{% if not forloop.last %}, {% endif %}{% endfor %})
+          — ตามกติกาของพอร์ตเองควรขายไปแล้ว ไม้เหล่านี้<b>ไม่ถูกนับ</b>ใน Heat ด้านบน
+          เพราะไม่เหลือจุดตัดให้วัดว่าจะลงต่ออีกเท่าไหร่
+          {% if heat.breached_loss %}(ขาดทุนที่ยังไม่รับรู้รวม ฿{{ heat.breached_loss|floatformat:0|intcomma }}){% endif %}
+        </span>
+      </div>
+      {% endif %}
 
       {% if heat.unprotected_count %}
       <div class="ps-note mb-3" style="border-left-color:#f59e0b;">
@@ -250,7 +266,7 @@
           <tr>
             <td class="fw-bold">{{ r.symbol }}</td>
             <td>{{ r.stop_price|floatformat:2 }}</td>
-            <td>{% if r.locked_profit %}<span class="text-muted">ล็อกกำไรแล้ว</span>{% else %}฿{{ r.risk_amount|floatformat:0|intcomma }}{% endif %}</td>
+            <td>{% if r.breached %}<span class="fw-bold" style="color:#b91c1c;">หลุด stop แล้ว</span>{% elif r.locked_profit %}<span class="text-muted">ล็อกกำไรแล้ว</span>{% else %}฿{{ r.risk_amount|floatformat:0|intcomma }}{% endif %}</td>
             <td>{{ r.risk_pct }}%</td>
           </tr>
           {% endfor %}

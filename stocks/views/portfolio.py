@@ -864,6 +864,9 @@ def portfolio_list(request):
                 'quantity': float(it['obj'].quantity or 0),
                 'current_price': float(it.get('current_price') or 0) * _fx,
                 'stop_price': float(_stop) * _fx,
+                # ต้องมีทุน ไม่งั้นแยกไม่ออกว่า stop ที่อยู่เหนือราคาคือล็อกกำไร
+                # หรือหลุด stop แล้ว ซึ่งเป็นคนละเรื่องกันคนละทิศ
+                'entry_price': float(it['obj'].entry_price or 0) * _fx,
             })
 
     concentration = concentration_report(_risk_positions, _equity_thb)
@@ -1928,6 +1931,7 @@ def _position_sizing_context(user, *, symbol=None, entry=None, stop=None,
             'quantity': float(p.quantity or 0),
             'current_price': px * fx,      # คิด heat เป็นสกุลเดียว (บาท) ทั้งพอร์ต
             'stop_price': stop_used * fx,
+            'entry_price': float(p.entry_price or 0) * fx,
         })
 
     cash_thb = PortfolioCash.objects.filter(user=user, currency='THB').first()
