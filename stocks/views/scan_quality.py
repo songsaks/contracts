@@ -89,7 +89,7 @@ def scan_quality_report(request):
     # สแกนล่าสุดที่ถูกประเมินแล้ว ทั้งที่ข้อมูลของวันใหม่เข้ามาครบทุกวัน
     # ตัวเติมผลรันวันละครั้ง แถวของวันนี้จึงยังไม่มีแท่งให้วัดเป็นเรื่องปกติ
     recent_tracked = list(rows[:60])
-    _eval_cutoff = timezone.now().date() - timedelta(days=EVALUATION_WINDOW_DAYS)
+    _eval_cutoff = timezone.localdate() - timedelta(days=EVALUATION_WINDOW_DAYS)
     for r in recent_tracked:
         bars = r.get('bars_evaluated') or 0
         r['bars_left'] = max(horizon - bars, 0)

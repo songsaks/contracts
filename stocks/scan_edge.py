@@ -92,7 +92,7 @@ def get_setup_edge_map(user, market='SET', horizon=20):
     # แตะเฉพาะแถวที่อยู่ในหน้าต่าง EVALUATION_WINDOW_DAYS แถวที่เก่ากว่านั้นและยัง
     # pending อยู่จะค้างแบบนั้นตลอดไป ถ้าปล่อยให้มันอยู่ในกองที่เอามานับ ตัวเลข
     # ตัวอย่างบนป้ายจะดูเยอะกว่าความจริง ทั้งที่ไม่มีวันรู้ผล
-    cutoff = timezone.now().date() - timedelta(days=EVALUATION_WINDOW_DAYS)
+    cutoff = timezone.localdate() - timedelta(days=EVALUATION_WINDOW_DAYS)
 
     # horizon ที่ขอมาอาจยังไม่มีข้อมูล (ต้องรอครบ 20 แท่ง) จึงดึงทุก horizon มา
     # แล้วค่อยเลือกอันที่ใช้ได้ — แต่ต้องบอกผู้ใช้ว่าใช้อันไหน ไม่ใช่สลับเงียบๆ

@@ -284,7 +284,16 @@ def record_candidates(user, market, scan_run, candidates):
         from django.db import transaction
         from .models import ScanOutcome
 
-        scan_date = scan_run.date() if hasattr(scan_run, 'date') else scan_run
+        # วันที่ต้องเป็นวันตามเวลาไทย ไม่ใช่วันที่ UTC — scan_run มาจาก timezone.now()
+        # ซึ่ง USE_TZ=True ทำให้เป็น UTC การเรียก .date() ตรงๆ จะได้วันก่อนหน้าเมื่อ
+        # สแกนช่วงเที่ยงคืนถึง 7 โมงเช้า และเพราะระบบกันซ้ำด้วย scan_date การสแกน
+        # ตอนตี 2 จะถูกมองว่าเป็นวันเดียวกับบ่ายวันก่อน แล้วไม่บันทึกอะไรเลย
+        from django.utils import timezone as _dj_tz
+        if hasattr(scan_run, 'date'):
+            scan_date = (_dj_tz.localtime(scan_run).date()
+                         if _dj_tz.is_aware(scan_run) else scan_run.date())
+        else:
+            scan_date = scan_run
 
         existing = set(
             ScanOutcome.objects

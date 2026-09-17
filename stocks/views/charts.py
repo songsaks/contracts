@@ -40,7 +40,8 @@ def chart_ai_analyze_ajax(request, symbol):
         # Check cache if not forcing refresh
         if not force_refresh:
             cache_entry = AnalysisCache.objects.filter(user=request.user, symbol=symbol).first()
-            if cache_entry and cache_entry.last_updated.date() == timezone.now().date():
+            # เทียบเป็นวันตามเวลาไทยทั้งสองฝั่ง ไม่ใช่วันที่ UTC
+            if cache_entry and timezone.localtime(cache_entry.last_updated).date() == timezone.localdate():
                 return JsonResponse({'result': cache_entry.analysis_data, 'cached': True})
 
         signal_text = ", ".join([s.get('type', '') for s in signals]) if signals else "ไม่มีสัญญาณซื้อขายล่าสุด"

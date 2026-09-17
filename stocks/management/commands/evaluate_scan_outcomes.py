@@ -48,7 +48,9 @@ class Command(BaseCommand):
         batch_size = max(int(opts.get('batch') or 40), 1)
         dry_run = bool(opts.get('dry_run'))
 
-        cutoff = timezone.now().date() - timedelta(days=days)
+        # localdate() ไม่ใช่ now().date() — USE_TZ=True ทำให้ now() เป็น UTC
+        # การเรียก .date() จึงได้วันที่ UTC ซึ่งช้ากว่าไทย 7 ชั่วโมง
+        cutoff = timezone.localdate() - timedelta(days=days)
 
         # แถวที่ยังวัดไม่ครบเท่านั้น — complete แล้วไม่ต้องแตะอีก ผลไม่เปลี่ยนย้อนหลัง
         qs = ScanOutcome.objects.exclude(status=STATUS_COMPLETE).filter(scan_date__gte=cutoff)
@@ -63,7 +65,7 @@ class Command(BaseCommand):
         oldest = min(r.scan_date for r in pending)
         # เผื่อวันหยุด/วันไม่มีเทรด ให้ดึงกว้างกว่าหน้าต่างที่ต้องการพอสมควร
         start = oldest - timedelta(days=5)
-        end = timezone.now().date() + timedelta(days=1)
+        end = timezone.localdate() + timedelta(days=1)
 
         by_market = {}
         for row in pending:
