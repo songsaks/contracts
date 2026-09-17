@@ -2561,6 +2561,10 @@
     data-conv-status="{{ item.convergence_status|default:'none' }}"
     data-conv-gap="{{ item.convergence_gap_pct|default:0 }}"
     data-rvol-ctx="{% if item.rvol_context %}{{ item.rvol_context.code }}{% endif %}"
+    data-edge-tier="{{ item.edge_tier|default:'none' }}"
+    data-edge-badge="{{ item.edge_badge_label|default:'' }}"
+    data-edge-horizon="{{ item.edge_horizon|default:'' }}"
+    data-quality-score="{{ item.quality_score|default:0 }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">

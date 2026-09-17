@@ -47,12 +47,16 @@
           <i class="fas fa-robot"></i> <span>AI วิเคราะห์ Edge &amp; กลยุทธ์</span>
         </button>
         <div class="btn-group btn-group-sm">
-          <a href="?market=SET&horizon={{ horizon }}" class="btn {% if market == 'SET' %}btn-light{% else %}btn-outline-light{% endif %}">SET</a>
-          <a href="?market=US&horizon={{ horizon }}" class="btn {% if market == 'US' %}btn-light{% else %}btn-outline-light{% endif %}">US</a>
+          <a href="?market={{ market }}&horizon={{ horizon }}&scope=all" class="btn {% if scope == 'all' %}btn-light fw-bold text-dark{% else %}btn-outline-light{% endif %}" title="สถิติรวมทั้งตลาด (Collective Quant Intelligence)"><i class="fas fa-globe me-1"></i>ทั้งตลาด</a>
+          <a href="?market={{ market }}&horizon={{ horizon }}&scope=my" class="btn {% if scope == 'my' %}btn-light fw-bold text-dark{% else %}btn-outline-light{% endif %}" title="สถิติเฉพาะรอบที่ฉันสแกน"><i class="fas fa-user me-1"></i>เฉพาะฉัน</a>
+        </div>
+        <div class="btn-group btn-group-sm">
+          <a href="?market=SET&horizon={{ horizon }}&scope={{ scope }}" class="btn {% if market == 'SET' %}btn-light fw-bold text-dark{% else %}btn-outline-light{% endif %}">SET</a>
+          <a href="?market=US&horizon={{ horizon }}&scope={{ scope }}" class="btn {% if market == 'US' %}btn-light fw-bold text-dark{% else %}btn-outline-light{% endif %}">US</a>
         </div>
         <div class="btn-group btn-group-sm">
           {% for h in horizons %}
-          <a href="?market={{ market }}&horizon={{ h }}" class="btn {% if horizon == h %}btn-light{% else %}btn-outline-light{% endif %}">{{ h }}D</a>
+          <a href="?market={{ market }}&horizon={{ h }}&scope={{ scope }}" class="btn {% if horizon == h %}btn-light fw-bold text-dark{% else %}btn-outline-light{% endif %}">{{ h }}D</a>
           {% endfor %}
         </div>
       </div>
@@ -456,7 +460,7 @@ function runScanQualityAi() {
     textEl.classList.add('d-none');
     copyBtn.style.display = 'none';
 
-    fetch("{% url 'stocks:api_scan_quality_ai_analysis' %}?market={{ market }}&horizon={{ horizon }}")
+    fetch("{% url 'stocks:api_scan_quality_ai_analysis' %}?market={{ market }}&horizon={{ horizon }}&scope={{ scope }}")
         .then(response => response.json())
         .then(data => {
             loadingEl.style.display = 'none';

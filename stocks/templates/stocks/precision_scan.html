@@ -2478,6 +2478,10 @@
     data-conv-status="{{ item.convergence_status|default:'none' }}"
     data-conv-gap="{{ item.convergence_gap_pct|default:0 }}"
     data-rvol-ctx="{% if item.rvol_context %}{{ item.rvol_context.code }}{% endif %}"
+    data-edge-tier="{{ item.edge_tier|default:'none' }}"
+    data-edge-badge="{{ item.edge_badge_label|default:'' }}"
+    data-edge-horizon="{{ item.edge_horizon|default:'' }}"
+    data-quality-score="{{ item.quality_score|default:0 }}"
     id="row-{{ item.symbol }}">
 
                             <!-- SYMBOL -->
@@ -5220,6 +5224,8 @@ function _tfRowsSET() {
             rvol: parseFloat(d.rvol || 0), turtleDist: parseFloat(d.turtleDist !== undefined ? d.turtleDist : 99),
             rr: parseFloat(d.rr || 0), cup: d.cup === 'true', turtleSys: d.turtleSys === 'true',
             turtleElite: d.turtleElite === 'true',
+            edgeTier: d.edgeTier || 'none', edgeBadge: d.edgeBadge || '',
+            qualityScore: parseFloat(d.qualityScore || 0),
             inzone: d.inzone === 'true', prox: parseFloat(d.prox !== undefined ? d.prox : 99),
             extended: d.extended === 'true',
             ppPrice: parseFloat(d.ppPrice || 0), zoneLow: parseFloat(d.zoneLow || 0),
@@ -5267,7 +5273,7 @@ function _tfDo1SET() {
     _tfChipSET(1, cls, verdict + ' <span style="font-weight:400;opacity:0.7;">(S2 breadth ' + breadth + '%)</span>');
 }
 
-// STEP 2: Quality + cross-system confluence (SEPA / Cup&Handle / Turtle)
+// STEP 2: Quality + cross-system confluence (SEPA / Cup&Handle / Turtle / Edge)
 function _tfDo2SET() {
     const all = _tfStateSET.rows;
     all.forEach(function(r) {
@@ -5276,9 +5282,11 @@ function _tfDo2SET() {
         if (r.cup) r.stars.push('C&H');
         if (r.turtleElite) r.stars.push('🔥 Turtle Elite');
         else if (r.turtleSys) r.stars.push('Turtle');
+        if (r.edgeTier === 'high') r.stars.push('⭐ High Edge');
+        else if (r.edgeTier === 'positive') r.stars.push('⭐ Edge');
     });
-    // Gate คุณภาพ: Stage 2 + RS ≥ 70 (ให้ตรงกับฟิลเตอร์ In-Zone v2 ในตาราง) + confluence 1 อย่าง
-    const pass = all.filter(r => r.s2 && r.rs >= 70 && (r.pp || r.vcp || r.canslim || r.stars.length >= 2));
+    // Gate คุณภาพ: Stage 2 + RS ≥ 70 (ให้ตรงกับฟิลเตอร์ In-Zone v2 ในตาราง) + confluence 1 อย่าง หรือมี High Edge
+    const pass = all.filter(r => r.s2 && r.rs >= 70 && (r.pp || r.vcp || r.canslim || r.stars.length >= 2 || r.edgeTier === 'high'));
     _tfStateSET.q = pass;
     _tfChipSET(2, pass.length ? 'done' : 'blocked', all.length + ' → ' + pass.length + ' ตัว');
 }
@@ -5390,10 +5398,11 @@ function _tfDo5SET() {
         const convBonus = r.convStatus === 'strong' ? 15 : (r.convStatus === 'fair' ? 7 : 0);
         const abcdBonus = r.abcd && r.abcdQuality === 'high' ? 8 : (r.abcd && r.abcdQuality === 'medium' ? 4 : 0);
         const turtleEliteBonus = r.turtleElite ? 30 : 0;
+        const edgeBonus = r.edgeTier === 'high' ? 25 : (r.edgeTier === 'positive' ? 12 : 0);
         r.score = r.stars.length * 25 + (r.timing === 'enter' ? 30 : 15) + (r.pp ? 20 : 0)
                 + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0)
                 + (r.ttScore || 0) * 3 + (r.sectorConfirmed ? 10 : 0)
-                + convBonus + abcdBonus + turtleEliteBonus;
+                + convBonus + abcdBonus + turtleEliteBonus + edgeBonus;
     });
     // จัดกลุ่มก่อนเรียง: ตัวที่ "เข้าได้ตอนนี้" ขึ้นก่อนเสมอ แล้วค่อยเรียงคะแนนภายในกลุ่ม
     const enters = list.filter(r => r.timing === 'enter').sort((a, b) => b.score - a.score);
@@ -5413,7 +5422,7 @@ function _tfDo5SET() {
         : (_tfStateSET.sizeF === 0.5 ? '<div class="small fw-bold mb-2 p-2 rounded-2" style="background:#fffbeb;border:1px solid #fde68a;color:#b45309;"><i class="fas fa-circle-info me-1"></i> ตลาด Sideways — ใช้ขนาดไม้ครึ่งเดียวของปกติ</div>' : '');
     let html = blockedNote + '<div class="rounded-3 p-2 px-3" style="background:white;border:1px solid #e2e8f0;">';
     html += '<div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">'
-          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS + Trend Template + Sector + BO-B Conv + ABCD)</span>'
+          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS + Trend Template + Sector + BO-B Conv + ABCD + Edge)</span>'
           + '<button class="btn btn-sm py-1 px-3 rounded-pill fw-bold" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;font-size:0.7rem;" onclick="addTfTopToWatchlistSET(this)">'
           + '<i class="fas fa-plus-circle me-1"></i> บันทึก ' + top.length + ' ตัวนี้ลง Watchlist'
           + '</button></div>';
@@ -5427,6 +5436,11 @@ function _tfDo5SET() {
             _lastTiming = r.timing;
         }
         const stars = r.stars.map(s => '<span class="tf-star">' + s + ' ✓</span>').join(' ');
+        const edgeBadge = (r.edgeTier === 'high' || r.edgeTier === 'positive')
+            ? '<span class="badge rounded-pill shadow-sm" title="' + (r.edgeTier === 'high' ? 'High Empirical Edge (+25): สถิติชนะเลิศใน Scan Quality' : 'Positive Edge (+12): สถิติผลตอบแทนเป็นบวกใน Scan Quality') + '" '
+              + 'style="background:' + (r.edgeTier === 'high' ? 'linear-gradient(135deg,#059669,#047857);color:white;border:1px solid #10b981' : 'linear-gradient(135deg,#0284c7,#0369a1);color:white;border:1px solid #38bdf8') + ';font-size:0.58rem;padding:2px 6px;">'
+              + (r.edgeTier === 'high' ? '⭐ High Edge (+25)' : '⭐ Edge (+12)') + '</span>'
+            : '';
         const rrWarning = (r.rr && r.rr < 1.5) ? '<span class="badge bg-warning text-dark" style="font-size:0.6rem;padding:2px 5px;" title="Risk/Reward ต่ำกว่า 1:1.5 ควรระวัง">⚠️ RR ต่ำ</span>' : '';
         const erWarning = r.erWarning ? '<span class="badge" style="background:rgba(220,38,38,0.1);color:#dc2626;font-size:0.6rem;padding:2px 5px;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ ระวังไว้แม้ผ่านเกณฑ์อื่นครบ">⚠️ E-R</span>' : '';
         const sectorWarning = r.sectorWeak ? '<span class="badge" style="background:rgba(217,119,6,0.1);color:#b45309;font-size:0.6rem;padding:2px 5px;" title="Sector Confirmation: หุ้นกลุ่มเดียวกันน้อยกว่า 30% อยู่ใน Stage2 — วิ่งเดี่ยวโดยไม่มีกลุ่มยืนยัน เสี่ยง False Breakout สูงกว่าปกติ (Livermore Leading Sisters)">⚠️ วิ่งเดี่ยว</span>' : '';
@@ -5457,7 +5471,7 @@ function _tfDo5SET() {
             + '<div class="mb-2 d-flex align-items-center gap-1 flex-wrap">'
               + '<span class="tf-status ' + r.timing + '" style="font-size:0.68rem;">' + r.action + '</span>'
             + '</div>'
-            + (stars || convBadge || vduBadge || presetPills ? '<div class="mb-2 d-flex flex-wrap gap-1">' + stars + convBadge + vduBadge + presetPills + '</div>' : '')
+            + (stars || edgeBadge || convBadge || vduBadge || presetPills ? '<div class="mb-2 d-flex flex-wrap gap-1">' + stars + edgeBadge + convBadge + vduBadge + presetPills + '</div>' : '')
             + (function(){var pd=(r.ppPrice>0)?((r.price-r.ppPrice)/r.ppPrice*100):0;var col=Math.abs(pd)<=1?'#15803d':(pd>0?'#b45309':'#2563eb');var lbl=Math.abs(pd)<=1?'ที่จุดเข้า':(pd>0?'เหนือจุดเข้า':'ต่ำกว่าจุดเข้า');return '<div class="mb-1 fw-bold" style="font-size:0.82rem;color:#0f172a;">ราคาปัจจุบัน ' + cur + r.price.toFixed(2) + (r.ppPrice>0 ? ' <span style="font-size:0.62rem;font-weight:600;color:'+col+';">('+(pd>=0?'+':'')+pd.toFixed(1)+'% '+lbl+')</span>' : '') + '</div>';})()
             + '<ul class="mb-2 ps-0 recommendation-reasons">'
               + '<li><span class="checkmark-green">✓</span> PP (จุดเข้า) ' + cur + r.ppPrice.toFixed(2) + '</li>'

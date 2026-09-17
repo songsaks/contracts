@@ -45,12 +45,27 @@ def scan_quality_report(request):
     if horizon not in HORIZONS:
         horizon = HORIZONS[-1]
 
-    rows = list(
-        ScanOutcome.objects
-        .filter(user=request.user, market=market)
-        .values(*_STAT_FIELDS)
-        .order_by('-scan_date')[:5000]
+    scope = request.GET.get('scope', 'all').lower()
+    if scope not in ('all', 'my'):
+        scope = 'all'
+
+    qs = ScanOutcome.objects.filter(market=market)
+    if scope == 'my':
+        qs = qs.filter(user=request.user)
+
+    raw_rows = list(
+        qs.values(*_STAT_FIELDS)
+        .order_by('-scan_date')[:10000]
     )
+
+    # Deduplicate ตาม (symbol, scan_date) ป้องกันการนับซ้ำเมื่อมีหลาย user สแกนหุ้นตัวเดียวกัน
+    seen = set()
+    rows = []
+    for r in raw_rows:
+        key = (r.get('symbol'), r.get('scan_date'))
+        if key not in seen:
+            seen.add(key)
+            rows.append(r)
 
     overall = summarize(rows, horizon=horizon)
 
@@ -102,6 +117,7 @@ def scan_quality_report(request):
         'market': market,
         'horizon': horizon,
         'horizons': HORIZONS,
+        'scope': scope,
         'overall': overall,
         'by_score': by_score,
         'flags': flags,
@@ -142,12 +158,26 @@ def api_scan_quality_ai_analysis(request):
     if horizon not in HORIZONS:
         horizon = HORIZONS[-1]
 
-    rows = list(
-        ScanOutcome.objects
-        .filter(user=request.user, market=market)
-        .values(*_STAT_FIELDS)
-        .order_by('-scan_date')[:5000]
+    scope = request.GET.get('scope', 'all').lower()
+    if scope not in ('all', 'my'):
+        scope = 'all'
+
+    qs = ScanOutcome.objects.filter(market=market)
+    if scope == 'my':
+        qs = qs.filter(user=request.user)
+
+    raw_rows = list(
+        qs.values(*_STAT_FIELDS)
+        .order_by('-scan_date')[:10000]
     )
+
+    seen = set()
+    rows = []
+    for r in raw_rows:
+        key = (r.get('symbol'), r.get('scan_date'))
+        if key not in seen:
+            seen.add(key)
+            rows.append(r)
 
     if not rows:
         return JsonResponse({'success': False, 'error': f'ยังไม่มีข้อมูลผลสแกนของตลาด {market} สำหรับวิเคราะห์'}, status=404)

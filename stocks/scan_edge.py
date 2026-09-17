@@ -75,7 +75,7 @@ def _sample_warning(evidence, n, horizon_used=None, horizon_asked=None):
             f"ถือเป็นการคาดการณ์ ไม่ใช่สถิติ")
 
 
-def get_setup_edge_map(user, market='SET', horizon=20):
+def get_setup_edge_map(user=None, market='SET', horizon=20, use_shared_pool=True):
     """
     คำนวณ Edge ของแต่ละ Setup Flag สำหรับตลาดที่ระบุ
 
@@ -84,8 +84,11 @@ def get_setup_edge_map(user, market='SET', horizon=20):
 
     'evidence' บอกว่าตัวเลขชุดนี้เชื่อได้แค่ไหน ผู้เรียกต้องใช้มันตัดสินใจว่าจะ
     แสดงผลแบบมั่นใจหรือแบบตั้งข้อสงสัย — ห้ามอ่านแค่ is_positive แล้วสรุปเอาเอง
+
+    use_shared_pool=True: ดึงข้อมูล ScanOutcome รวมทั้งตลาด (SET/US) ทุก user
+    โดย deduplicate ตาม (symbol, scan_date) ป้องกันการนับซ้ำ ทำให้ได้ตัวอย่างทางสถิติที่แน่นและเร็วขึ้น
     """
-    if not user:
+    if not user and not use_shared_pool:
         return {}
 
     # นับเฉพาะแถวที่ "ยังมีสิทธิ์ถูกประเมิน" — ตัวเติมผล (evaluate_scan_outcomes)
@@ -96,15 +99,26 @@ def get_setup_edge_map(user, market='SET', horizon=20):
 
     # horizon ที่ขอมาอาจยังไม่มีข้อมูล (ต้องรอครบ 20 แท่ง) จึงดึงทุก horizon มา
     # แล้วค่อยเลือกอันที่ใช้ได้ — แต่ต้องบอกผู้ใช้ว่าใช้อันไหน ไม่ใช่สลับเงียบๆ
-    rows = list(
-        ScanOutcome.objects
-        .filter(user=user, market=market, scan_date__gte=cutoff)
-        .values(
-            'status', 'bars_evaluated', 'r_multiple', 'mfe_pct', 'mae_pct',
+    qs = ScanOutcome.objects.filter(market=market, scan_date__gte=cutoff)
+    if not use_shared_pool and user:
+        qs = qs.filter(user=user)
+
+    raw_rows = list(
+        qs.values(
+            'symbol', 'scan_date', 'status', 'bars_evaluated', 'r_multiple', 'mfe_pct', 'mae_pct',
             *[f'ret_d{h}' for h in HORIZONS], *[f for f, _ in SETUP_FLAGS]
         )
-        [:2000]
+        .order_by('-scan_date')[:5000]
     )
+
+    # Deduplicate ตาม (symbol, scan_date) เผื่อมีหลาย user สแกนเจอหุ้นตัวเดียวกันในวันเดียวกัน
+    seen = set()
+    rows = []
+    for r in raw_rows:
+        key = (r.get('symbol'), r.get('scan_date'))
+        if key not in seen:
+            seen.add(key)
+            rows.append(r)
 
     edge_map = {}
 
@@ -184,16 +198,17 @@ def _clear_edge(c):
     c.edge_horizon = None
 
 
-def annotate_candidates_with_edge(candidates, user, market='SET', horizon=20):
+def annotate_candidates_with_edge(candidates, user=None, market='SET', horizon=20, use_shared_pool=True):
     """
     ตรวจจับและติดป้าย Edge ให้กับผู้สมัคร (Candidates) ในหน้า Precision Scan
 
     ป้ายที่ติดจะสะท้อนน้ำหนักของหลักฐานที่มีจริง ดูคำอธิบาย 4 ระดับที่หัวโมดูล
+    use_shared_pool=True (default): ใช้ข้อมูล ScanOutcome รวมทั้งระบบเพื่อความแม่นยำสูงสุด
     """
     if not candidates:
         return {'total_edge_count': 0, 'active_edge_map': {}}
 
-    edge_map = get_setup_edge_map(user, market=market, horizon=horizon)
+    edge_map = get_setup_edge_map(user=user, market=market, horizon=horizon, use_shared_pool=use_shared_pool)
     total_edge_count = 0
 
     for c in candidates:
