@@ -239,7 +239,7 @@
                                     <span class="badge bg-primary-subtle text-primary ms-1" style="font-size:0.6rem;">US</span>
                                 {% endif %}
                                 {% if c.is_elite %}
-                                    <span class="badge bg-warning text-dark ms-1 rounded-pill" style="box-shadow: 0 0 8px rgba(245,158,11,0.3); font-size:0.6rem;" title="Elite Signal: Stage 2 + Strong ADX">🔥 ELITE</span>
+                                    <span class="badge bg-warning text-dark ms-1 rounded-pill" style="box-shadow: 0 0 8px rgba(245,158,11,0.3); font-size:0.6rem;" title="ผ่าน Stage 2 + RS + Technical Score — ชั้นกรองคุณภาพแบบ O'Neil ที่ซ้อนทับลงไป ไม่ใช่กฎ Turtle (Turtle ดูราคาอย่างเดียว) — ไม่ได้ดู ADX">🔥 ELITE</span>
                                 {% elif c.technical_score >= 75 and c.rs_rating >= 80 %}
                                     <span class="badge bg-warning text-dark ms-1 rounded-pill" style="font-size:0.6rem;" title="Golden Signal">🔥 PMS</span>
                                 {% endif %}
@@ -294,15 +294,9 @@
                                           title="{{ c.sys1_skip_reason }}">⏭ ข้ามตามกฎ S1</span>
                                     <div class="text-muted" style="font-size:0.6rem;">breakout ก่อนกำไร</div>
                                 {% elif c.sys1_breakout or c.sys2_breakout %}
-                                    {% if c.sys1_days_ago == 0 or c.sys2_days_ago == 0 %}
-                                        <span class="badge bg-success fw-bold px-1.5 py-0.5" style="font-size:0.65rem;">🚀 Just Broke</span>
-                                        <div class="text-muted" style="font-size:0.65rem;">วันนี้</div>
-                                    {% else %}
-                                        <span class="badge bg-success fw-bold px-1.5 py-0.5" style="font-size:0.65rem;">🚀 Just Broke</span>
-                                        <div class="text-muted" style="font-size:0.65rem;">
-                                            {% with days=c.sys1_days_ago|default:c.sys2_days_ago %}{{ days }} วันก่อน{% endwith %}
-                                        </div>
-                                    {% endif %}
+                                    {# sys1/sys2_breakout เป็นจริงเฉพาะวันที่ทะลุแล้วตามกฎ Turtle #}
+                                    <span class="badge bg-success fw-bold px-1.5 py-0.5" style="font-size:0.65rem;">🚀 Just Broke</span>
+                                    <div class="text-muted" style="font-size:0.65rem;">วันนี้ — เข้าได้ตามกฎ</div>
                                     
                                     {% if not c.is_elite %}
                                         {% if not c.technical_score or c.technical_score < 75 or c.rs_rating < 80 %}
@@ -313,6 +307,17 @@
                                             </div>
                                         {% endif %}
                                     {% endif %}
+                                {% elif c.sys1_days_ago or c.sys2_days_ago %}
+                                    {% comment %}
+                                    ทะลุไปแล้วแต่ไม่ใช่วันนี้ — Turtle เข้าวันที่ราคาทะลุเท่านั้น
+                                    ไม้แบบนี้คือไม้สำหรับ "ทบ" ที่ +0.5N ถ้าถืออยู่แล้ว ไม่ใช่ไม้เปิดใหม่
+                                    {% endcomment %}
+                                    <span class="badge bg-secondary bg-opacity-25 text-secondary-emphasis border fw-bold px-1.5 py-0.5"
+                                          style="font-size:0.65rem;"
+                                          title="Turtle เข้าวันที่ราคาทะลุเท่านั้น เลยมาแล้วถือเป็นไม้สำหรับทบ (+0.5N) ไม่ใช่ไม้เปิดใหม่">⏱ เบรกไปแล้ว</span>
+                                    <div class="text-muted" style="font-size:0.6rem;">
+                                        {% with days=c.sys1_days_ago|default:c.sys2_days_ago %}{{ days }} วันก่อน — เลยจุดเข้า{% endwith %}
+                                    </div>
                                 {% elif c.sys1_near or c.sys2_near %}
                                     <span class="badge bg-warning text-dark fw-bold px-1.5 py-0.5" style="font-size:0.65rem;">⚡ Near Break</span>
                                     <div class="text-muted" style="font-size:0.65rem;">
@@ -343,6 +348,10 @@
                                           style="font-size:0.62rem;" title="{{ c.sys1_skip_reason }}">⏭ S1 Skip</span>
                                     <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_20d|floatformat:2 }}</div>
                                     <div class="text-secondary" style="font-size:0.6rem;">ไม้ก่อนกำไร</div>
+                                {% elif c.sys1_days_ago %}
+                                    <span class="badge bg-secondary bg-opacity-25 text-secondary-emphasis border py-0.5 px-1.5"
+                                          style="font-size:0.62rem;" title="ทะลุ High 20 วันไปแล้ว {{ c.sys1_days_ago }} วัน — เลยจุดเข้าตามกฎ">S1 +{{ c.sys1_days_ago }}ว</span>
+                                    <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_20d|floatformat:2 }}</div>
                                 {% elif c.sys1_near %}
                                     <span class="badge bg-warning bg-opacity-15 text-warning-emphasis border border-warning border-opacity-25 py-0.5 px-1.5" style="font-size:0.62rem;">Near {{ c.pct_to_20d|floatformat:1 }}%</span>
                                     <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_20d|floatformat:2 }}</div>
@@ -355,6 +364,10 @@
                                     <span class="badge badge-sys2 py-0.5 px-1.5 fw-bold" style="font-size:0.62rem;">S2 Break</span>
                                     <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_55d|floatformat:2 }}</div>
                                     <div class="text-danger" style="font-size:0.68rem; font-weight:600;">Ex: {{ c.low_20d|floatformat:2 }}</div>
+                                {% elif c.sys2_days_ago %}
+                                    <span class="badge bg-secondary bg-opacity-25 text-secondary-emphasis border py-0.5 px-1.5"
+                                          style="font-size:0.62rem;" title="ทะลุ High 55 วันไปแล้ว {{ c.sys2_days_ago }} วัน — เลยจุดเข้าตามกฎ">S2 +{{ c.sys2_days_ago }}ว</span>
+                                    <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_55d|floatformat:2 }}</div>
                                 {% elif c.sys2_near %}
                                     <span class="badge bg-warning bg-opacity-15 text-warning-emphasis border border-warning border-opacity-25 py-0.5 px-1.5" style="font-size:0.62rem;">Near {{ c.pct_to_55d|floatformat:1 }}%</span>
                                     <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_55d|floatformat:2 }}</div>
