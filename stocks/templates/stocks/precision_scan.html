@@ -1772,6 +1772,11 @@
                             style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;border:none;font-size:0.72rem;">
                         <i class="fas fa-bolt me-1"></i> รันทุกขั้นในคลิกเดียว
                     </button>
+                    <button class="btn btn-sm rounded-pill px-3 fw-bold text-white shadow-sm" onclick="startMasterPipeline('SET')"
+                            style="background:linear-gradient(135deg,#059669,#10b981);border:none;font-size:0.72rem;"
+                            title="สแกนครบ 4 ระบบในคลิกเดียว: Precision + SEPA + Cup&Handle + Turtle">
+                        <i class="fas fa-layer-group me-1"></i> ⚡ Master Scan (4 ระบบ)
+                    </button>
                     <button class="btn btn-sm rounded-pill px-2" onclick="tfResetSET()" title="เริ่มใหม่"
                             style="background:transparent;color:rgba(255,255,255,0.55);border:1px solid rgba(255,255,255,0.2);font-size:0.72rem;">
                         <i class="fas fa-rotate-left"></i>
@@ -5975,6 +5980,8 @@ function calculatePositionSizer() {
     document.getElementById('outPyramidTrigger').textContent = pyramidTrigger;
 }
 </script>
+
+{% include "stocks/includes/master_scan_modal.html" %}
 
 {% endblock %}
 

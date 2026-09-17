@@ -86,8 +86,13 @@
                 <option value="US" {% if selected_market == 'US' %}selected{% endif %} class="text-dark">🇺🇸 US</option>
             </select>
             
+            <button id="masterScanBtn" class="btn fw-bold shadow-sm px-3 px-md-4 rounded-pill text-white" onclick="startMasterPipeline(document.getElementById('marketSelect').value)"
+                    style="background: linear-gradient(135deg, #059669, #10b981); border: none;"
+                    title="สแกนครบ 4 ระบบในคลิกเดียว: Precision + SEPA + Cup&Handle + Turtle">
+                <i class="fas fa-layer-group me-1"></i> ⚡ Master Scan (4 ระบบ)
+            </button>
             <button id="runScanBtn" class="btn btn-warning fw-bold shadow-sm px-3 px-md-4 rounded-pill">
-                <i class="fas fa-play me-2"></i> Run Scan
+                <i class="fas fa-play me-2"></i> Run Scan (เฉพาะ Turtle)
             </button>
         </div>
     </div>
@@ -685,4 +690,7 @@
         calculateTurtleUnits(); // Auto run calculations on page load
     });
 </script>
+
+{% include "stocks/includes/master_scan_modal.html" %}
+
 {% endblock %}

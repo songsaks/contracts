@@ -76,6 +76,7 @@ urlpatterns = [
     path('api/ai-manual-scan/', views.api_ai_manual_scan, name='api_ai_manual_scan'),
     path('scan/turtle/', views.turtle_scanner, name='turtle_scanner'),
     path('scan/turtle/run/', views.turtle_scanner_run_ajax, name='turtle_scanner_run'),
+    path('scan/master-pipeline/run/', views.master_pipeline_scan_ajax, name='master_pipeline_scan_run'),
     path('signup/', views.signup, name='signup'),
     path('scan/clear/', views.clear_scan_data, name='clear_scan_data'),
     path('scan/refresh-caps/', views.refresh_market_caps_view, name='refresh_market_caps'),

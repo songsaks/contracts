@@ -8806,6 +8806,287 @@ def turtle_scanner_run_ajax(request):
     return _JR({'status': 'started'})
 
 
+# ============================================================
+# Master Pipeline Scanner (4-in-1 Engine)
+# ============================================================
+def _run_master_pipeline_worker(user_id, market):
+    """
+    Background worker สำหรับรัน Master Pipeline Scanner (4-in-1)
+    เรียงตามลำดับ 3 เฟส:
+    Phase 1: Precision Momentum & Minervini SEPA (0-40%)
+    Phase 2: William O'Neil Cup & Handle (40-70%)
+    Phase 3: Richard Donchian & Turtle Trader (70-100%)
+    """
+    import time
+    from django.core.cache import cache
+    from django.contrib.auth import get_user_model
+    from django.test import RequestFactory
+    from stocks.models import PrecisionScanCandidate, CupHandleCandidate, TurtleScanCandidate
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except Exception as e:
+        logger.error(f"[MasterScan] User {user_id} not found: {e}")
+        return
+
+    m_key = f'master_pipeline_scan_{user_id}_{market}'
+    rf = RequestFactory()
+
+    try:
+        # ==========================================
+        # Phase 1: Precision & SEPA Scanner (0% -> 40%)
+        # ==========================================
+        prec_key = f'precision_scan_{user_id}' if market == 'SET' else f'us_precision_scan_{user_id}'
+        cache.delete(prec_key)
+
+        cache.set(m_key, {
+            'state': 'running',
+            'progress': 5,
+            'stage': 1,
+            'phase': f'🚀 Phase 1/3: เริ่มต้นวิเคราะห์ Precision & SEPA ({market})...',
+            'market': market,
+        }, timeout=1800)
+
+        prec_url = f'/stocks/momentum/{"precision" if market == "SET" else "us-precision"}/'
+        prec_req = rf.post(prec_url, {'action': 'scan'})
+        prec_req.user = user
+
+        if market == 'SET':
+            precision_momentum_scanner(prec_req)
+        else:
+            us_precision_scanner(prec_req)
+
+        # Wait for Precision Scan to complete
+        p_start = time.time()
+        while time.time() - p_start < 300:
+            time.sleep(1.5)
+            p_st = cache.get(prec_key) or {}
+            if p_st.get('state') == 'done':
+                break
+
+            p_prog = p_st.get('progress', 0)
+            p_tot = p_st.get('total', 0)
+            p_ratio = (p_prog / max(p_tot, 1)) if p_tot > 0 else 0.1
+            m_prog = int(5 + p_ratio * 35)
+            p_phase_text = p_st.get('phase', 'กำลังประมวลผลข้อมูล...')
+
+            cache.set(m_key, {
+                'state': 'running',
+                'progress': min(m_prog, 39),
+                'stage': 1,
+                'phase': f'🚀 Phase 1/3: Precision & SEPA — {p_phase_text}',
+                'market': market,
+            }, timeout=1800)
+
+        # Phase 1 complete
+        cache.set(m_key, {
+            'state': 'running',
+            'progress': 40,
+            'stage': 1,
+            'phase': '✅ Phase 1: Precision & SEPA สำเร็จแล้ว!',
+            'market': market,
+        }, timeout=1800)
+        time.sleep(1)
+
+        # ==========================================
+        # Phase 2: Cup & Handle Scanner (40% -> 70%)
+        # ==========================================
+        ch_key = f'cup_handle_scan_{user_id}' if market == 'SET' else f'us_cup_handle_scan_{user_id}'
+        cache.delete(ch_key)
+
+        cache.set(m_key, {
+            'state': 'running',
+            'progress': 42,
+            'stage': 2,
+            'phase': f"☕ Phase 2/3: เริ่มต้น William O'Neil Cup & Handle ({market})...",
+            'market': market,
+        }, timeout=1800)
+
+        ch_url = f'/stocks/momentum/{"cup-handle" if market == "SET" else "us-cup-handle"}/'
+        ch_req = rf.post(ch_url, {'scan': 'true'})
+        ch_req.user = user
+
+        if market == 'SET':
+            cup_handle_scanner(ch_req)
+        else:
+            us_cup_handle_scanner(ch_req)
+
+        # Wait for Cup & Handle to complete
+        c_start = time.time()
+        while time.time() - c_start < 300:
+            time.sleep(1.5)
+            c_st = cache.get(ch_key) or {}
+            if c_st.get('state') == 'done':
+                break
+
+            c_prog = c_st.get('progress', 0)
+            c_tot = c_st.get('total', 0)
+            c_ratio = (c_prog / max(c_tot, 1)) if c_tot > 0 else 0.1
+            m_prog = int(40 + c_ratio * 30)
+            c_phase_text = c_st.get('phase', 'กำลังตรวจจับรูปแบบถ้วยหู...')
+
+            cache.set(m_key, {
+                'state': 'running',
+                'progress': min(m_prog, 69),
+                'stage': 2,
+                'phase': f'☕ Phase 2/3: Cup & Handle — {c_phase_text}',
+                'market': market,
+            }, timeout=1800)
+
+        # Phase 2 complete
+        cache.set(m_key, {
+            'state': 'running',
+            'progress': 70,
+            'stage': 2,
+            'phase': "✅ Phase 2: William O'Neil Cup & Handle สำเร็จแล้ว!",
+            'market': market,
+        }, timeout=1800)
+        time.sleep(1)
+
+        # ==========================================
+        # Phase 3: Donchian & Turtle Trader Scanner (70% -> 98%)
+        # ==========================================
+        t_key = f'turtle_scan_{user_id}_{market}'
+        cache.delete(t_key)
+
+        cache.set(m_key, {
+            'state': 'running',
+            'progress': 72,
+            'stage': 3,
+            'phase': f'🐢 Phase 3/3: เริ่มต้น Donchian & Turtle Trader ({market})...',
+            'market': market,
+        }, timeout=1800)
+
+        t_req = rf.get(f'/stocks/scan/turtle/run/?market={market}&force=1')
+        t_req.user = user
+        turtle_scanner_run_ajax(t_req)
+
+        # Wait for Turtle Scan to complete
+        t_start = time.time()
+        while time.time() - t_start < 300:
+            time.sleep(1.5)
+            t_st = cache.get(t_key) or {}
+            if t_st.get('state') == 'done':
+                break
+
+            t_prog = t_st.get('progress', 0)
+            t_tot = t_st.get('total', 0)
+            t_ratio = (t_prog / max(t_tot, 1)) if t_tot > 0 else 0.1
+            m_prog = int(70 + t_ratio * 28)
+            t_phase_text = t_st.get('phase', f'กำลังสแกน Donchian 20D/55D ({t_prog}/{t_tot})...')
+
+            cache.set(m_key, {
+                'state': 'running',
+                'progress': min(m_prog, 98),
+                'stage': 3,
+                'phase': f'🐢 Phase 3/3: Turtle Trader — {t_phase_text}',
+                'market': market,
+            }, timeout=1800)
+
+        # ==========================================
+        # Phase 4: Finalize & Summary
+        # ==========================================
+        prec_cnt = 0
+        sepa_cnt = 0
+        try:
+            latest_prec = PrecisionScanCandidate.objects.filter(user=user, market=market).order_by('-scan_run').first()
+            if latest_prec:
+                run_time = latest_prec.scan_run
+                prec_cnt = PrecisionScanCandidate.objects.filter(user=user, market=market, scan_run=run_time).count()
+                sepa_cnt = PrecisionScanCandidate.objects.filter(user=user, market=market, scan_run=run_time, stage2=True, rs_rating__gte=70).count()
+        except Exception:
+            pass
+
+        ch_cnt = 0
+        try:
+            latest_ch = CupHandleCandidate.objects.filter(user=user, market=market).order_by('-scan_run').first()
+            if latest_ch:
+                ch_cnt = CupHandleCandidate.objects.filter(user=user, market=market, scan_run=latest_ch.scan_run).count()
+        except Exception:
+            pass
+
+        turtle_cnt = 0
+        try:
+            turtle_cnt = TurtleScanCandidate.objects.filter(user=user, market=market).count()
+        except Exception:
+            pass
+
+        cache.set(m_key, {
+            'state': 'done',
+            'progress': 100,
+            'stage': 4,
+            'phase': '🎉 สแกนครบทั้ง 4 ระบบเรียบร้อยแล้ว!',
+            'market': market,
+            'summary': {
+                'precision': prec_cnt,
+                'sepa': sepa_cnt,
+                'cup_handle': ch_cnt,
+                'turtle': turtle_cnt,
+            }
+        }, timeout=3600)
+
+    except Exception as exc:
+        import logging
+        logging.getLogger('stocks').exception(f"[MasterPipeline] Exception: {exc}")
+        cache.set(m_key, {
+            'state': 'failed',
+            'progress': 0,
+            'phase': f'เกิดข้อผิดพลาดในการรัน Master Pipeline: {str(exc)}',
+            'market': market,
+        }, timeout=600)
+
+
+@login_required
+def master_pipeline_scan_ajax(request):
+    """
+    AJAX Endpoint ควบคุมการรัน Master Pipeline Scanner (4-in-1)
+    """
+    import threading
+    from django.core.cache import cache
+    from django.http import JsonResponse
+
+    user_id = request.user.id
+    market = request.GET.get('market', 'SET').upper()
+    if market not in ['SET', 'US']:
+        market = 'SET'
+
+    m_key = f'master_pipeline_scan_{user_id}_{market}'
+
+    # Status check polling
+    if request.GET.get('status_check') == '1':
+        status = cache.get(m_key, {'state': 'idle', 'progress': 0, 'stage': 0, 'phase': 'พร้อมสแกน', 'market': market})
+        return JsonResponse(status)
+
+    # Force reset
+    if request.GET.get('reset') == '1':
+        cache.delete(m_key)
+        return JsonResponse({'state': 'idle', 'market': market})
+
+    # Double-submit guard
+    cur = cache.get(m_key, {})
+    if cur.get('state') == 'running' and request.GET.get('force') != '1':
+        return JsonResponse({'status': 'already_running', 'current': cur})
+
+    # Initialize running state
+    init_state = {
+        'state': 'running',
+        'progress': 2,
+        'stage': 1,
+        'phase': f'🚀 กำลังเริ่มต้น Master Pipeline ({market})...',
+        'market': market
+    }
+    cache.set(m_key, init_state, timeout=1800)
+
+    threading.Thread(
+        target=_run_master_pipeline_worker,
+        args=(user_id, market),
+        daemon=True
+    ).start()
+
+    return JsonResponse({'status': 'started', 'market': market})
+
+
 # ---------------------------------------------------------------------------
 # Stock Chart View - Turtle Breakout + Momentum
 # ---------------------------------------------------------------------------

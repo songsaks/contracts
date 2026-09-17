@@ -1,0 +1,378 @@
+<!-- ============================================================ -->
+<!-- Master Pipeline Scanner Modal (4-in-1 Engine)                -->
+<!-- Precision ➔ SEPA ➔ Cup & Handle ➔ Turtle Trader            -->
+<!-- ============================================================ -->
+<div class="modal fade" id="masterScanModal" tabindex="-1" aria-labelledby="masterScanModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="background: #ffffff;">
+            
+            <!-- Modal Header -->
+            <div class="modal-header border-0 text-white p-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                         style="width: 48px; height: 48px; background: rgba(16, 185, 129, 0.2); border: 1.5px solid #10b981;">
+                        <i class="fas fa-layer-group fs-4 text-emerald" style="color: #34d399;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-white" id="masterScanModalLabel">
+                            ⚡ Master Pipeline Scanner <span class="badge rounded-pill ms-2" id="masterScanMarketBadge" style="background: #10b981; font-size: 0.72rem; font-weight: 700;">SET</span>
+                        </h5>
+                        <small class="text-white-50" style="font-size: 0.8rem;">
+                            คัดกรอง 4 ระดับตามโครงสร้าง 4 ปรมาจารย์: Precision &rarr; SEPA &rarr; Cup & Handle &rarr; Turtle Trader
+                        </small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="masterScanCloseBtn"></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body p-4">
+                
+                <!-- 4-Phase Status Cards Grid -->
+                <div class="row g-2 mb-4">
+                    <!-- Phase 1: Precision & SEPA -->
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 text-center border transition-all" id="phaseCard1" style="background: #f8fafc; border-color: #e2e8f0;">
+                            <div class="mb-2">
+                                <span class="badge rounded-pill bg-secondary" id="phaseBadge1" style="font-size: 0.65rem;">รอคิว</span>
+                            </div>
+                            <div class="fw-bold text-dark small mb-1">
+                                <i class="fas fa-bullseye text-primary me-1"></i> Phase 1
+                            </div>
+                            <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">
+                                Precision & SEPA<br>(RS & Stage 2)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 2: Cup & Handle -->
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 text-center border transition-all" id="phaseCard2" style="background: #f8fafc; border-color: #e2e8f0;">
+                            <div class="mb-2">
+                                <span class="badge rounded-pill bg-secondary" id="phaseBadge2" style="font-size: 0.65rem;">รอคิว</span>
+                            </div>
+                            <div class="fw-bold text-dark small mb-1">
+                                <i class="fas fa-mug-hot text-warning me-1"></i> Phase 2
+                            </div>
+                            <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">
+                                Cup & Handle<br>(O'Neil Pivot)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 3: Turtle Trader -->
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 text-center border transition-all" id="phaseCard3" style="background: #f8fafc; border-color: #e2e8f0;">
+                            <div class="mb-2">
+                                <span class="badge rounded-pill bg-secondary" id="phaseBadge3" style="font-size: 0.65rem;">รอคิว</span>
+                            </div>
+                            <div class="fw-bold text-dark small mb-1">
+                                <i class="fas fa-shield-halved text-success me-1"></i> Phase 3
+                            </div>
+                            <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">
+                                Turtle Trader<br>(Donchian & 1N)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 4: Ready for Trade -->
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 rounded-3 text-center border transition-all" id="phaseCard4" style="background: #f8fafc; border-color: #e2e8f0;">
+                            <div class="mb-2">
+                                <span class="badge rounded-pill bg-secondary" id="phaseBadge4" style="font-size: 0.65rem;">ผลลัพธ์</span>
+                            </div>
+                            <div class="fw-bold text-dark small mb-1">
+                                <i class="fas fa-check-double text-indigo me-1"></i> Phase 4
+                            </div>
+                            <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">
+                                Trade Execution<br>(พร้อมเทรดทันที)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar Container -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold small text-dark" id="masterScanStatusPhase">กำลังเริ่มระบบ...</span>
+                        <span class="fw-bold small text-primary" id="masterScanPercentText">0%</span>
+                    </div>
+                    <div class="progress" style="height: 14px; border-radius: 20px; background: #e2e8f0; overflow: hidden;">
+                        <div id="masterScanProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: 0%; background: linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #6366f1 100%); transition: width 0.4s ease;">
+                        </div>
+                    </div>
+                    <div class="mt-2 text-muted" style="font-size: 0.76rem;" id="masterScanDetailText">
+                        เตรียมดาวน์โหลดข้อมูลราคาและคำนวณ Indicator ทางเทคนิค...
+                    </div>
+                </div>
+
+                <!-- Live Summary Box (Shown when Done) -->
+                <div id="masterScanSummaryBox" class="p-3 rounded-3 mb-3 d-none" style="background: rgba(16, 185, 129, 0.08); border: 1.5px solid rgba(16, 185, 129, 0.3);">
+                    <div class="d-flex align-items-center gap-2 mb-2 text-success fw-bold">
+                        <i class="fas fa-circle-check fs-5"></i>
+                        <span>การประมวลผลทั้ง 4 ระบบเสร็จสมบูรณ์เรียบร้อยแล้ว!</span>
+                    </div>
+                    <div class="row g-2 text-center" style="font-size: 0.8rem;">
+                        <div class="col-6 col-md-3">
+                            <div class="bg-white p-2 rounded shadow-sm">
+                                <div class="text-muted small">Precision Scan</div>
+                                <div class="fw-bold text-dark fs-6" id="summaryPrecCount">0 หุ้น</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="bg-white p-2 rounded shadow-sm">
+                                <div class="text-muted small">SEPA Setup</div>
+                                <div class="fw-bold text-primary fs-6" id="summarySepaCount">0 หุ้น</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="bg-white p-2 rounded shadow-sm">
+                                <div class="text-muted small">Cup & Handle</div>
+                                <div class="fw-bold text-warning fs-6" id="summaryChCount">0 หุ้น</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="bg-white p-2 rounded shadow-sm">
+                                <div class="text-muted small">Turtle Breakout</div>
+                                <div class="fw-bold text-success fs-6" id="summaryTurtleCount">0 หุ้น</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Box (Shown on Failure) -->
+                <div id="masterScanErrorBox" class="alert alert-danger d-none py-2 px-3 small mb-3">
+                    <i class="fas fa-triangle-exclamation me-1"></i> <span id="masterScanErrorMsg">เกิดข้อผิดพลาดในการรัน</span>
+                </div>
+
+                <!-- Quick Navigation Links (Shown when Done) -->
+                <div id="masterScanNavRow" class="d-none pt-2 border-top">
+                    <div class="small fw-bold text-muted mb-2">เลือกหน้าที่ต้องการดูผลลัพธ์:</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-sm btn-success rounded-pill px-3 fw-bold" onclick="location.reload()">
+                            <i class="fas fa-rotate-right me-1"></i> รีเฟรชหน้านี้ทันที
+                        </button>
+                        <a href="{% url 'stocks:turtle_scanner' %}" id="linkToTurtle" class="btn btn-sm btn-outline-success rounded-pill px-3">
+                            <i class="fas fa-shield-halved me-1"></i> ไปหน้า Turtle Trader
+                        </a>
+                        <a href="{% url 'stocks:precision_momentum_scanner' %}" id="linkToPrecision" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                            <i class="fas fa-bullseye me-1"></i> ไปหน้า Precision Scan
+                        </a>
+                        <a href="{% url 'stocks:minervini_sepa_scanner' %}" id="linkToSepa" class="btn btn-sm btn-outline-info rounded-pill px-3">
+                            <i class="fas fa-chart-line me-1"></i> ไปหน้า Minervini SEPA
+                        </a>
+                        <a href="{% url 'stocks:cup_handle_scanner' %}" id="linkToCup" class="btn btn-sm btn-outline-warning rounded-pill px-3">
+                            <i class="fas fa-mug-hot me-1"></i> ไปหน้า Cup & Handle
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer border-0 bg-light py-2 px-4 d-flex justify-content-between align-items-center">
+                <small class="text-muted" style="font-size: 0.72rem;">
+                    <i class="fas fa-info-circle me-1"></i> สามารถปิดหน้าต่างนี้ได้ ระบบจะยังคงคำนวณต่อในพื้นหลัง
+                </small>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+let _masterScanPollTimer = null;
+let _masterScanCurrentMarket = 'SET';
+
+function startMasterPipeline(market) {
+    if (!market) market = 'SET';
+    market = market.toUpperCase();
+    _masterScanCurrentMarket = market;
+
+    // Open modal
+    const modalEl = document.getElementById('masterScanModal');
+    if (!modalEl) return;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    // Set market badge
+    const badge = document.getElementById('masterScanMarketBadge');
+    if (badge) {
+        badge.innerText = market === 'US' ? '🇺🇸 US' : '🇹🇭 SET';
+        badge.style.background = market === 'US' ? '#2563eb' : '#10b981';
+    }
+
+    // Update target links according to market
+    const linkTurtle = document.getElementById('linkToTurtle');
+    if (linkTurtle) linkTurtle.href = "{% url 'stocks:turtle_scanner' %}?market=" + market;
+    const linkPrec = document.getElementById('linkToPrecision');
+    if (linkPrec) linkPrec.href = market === 'US' ? "{% url 'stocks:us_precision_scanner' %}" : "{% url 'stocks:precision_momentum_scanner' %}";
+    const linkSepa = document.getElementById('linkToSepa');
+    if (linkSepa) linkSepa.href = market === 'US' ? "{% url 'stocks:us_sepa_scanner' %}" : "{% url 'stocks:minervini_sepa_scanner' %}";
+    const linkCup = document.getElementById('linkToCup');
+    if (linkCup) linkCup.href = market === 'US' ? "{% url 'stocks:us_cup_handle_scanner' %}" : "{% url 'stocks:cup_handle_scanner' %}";
+
+    // Reset UI elements
+    _resetMasterScanUI();
+
+    // Trigger scan API
+    fetch("{% url 'stocks:master_pipeline_scan_run' %}?market=" + market + "&force=1", {
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (_masterScanPollTimer) clearInterval(_masterScanPollTimer);
+        _masterScanPollTimer = setInterval(() => _pollMasterPipelineStatus(market), 1500);
+        _pollMasterPipelineStatus(market);
+    })
+    .catch(err => {
+        console.error("Failed to start master scan:", err);
+        _showMasterScanError("ไม่สามารถเริ่มการสแกนได้ กรุณาลองใหม่: " + err);
+    });
+}
+
+function _pollMasterPipelineStatus(market) {
+    fetch("{% url 'stocks:master_pipeline_scan_run' %}?market=" + market + "&status_check=1", {
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        _updateMasterScanUI(data);
+    })
+    .catch(err => {
+        console.warn("Poll master scan error:", err);
+    });
+}
+
+function _updateMasterScanUI(data) {
+    const pBar = document.getElementById('masterScanProgressBar');
+    const pText = document.getElementById('masterScanPercentText');
+    const statusPhase = document.getElementById('masterScanStatusPhase');
+    const detailText = document.getElementById('masterScanDetailText');
+
+    const state = data.state || 'idle';
+    const progress = data.progress || 0;
+    const stage = data.stage || 1;
+    const phaseMsg = data.phase || 'กำลังประมวลผล...';
+
+    if (pBar) pBar.style.width = progress + '%';
+    if (pText) pText.innerText = progress + '%';
+    if (detailText) detailText.innerText = phaseMsg;
+
+    // Update phase cards
+    _setPhaseCardState(1, stage > 1 ? 'done' : (stage === 1 && state === 'running' ? 'active' : 'idle'));
+    _setPhaseCardState(2, stage > 2 ? 'done' : (stage === 2 && state === 'running' ? 'active' : 'idle'));
+    _setPhaseCardState(3, stage > 3 ? 'done' : (stage === 3 && state === 'running' ? 'active' : 'idle'));
+    _setPhaseCardState(4, state === 'done' ? 'done' : 'idle');
+
+    if (state === 'running') {
+        if (statusPhase) {
+            if (stage === 1) statusPhase.innerHTML = '<span class="spinner-border spinner-border-sm text-primary me-1"></span> Phase 1: Precision & SEPA Scanner';
+            else if (stage === 2) statusPhase.innerHTML = '<span class="spinner-border spinner-border-sm text-warning me-1"></span> Phase 2: Cup & Handle Scanner';
+            else if (stage === 3) statusPhase.innerHTML = '<span class="spinner-border spinner-border-sm text-success me-1"></span> Phase 3: Turtle Trader Scanner';
+            else statusPhase.innerText = 'กำลังประมวลผล...';
+        }
+    } else if (state === 'done') {
+        if (_masterScanPollTimer) {
+            clearInterval(_masterScanPollTimer);
+            _masterScanPollTimer = null;
+        }
+
+        if (pBar) {
+            pBar.style.width = '100%';
+            pBar.classList.remove('progress-bar-animated');
+            pBar.style.background = '#10b981';
+        }
+        if (pText) pText.innerText = '100%';
+        if (statusPhase) statusPhase.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> ประมวลผลสำเร็จครบ 4 ระบบ!';
+        if (detailText) detailText.innerText = 'อัปเดตฐานข้อมูลหุ้นพร้อมคำนวณคะแนนและสัญญาณเทรดเรียบร้อยแล้ว';
+
+        // Show summary box
+        const sBox = document.getElementById('masterScanSummaryBox');
+        if (sBox) sBox.classList.remove('d-none');
+        const navRow = document.getElementById('masterScanNavRow');
+        if (navRow) navRow.classList.remove('d-none');
+
+        const summ = data.summary || {};
+        const pCnt = document.getElementById('summaryPrecCount');
+        if (pCnt) pCnt.innerText = (summ.precision || 0) + ' หุ้น';
+        const sCnt = document.getElementById('summarySepaCount');
+        if (sCnt) sCnt.innerText = (summ.sepa || 0) + ' หุ้น';
+        const cCnt = document.getElementById('summaryChCount');
+        if (cCnt) cCnt.innerText = (summ.cup_handle || 0) + ' หุ้น';
+        const tCnt = document.getElementById('summaryTurtleCount');
+        if (tCnt) tCnt.innerText = (summ.turtle || 0) + ' หุ้น';
+
+    } else if (state === 'failed') {
+        if (_masterScanPollTimer) {
+            clearInterval(_masterScanPollTimer);
+            _masterScanPollTimer = null;
+        }
+        _showMasterScanError(data.phase || 'การสแกนล้มเหลว');
+    }
+}
+
+function _setPhaseCardState(phaseNum, status) {
+    const card = document.getElementById('phaseCard' + phaseNum);
+    const badge = document.getElementById('phaseBadge' + phaseNum);
+    if (!card || !badge) return;
+
+    if (status === 'active') {
+        card.style.background = '#eff6ff';
+        card.style.borderColor = '#3b82f6';
+        card.style.boxShadow = '0 0 10px rgba(59, 130, 246, 0.2)';
+        badge.className = 'badge rounded-pill bg-primary';
+        badge.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:0.6rem;height:0.6rem;"></span> กำลังสแกน';
+    } else if (status === 'done') {
+        card.style.background = '#f0fdf4';
+        card.style.borderColor = '#22c55e';
+        card.style.boxShadow = 'none';
+        badge.className = 'badge rounded-pill bg-success';
+        badge.innerHTML = '<i class="fas fa-check me-1"></i> เสร็จสิ้น';
+    } else {
+        card.style.background = '#f8fafc';
+        card.style.borderColor = '#e2e8f0';
+        card.style.boxShadow = 'none';
+        badge.className = 'badge rounded-pill bg-secondary';
+        badge.innerText = phaseNum === 4 ? 'ผลลัพธ์' : 'รอคิว';
+    }
+}
+
+function _resetMasterScanUI() {
+    const pBar = document.getElementById('masterScanProgressBar');
+    if (pBar) {
+        pBar.style.width = '0%';
+        pBar.classList.add('progress-bar-animated');
+        pBar.style.background = 'linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #6366f1 100%)';
+    }
+    const pText = document.getElementById('masterScanPercentText');
+    if (pText) pText.innerText = '0%';
+    const statusPhase = document.getElementById('masterScanStatusPhase');
+    if (statusPhase) statusPhase.innerText = 'กำลังเริ่มระบบ...';
+    const detailText = document.getElementById('masterScanDetailText');
+    if (detailText) detailText.innerText = 'เตรียมดาวน์โหลดข้อมูลราคาและคำนวณ Indicator...';
+
+    const sBox = document.getElementById('masterScanSummaryBox');
+    if (sBox) sBox.classList.add('d-none');
+    const navRow = document.getElementById('masterScanNavRow');
+    if (navRow) navRow.classList.add('d-none');
+    const errBox = document.getElementById('masterScanErrorBox');
+    if (errBox) errBox.classList.add('d-none');
+
+    for (let i = 1; i <= 4; i++) _setPhaseCardState(i, 'idle');
+}
+
+function _showMasterScanError(msg) {
+    const errBox = document.getElementById('masterScanErrorBox');
+    const errMsg = document.getElementById('masterScanErrorMsg');
+    if (errBox && errMsg) {
+        errMsg.innerText = msg;
+        errBox.classList.remove('d-none');
+    }
+}
+</script>
