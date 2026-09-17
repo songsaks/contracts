@@ -73,7 +73,10 @@ def monthly_income(user, usd_thb, us_symbol_set=None, is_us_symbol=None):
 
     by_symbol = defaultdict(Decimal)
     for d in DividendRecord.objects.filter(user=user):
-        net = d.net_amount * usd_thb_d if d.market == MarketType.US else d.net_amount
+        # ต้องแปลงค่าเงินทั้ง US และ CRYPTO เหมือนฝั่ง SoldStock ข้างบน — เดิมเช็คแค่ US
+        # ทำให้ปันผล/staking reward ของ crypto ที่บันทึกเป็น USD ถูกนับเป็นบาท 1:1
+        net = (d.net_amount * usd_thb_d
+               if d.market in (MarketType.US, MarketType.CRYPTO) else d.net_amount)
         dividend[(d.dividend_date.year, d.dividend_date.month)] += net
         by_symbol[d.symbol] += net
 

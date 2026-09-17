@@ -664,17 +664,28 @@ def portfolio_list(request):
                 from pypfopt import expected_returns, risk_models
                 from pypfopt.efficient_frontier import EfficientFrontier
 
-                # ดึงราคาปิดย้อนหลัง 1 ปีสำหรับทุก symbol พร้อมกัน
-                # Fetch 1 yr of closing prices for correlation
-                data = yf.download(symbols, period="1y")
-
-                # แปลง MultiIndex columns ให้เหลือแค่ 'Close' level
-                if isinstance(data.columns, pd.MultiIndex):
-                    data = data['Close']
-                elif 'Close' in data:
-                    data = data[['Close']]
-                else:
-                    data = pd.DataFrame() # Fallback
+                # ใช้ราคาที่ batch-download ไว้แล้วตอนต้นฟังก์ชัน ไม่ยิงเน็ตซ้ำรอบสอง
+                #
+                # เดิมเรียก yf.download(symbols) ด้วย symbol ดิบจาก DB ซึ่งผิดสองชั้น:
+                # ดาวน์โหลดข้อมูล 1 ปีชุดเดิมซ้ำทั้งที่ _port_hist_map มีอยู่แล้ว และ
+                # ไม่ได้แปลง suffix แบบที่ _port_fetch_map ทำ (crypto เก็บเป็น BTC
+                # แต่ yfinance ต้องการ BTC-USD) ผลคือ crypto คืน NaN แล้วถูก dropna
+                # ตัดทิ้งเงียบๆ optimizer จึงคิดน้ำหนักจากพอร์ตที่ขาดไม้ไปโดยไม่บอก
+                _closes = {}
+                for _sym in symbols:
+                    _h = _port_hist_map.get(_sym)
+                    if _h is None or _h.empty or 'Close' not in _h.columns:
+                        continue
+                    _ser = _h['Close']
+                    # ตัด timezone ทิ้งก่อนเอามาต่อกัน — แต่ละตลาดคืน index คนละแบบ
+                    # (บางตัว tz-aware บางตัวไม่) ถ้าไม่ normalize pandas จะ align
+                    # ไม่ติดแล้วได้ตารางที่เป็น NaN เกือบทั้งใบ
+                    _idx = pd.to_datetime(_ser.index)
+                    if getattr(_idx, 'tz', None) is not None:
+                        _idx = _idx.tz_localize(None)
+                    _ser = pd.Series(_ser.values, index=_idx.normalize(), name=_sym)
+                    _closes[_sym] = _ser[~_ser.index.duplicated(keep='last')]
+                data = pd.DataFrame(_closes)
 
                 # จัดการ missing values ด้วย forward-fill และ backward-fill
                 # Deal with missing values
@@ -694,14 +705,21 @@ def portfolio_list(request):
 
                 # หา Portfolio ที่ Max Sharpe Ratio (ผลตอบแทนดีที่สุดเมื่อเทียบกับความเสี่ยง)
                 # Optimise for maximal Sharpe ratio
+                #
+                # clean_weights() อ่านน้ำหนักจาก ef.weights ที่ max_sharpe() เขียนไว้
+                # ไม่ใช่จากค่าที่ max_sharpe() คืนกลับมา เดิมจึงรับ raw_weights มาแล้วทิ้ง
+                # และตอน max_sharpe() พัง equal-weight fallback ก็ถูกทิ้งไปด้วย เพราะ
+                # clean_weights() ยังถูกเรียกบน ef ที่ไม่เคย optimize สำเร็จ
+                _ppo_optimized = True
                 try:
-                    raw_weights = ef.max_sharpe()
+                    ef.max_sharpe()
+                    cleaned_weights = ef.clean_weights()
                 except Exception as ef_e:
                     # Fallback: กรณีที่ max_sharpe ไม่ converge ใช้ equal weight แทน
                     # Fallback to equal weighting if max_sharpe fails (e.g. non-convex/all negative returns)
-                    raw_weights = {sym: 1.0/len(symbols) for sym in symbols}
-
-                cleaned_weights = ef.clean_weights()
+                    logger.info("max_sharpe ไม่ converge ใช้ equal weight แทน: %s", ef_e)
+                    _ppo_optimized = False
+                    cleaned_weights = {sym: 1.0 / len(symbols) for sym in symbols}
 
                 # เปรียบเทียบน้ำหนักปัจจุบันกับน้ำหนักที่เหมาะสม
                 # Compare current weights to optimal weights
@@ -719,13 +737,16 @@ def portfolio_list(request):
                     ppo_advice += f"- {sym}: Current Weight = {c_weight:.1f}%, Optimal Weight = {o_weight:.1f}% -> Model says: {action}\n"
 
                 # แสดงผลการวิเคราะห์ประสิทธิภาพของ Portfolio ที่เหมาะสม
-                try:
-                    perf = ef.portfolio_performance(verbose=False)
-                    ppo_advice += f"\nOptimal Expected Annual Return: {perf[0]*100:.2f}%\n"
-                    ppo_advice += f"Optimal Annual Volatility: {perf[1]*100:.2f}%\n"
-                    ppo_advice += f"Optimal Sharpe Ratio: {perf[2]:.2f}\n"
-                except:
-                    pass
+                # ข้ามเมื่อ optimize ไม่สำเร็จ เพราะตัวเลขจะไม่ใช่ของ equal weight
+                # ที่กำลังแสดงอยู่ — บอกผิดแย่กว่าไม่บอก
+                if _ppo_optimized:
+                    try:
+                        perf = ef.portfolio_performance(verbose=False)
+                        ppo_advice += f"\nOptimal Expected Annual Return: {perf[0]*100:.2f}%\n"
+                        ppo_advice += f"Optimal Annual Volatility: {perf[1]*100:.2f}%\n"
+                        ppo_advice += f"Optimal Sharpe Ratio: {perf[2]:.2f}\n"
+                    except Exception as _perf_e:
+                        logger.debug("portfolio_performance ไม่สำเร็จ: %s", _perf_e)
 
             except ImportError:
                 ppo_advice = f"\n[PyPortfolioOpt] Unable to optimize portfolio: PyPortfolioOpt is not installed.\n"
@@ -814,7 +835,7 @@ def portfolio_list(request):
         try:
             yr, mn = map(int, selected_month.split('-'))
             sold_stocks = all_sold_stocks.filter(sold_at__year=yr, sold_at__month=mn).order_by('-sold_at')
-        except:
+        except (ValueError, TypeError):
             sold_stocks = all_sold_stocks[::-1]
 
     # ── ผลรวม P/L ของช่วงเวลาที่เลือก (แปลง US/Crypto เป็นบาท) ──
@@ -1794,8 +1815,6 @@ def tithe_mark_paid(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
-    from django.utils import timezone
-
     try:
         yr = int(request.POST.get('year', 0))
         mo = int(request.POST.get('month', 0))
@@ -1912,7 +1931,6 @@ def manual_update_trade_exit(request):
         if not order.exit_reason:
             order.exit_reason = 'MANUAL'
         if not order.closed_at:
-            from django.utils import timezone
             order.closed_at = timezone.now()
 
         order.save()
