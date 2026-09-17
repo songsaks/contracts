@@ -162,6 +162,14 @@ MINERVINI_NEAR_HIGH_RATIO = 0.75
 # ของฐานจริงในตลาดไทย แต่ยังอยู่ในระยะที่เรียกว่าการบีบตัวได้ (เดิมคือ 0.9)
 VCP_CONTRACTION_RATIO = 0.6
 
+# ความลึกของ Cup ตามเกณฑ์ O'Neil — ปกติ 12-33% ของราคาสูงสุด
+# ถ้วยที่ลึกกว่านี้มักเป็นฐานที่ "เสียรูป" แล้ว (หุ้นโดนเทหนักจนต้องใช้เวลาฟื้นนาน)
+# O'Neil ยอมให้ลึกได้ถึง 40-50% เฉพาะฐานที่ก่อตัวในตลาดหมีรุนแรงเท่านั้น
+# เดิมเปิดกว้าง 10-45% ตายตัว ซึ่งรับฐานที่ลึกเกินเกณฑ์ปกติเข้ามาโดยไม่แยกแยะ
+ONEIL_CUP_DEPTH_MIN = 12.0
+ONEIL_CUP_DEPTH_MAX = 33.0
+ONEIL_CUP_DEPTH_MAX_BEAR = 50.0
+
 # ผลลัพธ์ว่างของ detect_vcp_pattern — ทุกทางออกต้องคืนคีย์ชุดเดียวกัน
 # เดิมทางออกที่ไม่ผ่านคืนแค่ 3 คีย์ ผู้เรียกที่อ่าน vdu_confirmed จึง KeyError
 _VCP_EMPTY = {'setup': False, 'setup_shape_only': False, 'contractions': 0,
@@ -3500,7 +3508,7 @@ def _test_cup_from_pivot(df, pivot_high_abs, pivot_high_val, dates, n):
     cup_low_abs = pivot_high_abs + cup_low_idx
 
     cup_depth_pct = (pivot_high_val - cup_low_val) / pivot_high_val * 100
-    if not (10 <= cup_depth_pct <= 45):
+    if not (ONEIL_CUP_DEPTH_MIN <= cup_depth_pct <= ONEIL_CUP_DEPTH_MAX):
         return None
 
     recovery_segment = df.iloc[cup_low_abs:]
@@ -3533,7 +3541,7 @@ def _test_cup_from_pivot(df, pivot_high_abs, pivot_high_val, dates, n):
             cup_vol_confirmed = float(cup_vols.iloc[mid:].mean()) < float(cup_vols.iloc[:mid].mean())
 
         score = 20
-        if 15 <= cup_depth_pct <= 35:
+        if 15 <= cup_depth_pct <= ONEIL_CUP_DEPTH_MAX:
             score += 8
         if cup_length_so_far >= 50:
             score += 8
@@ -3637,7 +3645,7 @@ def _test_cup_from_pivot(df, pivot_high_abs, pivot_high_val, dates, n):
     score = 30
     if 20 <= cup_depth_pct <= 30:
         score += 15
-    elif 15 <= cup_depth_pct <= 35:
+    elif 15 <= cup_depth_pct <= ONEIL_CUP_DEPTH_MAX:
         score += 8
     if cup_length >= 50:
         score += 10

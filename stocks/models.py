@@ -1255,7 +1255,10 @@ class TurtleScanCandidate(models.Model):
     rs_rating       = models.IntegerField(null=True, blank=True, help_text="Relative Strength Rating")
     stage2          = models.BooleanField(default=False, help_text="True if Price > SMA150 and SMA150 rising")
     adx             = models.FloatField(null=True, blank=True, help_text="Average Directional Index")
-    is_elite        = models.BooleanField(default=False, help_text="ผ่านเกณฑ์คุณภาพระดับสูงครบทุกข้อ")
+    is_elite        = models.BooleanField(
+        default=False,
+        help_text="Stage 2 + RS + technical score ผ่านเกณฑ์ — เป็นชั้นกรองแบบ O'Neil "
+                  "ที่ซ้อนทับ ไม่ใช่กฎของ Turtle (Turtle ดูราคาอย่างเดียว)")
 
     # Extended: 5-day window + near break
     sys1_days_ago = models.IntegerField(null=True, blank=True)   # 0=today, 1-4=within 5 days

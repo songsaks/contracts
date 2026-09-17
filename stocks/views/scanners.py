@@ -8438,13 +8438,14 @@ def turtle_scanner(request):
     
     candidates = []
     last_updated = None   # ต้องมีค่าตั้งต้น ไม่งั้นพังตอนยังไม่เคยสแกน
+    prec_qs = PrecisionScanCandidate.objects.filter(user=request.user, market=market)
+    latest_prec_run = prec_qs.values_list('scan_run', flat=True).order_by('-scan_run').first()
+
     if candidates_qs.exists():
         latest_run = candidates_qs.order_by('-scan_run').values_list('scan_run', flat=True).first()
         candidates = list(candidates_qs.filter(scan_run=latest_run).order_by('symbol'))
         last_updated = latest_run
         
-        prec_qs = PrecisionScanCandidate.objects.filter(user=request.user, market=market)
-        latest_prec_run = prec_qs.values_list('scan_run', flat=True).order_by('-scan_run').first()
         if latest_prec_run:
             prec_dict = {p.symbol: p for p in prec_qs.filter(scan_run=latest_prec_run)}
             for c in candidates:
@@ -8469,9 +8470,20 @@ def turtle_scanner(request):
         regime = calculate_markov_regime(index_sym)
         cache.set(regime_cache_key, regime, timeout=1800) # 30 mins
 
+    # --- ดึงข้อมูลเงินสด Portfolio Cash ของผู้ใช้ตามสกุลเงินตลาด ---
+    from stocks.models import PortfolioCash
+    currency = 'USD' if market == 'US' else 'THB'
+    user_cash = PortfolioCash.objects.filter(user=request.user, currency=currency).first()
+    default_capital = float(user_cash.balance) if user_cash and user_cash.balance > 0 else (50000.0 if market == 'US' else 1000000.0)
+    has_custom_capital = bool(user_cash and user_cash.balance > 0)
+
     context = {
         'candidates': candidates,
         'last_updated': last_updated,
+        'latest_prec_run': latest_prec_run,
+        'user_capital': default_capital,
+        'user_currency': currency,
+        'has_custom_capital': has_custom_capital,
         'selected_market': market,
         'market_regime': regime,
         'title': "Turtle Trader Scanner"
@@ -8710,13 +8722,19 @@ def turtle_scanner_run_ajax(request):
                         # เดิมไม่มีกฎนี้เลย สิ่งที่แสดงว่า "System 1" จึงไม่ใช่ S1 จริง
                         sys1_skipped, sys1_skip_reason = (
                             _tf_system1_should_skip(df) if sys1_raw else (False, ''))
-                        sys1 = sys1_raw and not sys1_skipped
+
+                        # Turtle เข้า "วันที่" ราคาทะลุ ไม่ใช่ทะลุไปแล้วกี่วันก็เข้าได้
+                        # หน้าต่าง 10 วันยังเก็บไว้เป็นบริบท (sys1_days_ago) เพราะไม้ที่
+                        # เบรกไป 3 วันแล้ววิ่ง +1N คือไม้สำหรับ "ทบ" ตามกฎ +0.5N
+                        # ไม่ใช่ไม้เปิดใหม่ — คนละเรื่องกัน ต้องแยกให้ออก
+                        sys1 = sys1_raw and not sys1_skipped and sys1_days_ago == 0
 
                         # Stop ตามกฎ Turtle = ราคาเข้า − 2N (N = ATR 20 วัน)
                         stop_2n = _tf_turtle_stop(h20 if sys1_raw else current_close, atr)
 
                         # Donchian 4-Week Rule — กฎต้นทางของทั้งสาย เก็บแยกจาก Turtle
                         _dc = _tf_four_week_rule(df) or {}
+                        sys2 = sys2 and sys2_days_ago == 0   # เช่นเดียวกับ S1
                         sys1_near = (not sys1_raw) and h20 > 0 and current_close >= h20 * 0.97
                         sys2_near = (not sys2) and h55 > 0 and current_close >= h55 * 0.97
 
@@ -8735,6 +8753,10 @@ def turtle_scanner_run_ajax(request):
                             ps_val = p_score if p_score is not None else 0
                             rs_val = rs_rat if rs_rat is not None else 0
                             
+                            # ตัวกรองนี้ไม่ได้อยู่ในกฎ Turtle — Turtle เป็นระบบราคาล้วน
+                            # ไม่ดู relative strength ไม่ดูพื้นฐาน นี่คือชั้นกรองคุณภาพ
+                            # แบบ O'Neil/Weinstein ที่ซ้อนทับลงไป ใช้ได้แต่ต้องบอกให้ชัด
+                            # ว่าเป็นของเพิ่ม ไม่ใช่ Turtle บริสุทธิ์
                             if market == 'US':
                                 # US: ต้องผ่านเกณฑ์ทั้ง RS >= 85 และ Score >= 80 (AND)
                                 is_elite = is_stage2 and (rs_val >= 85 and ps_val >= 80)

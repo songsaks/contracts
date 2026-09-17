@@ -77,6 +77,10 @@
                 <input class="form-check-input" type="checkbox" role="switch" id="filterLauncherToggle" onclick="applyFilters()">
                 <label class="form-check-label fw-bold small" for="filterLauncherToggle">🚀 L>70</label>
             </div>
+            <div class="form-check form-switch text-white">
+                <input class="form-check-input" type="checkbox" role="switch" id="filterDonchianLongToggle" onclick="applyFilters()">
+                <label class="form-check-label fw-bold small" for="filterDonchianLongToggle">📈 4W LONG</label>
+            </div>
             <select id="marketSelect" class="form-select bg-white bg-opacity-25 text-white border-0 fw-bold rounded-pill px-3" style="width: auto;">
                 <option value="SET" {% if selected_market == 'SET' %}selected{% endif %} class="text-dark">🇹🇭 SET</option>
                 <option value="US" {% if selected_market == 'US' %}selected{% endif %} class="text-dark">🇺🇸 US</option>
@@ -130,6 +134,34 @@
     </div>
     {% endif %}
 
+    <!-- Precision Scan Link & Data Freshness Banner -->
+    <div class="alert alert-light border shadow-sm rounded-4 mb-4 py-2.5 px-3 d-flex flex-wrap align-items-center justify-content-between gap-3" style="background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(226, 232, 240, 0.8) !important;">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20 rounded-pill px-2.5 py-1 fw-bold">
+                <i class="fas fa-crosshairs me-1"></i> Precision Link
+            </span>
+            <span class="small text-secondary fw-medium">
+                คะแนน RS Rating, Stage 2 และ Technical Score เชื่อมโยงจาก Precision Scan:
+                {% if latest_prec_run %}
+                    <strong class="text-dark"><i class="far fa-calendar-check text-success me-1"></i>รอบ {{ latest_prec_run|date:"d M Y H:i" }}</strong>
+                {% else %}
+                    <strong class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>ยังไม่พบข้อมูลสแกน Precision ในตลาดนี้</strong>
+                {% endif %}
+            </span>
+        </div>
+        <div>
+            {% if selected_market == 'US' %}
+                <a href="{% url 'stocks:us_precision_scanner' %}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold shadow-sm" style="font-size: 0.78rem;">
+                    <i class="fas fa-external-link-alt me-1"></i> เปิด US Precision Scanner
+                </a>
+            {% else %}
+                <a href="{% url 'stocks:precision_momentum_scanner' %}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold shadow-sm" style="font-size: 0.78rem;">
+                    <i class="fas fa-external-link-alt me-1"></i> เปิด SET Precision Scanner
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Loading State -->
     <div id="scanProgress" class="card-premium d-none mb-4 p-4 text-center">
         <div class="spinner-border text-success mb-3" role="status"></div>
@@ -151,7 +183,12 @@
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2 bg-white px-2 px-md-3 py-2 rounded-pill shadow-sm border">
                     <span class="text-secondary fw-bold mb-0 d-none d-lg-inline" style="font-size: 0.82rem;"><i class="fas fa-calculator text-primary me-1"></i> ความเสี่ยง 1% จากทุน:</span>
-                    <input type="text" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 150px; font-size: 0.85rem;" value="1,000,000.00" oninput="formatCurrencyInput(this)">
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="text" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 135px; font-size: 0.85rem;" value="{{ user_capital|floatformat:2 }}" oninput="formatCurrencyInput(this)">
+                        <span class="badge {% if has_custom_capital %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-10 text-secondary border{% endif %} rounded-pill" style="font-size: 0.65rem;" title="{% if has_custom_capital %}ดึงยอดเงินสดคงเหลือจาก Portfolio Cash ของคุณ{% else %}ค่าเริ่มต้น{% endif %}">
+                            {{ user_currency }}{% if has_custom_capital %} (Port){% endif %}
+                        </span>
+                    </div>
                     <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="calculateTurtleUnits()">คำนวณไม้</button>
                     <button class="btn btn-sm btn-outline-purple rounded-pill px-2 fw-bold shadow-sm" onclick="sortLauncher()" title="เรียงลำดับ Launcher" style="border-color: #7c3aed; color: #7c3aed;">
                         <i class="fas fa-sort-amount-down"></i>
@@ -187,6 +224,7 @@
                             data-launcher-score="{{ c.launcher_score|default:0 }}" 
                             data-elite="{{ c.is_elite|yesno:'1,0' }}"
                             data-stage2="{{ c.stage2|yesno:'1,0' }}"
+                            data-donchian="{{ c.donchian_signal|default:'' }}"
                             data-price="{{ c.price|default:0 }}" 
                             data-atr="{{ c.atr_20d|default:0 }}">
                             <td class="text-center" style="vertical-align: middle;">
@@ -375,9 +413,9 @@
             {% endif %}
             
             <div id="noEliteMessage" class="p-5 text-center d-none">
-                <div class="text-muted mb-3"><i class="fas fa-crown fa-3x opacity-25" style="color: #f59e0b;"></i></div>
-                <h4 class="text-secondary fw-bold">ไม่พบหุ้นระดับ Elite ในรอบนี้</h4>
-                <p class="text-muted">หุ้นในตลาดอาจจะยังไม่มีเทรนด์ที่แข็งแกร่งพอ (ADX < 20) หรือไม่ได้อยู่ใน Stage 2 ขาขึ้น<br>ลองปิดตัวกรอง Elite หรือสแกนตลาดอื่นๆ ดูครับ</p>
+                <div class="text-muted mb-3"><i class="fas fa-filter fa-3x opacity-25" style="color: #f59e0b;"></i></div>
+                <h4 class="text-secondary fw-bold">ไม่พบหุ้นที่ตรงตามตัวกรองที่เลือก</h4>
+                <p class="text-muted">ลองปิดตัวกรองบางตัว (เช่น 4W LONG หรือ Elite Only) เพื่อดูผลการสแกนทั้งหมด</p>
             </div>
         </div>
     </div>
@@ -449,6 +487,7 @@
         const showElite = document.getElementById('filterEliteToggle').checked;
         const showQuality = document.getElementById('filterQualityToggle').checked;
         const showLauncher = document.getElementById('filterLauncherToggle').checked;
+        const showDonchianLong = document.getElementById('filterDonchianLongToggle')?.checked;
         const rows = document.querySelectorAll('.turtle-row');
         const noEliteMsg = document.getElementById('noEliteMessage');
         const tableBody = document.querySelector('table.table-turtle tbody');
@@ -459,18 +498,20 @@
             const isElite = row.getAttribute('data-elite') === '1';
             const prec = parseInt(row.getAttribute('data-prec-score')) || 0;
             const launcher = parseInt(row.getAttribute('data-launcher-score')) || 0;
+            const donchian = row.getAttribute('data-donchian') || '';
             
             let visible = true;
             if (showElite && !isElite) visible = false;
             if (showQuality && prec < 75) visible = false;
             if (showLauncher && launcher < 70) visible = false;
+            if (showDonchianLong && donchian !== 'LONG') visible = false;
             
             row.style.display = visible ? '' : 'none';
             if (visible) visibleCount++;
         });
 
         // Show/Hide "No Elite" message
-        if (visibleCount === 0 && (showElite || showQuality || showLauncher)) {
+        if (visibleCount === 0 && (showElite || showQuality || showLauncher || showDonchianLong)) {
             noEliteMsg.classList.remove('d-none');
             if (tableHeader) tableHeader.style.display = 'none';
         } else {
