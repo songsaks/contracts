@@ -2554,8 +2554,11 @@
                             </td>
 
                             <!-- SETUP READINESS SCORE -->
-                            {# เดิมแสดงว่า "โอกาสชนะ %" ซึ่งทำให้เข้าใจว่าเป็นอัตราชนะจากผลเทรดจริง
-                               แต่มันคือผลรวมคะแนนจากสูตรถ่วงน้ำหนักด้วยมือ ที่ไม่เคย calibrate กับ ScanOutcome — ดู stocks/scan_scoring.py #}
+                            {% comment %}
+                            เดิมแสดงว่า "โอกาสชนะ %" ซึ่งทำให้เข้าใจว่าเป็นอัตราชนะจากผลเทรดจริง
+                            แต่มันคือผลรวมคะแนนจากสูตรถ่วงน้ำหนักด้วยมือ ที่ไม่เคย calibrate
+                            กับ ScanOutcome — ดู stocks/scan_scoring.py
+                            {% endcomment %}
                             <td class="text-center" style="background: rgba(5,150,105,0.02);"
                                 title="คะแนนองค์ประกอบทางเทคนิค (RS / เทคนิค / ADX / CMF / วอลุ่ม) เต็ม 100 — ไม่ใช่อัตราชนะจากสถิติผลเทรดจริง{% for cv in item.setup_caveats %}&#10;{{ cv }}{% endfor %}">
                                 <div class="d-flex flex-column align-items-center">
