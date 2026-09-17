@@ -132,6 +132,10 @@ def get_setup_edge_map(user, market='SET', horizon=20):
                     'avg_r': round(avg_r, 2),
                     'is_positive': is_pos,
                     'is_high': False,
+                    # NOTE: sample_count ของเส้นทางนี้นับ "ทุกแถวที่ติดธง" รวมไม้ที่ยัง
+                    # เปิดอยู่ ต่างจากเส้นทางที่วัดผลจริงซึ่ง summarize() นับเฉพาะแถว
+                    # ที่มี ret_d{horizon} แล้ว ผู้แสดงผลต้องอ่าน evidence ประกอบเสมอ
+                    # ไม่งั้นจะเอาเลขสองชนิดมาเทียบกับเกณฑ์เดียวกัน
                     'sample_count': len(flag_rows),
                     'evidence': EVIDENCE_PROVISIONAL,
                     'warning': _sample_warning(EVIDENCE_PROVISIONAL, len(flag_rows)),
