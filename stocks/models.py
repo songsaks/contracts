@@ -1229,6 +1229,17 @@ class TurtleScanCandidate(models.Model):
     avg_vol_20d = models.FloatField(default=0.0)
     atr_20d = models.FloatField(default=0.0)
 
+    # -- กฎ Turtle ที่เคยขาดไป --
+    # S1 มีกฎว่า "ถ้า breakout ครั้งก่อนเป็นไม้กำไร ให้ข้ามครั้งนี้" ซึ่งเป็นสิ่งที่
+    # แยก System 1 ออกจาก Donchian breakout ธรรมดา เก็บทั้งผลและเหตุผลไว้ให้ตรวจสอบได้
+    sys1_raw_breakout = models.BooleanField(
+        default=False, help_text="ทะลุ High 20 วันแล้ว (ยังไม่ผ่านกฎข้ามของ S1)")
+    sys1_skipped = models.BooleanField(
+        default=False, help_text="ถูกกฎ S1 สั่งข้าม เพราะ breakout ครั้งก่อนเป็นไม้กำไร")
+    sys1_skip_reason = models.CharField(max_length=200, blank=True, default='')
+    # Stop = ราคาเข้า − 2N ตามกฎ Turtle (N = ATR 20 วัน) เดิมเก็บแต่ ATR ไม่เคยแปลงเป็น stop
+    stop_2n = models.FloatField(null=True, blank=True, help_text="Stop ตามกฎ Turtle = entry − 2N")
+
     # -- Quality Metrics (v2 Upgrade) --
     technical_score = models.IntegerField(null=True, blank=True, help_text="คะแนนจาก Precision Scan")
     rs_rating       = models.IntegerField(null=True, blank=True, help_text="Relative Strength Rating")

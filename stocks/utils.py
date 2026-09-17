@@ -157,6 +157,16 @@ def auto_backtest_strategy(df, strategy_type='momentum_rsi', period_days=250):
 # ต้องประกาศก่อน _QP_POPULATION_CAVEAT ด้านล่างซึ่งเอาไปคิดเป็นเปอร์เซ็นต์ในข้อความ
 MINERVINI_NEAR_HIGH_RATIO = 0.75
 
+# VCP: แต่ละคลื่นต้องลึกไม่เกินสัดส่วนนี้ของคลื่นก่อนหน้า
+# ตำราของ Minervini ว่า "ราวครึ่งหนึ่ง" (0.5) — ใช้ 0.6 เพื่อเผื่อความไม่เนี้ยบ
+# ของฐานจริงในตลาดไทย แต่ยังอยู่ในระยะที่เรียกว่าการบีบตัวได้ (เดิมคือ 0.9)
+VCP_CONTRACTION_RATIO = 0.6
+
+# ผลลัพธ์ว่างของ detect_vcp_pattern — ทุกทางออกต้องคืนคีย์ชุดเดียวกัน
+# เดิมทางออกที่ไม่ผ่านคืนแค่ 3 คีย์ ผู้เรียกที่อ่าน vdu_confirmed จึง KeyError
+_VCP_EMPTY = {'setup': False, 'setup_shape_only': False, 'contractions': 0,
+              'tightness': 0.0, 'vdu_confirmed': False, 'base_length_weeks': 0}
+
 
 # ----------------------------------------------------------------------
 # พื้นระยะ Stop Loss ขั้นต่ำ — stop ที่ชิดราคาเข้ากว่านี้ไม่ใช่ stop แต่เป็นลอตเตอรี่
@@ -2830,7 +2840,7 @@ def detect_vcp_pattern(df):
     3. Tightness: คลื่นลูกสุดท้ายควรมีความลึก < 10%
     """
     if df is None or len(df) < 150:
-        return {'setup': False, 'contractions': 0, 'tightness': 0.0}
+        return _VCP_EMPTY.copy()
 
     try:
         df = df.copy()
@@ -2854,7 +2864,7 @@ def detect_vcp_pattern(df):
         
         # ต้องยืนเหนือ EMA200
         if ema200_val is None or curr_price < ema200_val:
-            return {'setup': False, 'contractions': 0, 'tightness': 0.0}
+            return _VCP_EMPTY.copy()
 
         # 2. หาฐานราคาสูงสุดในรอบ 150 วัน
         base_period = df.tail(150)
@@ -2864,7 +2874,7 @@ def detect_vcp_pattern(df):
         # เริ่มนับจากจุดสูงสุดของฐาน
         base_data = df.loc[base_high_idx:]
         if len(base_data) < 10:
-            return {'setup': False, 'contractions': 0, 'tightness': 0.0}
+            return _VCP_EMPTY.copy()
             
         # 3. ตรวจสอบการบีบตัว (Contractions)
         # เราหา Swing Highs/Lows หลังจาก Base High
@@ -2889,7 +2899,10 @@ def detect_vcp_pattern(df):
             depth = ((h_val - l_val) / h_val) * 100
             
             # VCP คือความลึกต้องค่อยๆ น้อยลง และเป็นคลื่นที่สมเหตุสมผล (> 1.5%)
-            if depth < last_depth * 0.9 and depth > 1.5:
+            # Minervini ระบุว่าแต่ละคลื่นควรลึก "ราวครึ่งหนึ่ง" ของคลื่นก่อนหน้า
+            # (25% → 12% → 6%) เดิมใช้ 0.9 ซึ่งแปลว่าแคบลงแค่ 10% ก็นับเป็นการบีบตัว
+            # (25% → 22.5% ผ่าน) หลวมเกินกว่าจะเรียกว่า Volatility Contraction
+            if depth < last_depth * VCP_CONTRACTION_RATIO and depth > 1.5:
                 swings.append(depth)
                 last_depth = depth
         
@@ -2907,7 +2920,7 @@ def detect_vcp_pattern(df):
                 # ถ้า Volume ช่วงท้ายน้อยกว่าค่าเฉลี่ย 40% ขึ้นไป ถือว่า VDU ชัดเจน
                 if recent_vol < avg_vol_50 * 0.7:
                     vdu_confirmed = True
-            except:
+            except Exception:
                 pass
             
             # ต้องอยู่ใกล้ไฮ (Pivot point) ไม่เกิน 8%
@@ -2916,8 +2929,13 @@ def detect_vcp_pattern(df):
             # Base Length: นับจำนวนสัปดาห์ตั้งแต่ Base High จนถึงปัจจุบัน
             base_length_weeks = max(1, round(len(base_data) / 5))
 
+            # VDU เป็นเงื่อนไขผ่าน ไม่ใช่แค่ข้อมูลประกอบ
+            # Minervini ถือว่าวอลุ่มที่แห้งลงในคลื่นสุดท้ายคือลายเซ็นของแรงขายที่หมด
+            # ("the footprint") ฐานที่บีบตัวสวยแต่วอลุ่มไม่แห้ง แปลว่ายังมีของออกอยู่
+            # เดิมคำนวณ vdu_confirmed ไว้ครบแล้วแต่ไม่เคยเอามาใช้ตัดสิน setup เลย
             return {
-                'setup': is_vcp and near_pivot,
+                'setup': is_vcp and near_pivot and vdu_confirmed,
+                'setup_shape_only': is_vcp and near_pivot,
                 'contractions': len(swings),
                 'tightness': round(tightness, 1),
                 'vdu_confirmed': vdu_confirmed,
@@ -2928,7 +2946,7 @@ def detect_vcp_pattern(df):
         import logging
         logging.getLogger('stocks').error(f"VCP Detection Error: {e}")
         
-    return {'setup': False, 'contractions': 0, 'tightness': 0.0}
+    return _VCP_EMPTY.copy()
 
 # ----------------------------------------------------------------------
 # find_supply_demand_zones_v2 — เวอร์ชันปรับปรุง

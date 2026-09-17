@@ -6,6 +6,11 @@ import time
 # สูตรให้คะแนนความพร้อมของ setup — ระดับโมดูล ไม่ใช่ในฟังก์ชัน
 # เพราะทั้งหน้า SET และหน้า US เรียกใช้ตัวเดียวกัน
 from stocks.scan_scoring import compute_setup_scores
+# กฎ Donchian / Turtle ตามต้นตำรับ — เก็บนิยามไว้ที่เดียวใน stocks/trend_following.py
+from stocks.trend_following import (
+    system1_should_skip as _tf_system1_should_skip,
+    turtle_stop as _tf_turtle_stop,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -8431,6 +8436,7 @@ def turtle_scanner(request):
     candidates_qs = TurtleScanCandidate.objects.filter(user=request.user, market=market)
     
     candidates = []
+    last_updated = None   # ต้องมีค่าตั้งต้น ไม่งั้นพังตอนยังไม่เคยสแกน
     if candidates_qs.exists():
         latest_run = candidates_qs.order_by('-scan_run').values_list('scan_run', flat=True).first()
         candidates = list(candidates_qs.filter(scan_run=latest_run).order_by('symbol'))
@@ -8450,7 +8456,6 @@ def turtle_scanner(request):
                     c.technical_score = None
                     c.rs_rating = None
                     c.launcher_score = None
-        last_updated = None
 
     # --- Markov Market Regime Pulse ---
     from django.core.cache import cache
@@ -8551,6 +8556,16 @@ def turtle_scanner_run_ajax(request):
         
         results = []
         processed = 0
+
+        # ดึงผล Precision ล่าสุดของทุกตัวรอบเดียว — เดิม query ทีละ symbol ในลูป
+        # (N+1) ซึ่งกับ 300 ตัวคือ 300 query ต่อการสแกนหนึ่งครั้ง
+        _prec_latest = {}
+        for _p in (PrecisionScanCandidate.objects
+                   .filter(user=user, market=market)
+                   .order_by('-scan_run')
+                   .only('symbol', 'technical_score', 'rs_rating', 'scan_run')):
+            if _p.symbol not in _prec_latest:
+                _prec_latest[_p.symbol] = _p
 
         # --- STAGE 1: Systematic Analysis (Detailed Scan) ---
         # ข้าม Stage 1 (YahooQuery) เพื่อความเร็วและป้องกันการค้าง
@@ -8660,33 +8675,54 @@ def turtle_scanner_run_ajax(request):
                         sma200 = float(last_row.get('SMA200', 0) or 0)
                         adx_val = float(last_row.get('ADX_14', 0) or 0)
                         
-                        is_stage2 = current_close > sma150 and sma150 > sma200
+                        # Weinstein Stage 2 ต้องมีเส้น 30 สัปดาห์ (150 วัน) ที่กำลังยกขึ้น
+                        # เดิมเช็คแค่ลำดับของเส้น ทั้งที่ help_text ของฟิลด์เองก็เขียนว่า
+                        # "SMA150 rising" — นิยามหายไปทั้งจากโค้ดและจากผลลัพธ์
+                        try:
+                            sma150_1m_ago = float(df['SMA150'].dropna().iloc[-22])
+                        except (IndexError, KeyError, ValueError):
+                            sma150_1m_ago = float('nan')
+                        sma150_rising = sma150 > sma150_1m_ago
+                        is_stage2 = current_close > sma150 and sma150 > sma200 and sma150_rising
 
                         # --- Just Broke (Expanded window to 10 days) ---
+                        # breakout นับจาก High ระหว่างวัน ไม่ใช่ราคาปิด — Donchian,
+                        # Turtle และ Livermore นิยาม breakout ว่าราคา "ทะลุผ่าน"
+                        # จุดสูงสุด ซึ่งเกิดระหว่างวัน และต้องมากกว่า ไม่ใช่เท่ากับ
                         window = df.tail(10)
                         sys1_days_ago = None
                         sys2_days_ago = None
                         for d_ago, (_, row) in enumerate(window.iloc[::-1].iterrows()):
                             rh20 = float(row.get('High_20', 0) or 0)
                             rh55 = float(row.get('High_55', 0) or 0)
-                            rc   = float(row['Close'])
-                            if sys1_days_ago is None and rh20 > 0 and rc >= rh20:
+                            rtrig = float(row['High'])
+                            if sys1_days_ago is None and rh20 > 0 and rtrig > rh20:
                                 sys1_days_ago = d_ago
-                            if sys2_days_ago is None and rh55 > 0 and rc >= rh55:
+                            if sys2_days_ago is None and rh55 > 0 and rtrig > rh55:
                                 sys2_days_ago = d_ago
 
-                        sys1 = sys1_days_ago is not None
+                        sys1_raw = sys1_days_ago is not None
                         sys2 = sys2_days_ago is not None
-                        sys1_near = (not sys1) and h20 > 0 and current_close >= h20 * 0.97
+
+                        # กฎที่แยก Turtle System 1 ออกจาก Donchian breakout ธรรมดา:
+                        # ถ้า breakout 20 วันครั้งก่อนหน้าเป็นไม้กำไร ให้ข้ามครั้งนี้
+                        # เดิมไม่มีกฎนี้เลย สิ่งที่แสดงว่า "System 1" จึงไม่ใช่ S1 จริง
+                        sys1_skipped, sys1_skip_reason = (
+                            _tf_system1_should_skip(df) if sys1_raw else (False, ''))
+                        sys1 = sys1_raw and not sys1_skipped
+
+                        # Stop ตามกฎ Turtle = ราคาเข้า − 2N (N = ATR 20 วัน)
+                        stop_2n = _tf_turtle_stop(h20 if sys1_raw else current_close, atr)
+                        sys1_near = (not sys1_raw) and h20 > 0 and current_close >= h20 * 0.97
                         sys2_near = (not sys2) and h55 > 0 and current_close >= h55 * 0.97
 
                         pct_to_20d = round((current_close - h20) / h20 * 100, 2) if h20 > 0 else None
                         pct_to_55d = round((current_close - h55) / h55 * 100, 2) if h55 > 0 else None
 
-                        if sys1 or sys2 or sys1_near or sys2_near:
+                        if sys1_raw or sys2 or sys1_near or sys2_near:
                             p_score = None
                             rs_rat = None
-                            p_match = PrecisionScanCandidate.objects.filter(user=user, symbol=symbol, market=market).order_by('-scan_run').first()
+                            p_match = _prec_latest.get(symbol)
                             if p_match:
                                 p_score = p_match.technical_score
                                 rs_rat = p_match.rs_rating
@@ -8705,7 +8741,10 @@ def turtle_scanner_run_ajax(request):
                             results.append(TurtleScanCandidate(
                                 user=user, scan_run=scan_time, symbol=symbol, market=market,
                                 price=current_close,
-                                sys1_breakout=sys1, sys1_days_ago=sys1_days_ago,
+                                sys1_breakout=sys1, sys1_raw_breakout=sys1_raw,
+                                sys1_skipped=sys1_skipped, sys1_skip_reason=sys1_skip_reason,
+                                stop_2n=stop_2n,
+                                sys1_days_ago=sys1_days_ago,
                                 high_20d=round(h20, 2), low_10d=round(l10, 2),
                                 sys2_breakout=sys2, sys2_days_ago=sys2_days_ago,
                                 high_55d=round(h55, 2), low_20d=round(l20, 2),
