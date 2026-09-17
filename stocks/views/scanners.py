@@ -1289,54 +1289,49 @@ def momentum_scanner(request):
         st = _cp.get(cache_key, {'state': 'idle'})
         if st.get('state') == 'done':
             _cp.delete(cache_key)
-        elif st.get('state') == 'running':
-            import time as _tm
-            st_time = st.get('timestamp', 0)
-            if (st.get('total', 0) == 0 and st.get('progress', 0) == 0) or (_tm.time() - st_time > 60):
-                _cp.delete(cache_key)
-                st = {'state': 'idle'}
         return _JR(st)
 
     # ── Trigger background scan ───────────────────────────────────────
     if request.GET.get('scan') == 'true' or request.method == 'POST':
         from stocks.utils import get_top_ranked_symbols, refresh_all_thai_symbols
-        # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและคุณภาพ
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
+        # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและคุณภาพ (auto_refresh=False ไม่ให้บล็อก HTTP request)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=False)
         
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=False)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
             import time as _tm
             total_syms = len(scan_symbols)
-            _cp.set(cache_key, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'เริ่มสแกน…', 'timestamp': _tm.time()}, timeout=900)
+            _cp.set(cache_key, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'เริ่มสแกน…'}, timeout=900)
 
             def _run_momentum_bg(uid, ckey, sym_list):
                 try:
                     import numpy as _np
-                    import pandas as _pd
+                    import pandas as pd
+                    _pd = pd
                     from stocks.pandas_ta_compat import ta as _ta
                     import yfinance as _yf
                     from django.contrib.auth import get_user_model
                     from django.core.cache import cache as _c
+                    from django.db import transaction
 
                     from stocks.models import MomentumCandidate as _MC
                     from stocks.utils import (
-                        analyze_momentum_technical,
-                        find_supply_demand_zones,
+                        analyze_momentum_technical_v2,
                         find_supply_demand_zones_v2,
                     )
                     from stocks.utils import get_top_ranked_symbols as _GTRS
                     User = get_user_model()
                     user = User.objects.get(pk=uid)
                     
-                    sym_list = _GTRS(market='SET', limit=300, auto_refresh=True)
-                    _MC.objects.filter(user=user, market='SET').delete()
+                    if not sym_list:
+                        sym_list = _GTRS(market='SET', limit=300, auto_refresh=False)
                     
                     # --- STAGE 1: Fast Screening (The Radar) ---
-                    # Scan all 800+ symbols for basic liquidity and trend
+                    # Scan all symbols for basic liquidity and trend
                     total_syms = len(sym_list)
                     _c.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': f'Stage 1: สแกนด่วน {total_syms} ตัว...'}, timeout=900)
                     
@@ -1356,7 +1351,7 @@ def momentum_scanner(request):
                     try:
                         _si = _yf.download("^SET.BK", start=scan_start_str, end=scan_end_str, interval="1d", progress=False)
                         if _si is not None and not _si.empty:
-                            if isinstance(_si.columns, _pd.MultiIndex):
+                            if isinstance(_si.columns, pd.MultiIndex):
                                 _si.columns = _si.columns.droplevel(1)
                             _sc = _si['Close'].dropna()
                             if len(_sc) >= 22:
@@ -1389,14 +1384,17 @@ def momentum_scanner(request):
                                     if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data:
                                         candidates.append({'symbol': symbol}); continue
                                     
-                                    curr_p = p_data.get('regularMarketPrice')
-                                    avg_vol = p_data.get('averageDailyVolume3Month', 0)
-                                    # Very loose liquidity filter to ensure we get results
-                                    if (curr_p * avg_vol) < 150000: continue
+                                    curr_p = float(p_data.get('regularMarketPrice') or 0)
+                                    avg_vol = float(p_data.get('averageDailyVolume3Month') or 0)
+                                    # Very loose liquidity filter to ensure we get results (only if avg_vol is present)
+                                    if curr_p > 0 and avg_vol > 0 and (curr_p * avg_vol) < 150000:
+                                        continue
                                     candidates.append({'symbol': symbol})
-                                except Exception: candidates.append({'symbol': symbol})
+                                except Exception:
+                                    candidates.append({'symbol': symbol})
                         except Exception:
-                            for sym in chunk: candidates.append({'symbol': sym})
+                            for sym in chunk:
+                                candidates.append({'symbol': sym})
 
                     if len(candidates) < 20: # Emergency fallback
                         candidates = [{'symbol': s} for s in sym_list[:150]]
@@ -1410,9 +1408,7 @@ def momentum_scanner(request):
                     def _analyze_one(symbol):
                         try:
                             s_bk = f"{symbol}.BK"
-                            # ใช้ yf.Ticker().history() แทน yf.download() — yf.download() มีบั๊ก
-                            # thread-safety ทำให้ข้อมูลปนข้าม symbol เมื่อรันใน ThreadPool
-                            # (บั๊กเดียวกับที่เคยแก้ใน Precision scanner แล้ว)
+                            # ใช้ yf.Ticker().history() แทน yf.download() — thread-safe
                             df = _yf.Ticker(s_bk).history(period="1y", interval="1d", timeout=20)
                             if df is None or df.empty or len(df) < 55: return None
                             if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
@@ -1421,7 +1417,7 @@ def momentum_scanner(request):
                             df['EMA200'] = _ta.ema(df['Close'], length=200)
                             df['RSI'] = _ta.rsi(df['Close'], length=14)
                             adx = _ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                            if adx is not None: df = pd.concat([df, adx], axis=1)
+                            if adx is not None and not adx.empty: df = pd.concat([df, adx], axis=1)
                             df['MFI'] = _ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
                             
                             tech = analyze_momentum_technical_v2(df)
@@ -1474,10 +1470,10 @@ def momentum_scanner(request):
                                             h['EMA50'] = _ta.ema(h['Close'], length=50)
                                             h['EMA200'] = _ta.ema(h['Close'], length=min(200, len(h)-1))
                                             h['RSI'] = _ta.rsi(h['Close'], length=14)
-                                            # ADX/MFI ต้องคำนวณใน fallback ด้วย ไม่งั้นตัวที่มาทางนี้ได้ 0 เสมอ
+                                            # ADX/MFI ต้องคำนวณใน fallback ด้วย
                                             try:
                                                 _adx_fb = _ta.adx(h['High'], h['Low'], h['Close'], length=14)
-                                                if _adx_fb is not None: h = pd.concat([h, _adx_fb], axis=1)
+                                                if _adx_fb is not None and not _adx_fb.empty: h = pd.concat([h, _adx_fb], axis=1)
                                                 h['MFI'] = _ta.mfi(h['High'], h['Low'], h['Close'], h['Volume'], length=14)
                                             except Exception: pass
                                             tech = analyze_momentum_technical_v2(h)
@@ -1523,7 +1519,6 @@ def momentum_scanner(request):
                             import logging; logging.getLogger('stocks').warning(f"[Momentum] Stage 3 fundamental fetch failed: {_fx}")
 
                     # ── RS Rating: rank ผลตอบแทน 3 เดือน (66 วัน) แบบเดียวกับ Precision scanner ──
-                    # หมายเหตุ: rank ภายในกลุ่มผู้รอด Stage 2 (~150 ตัวใหญ่) ไม่ใช่ทั้งตลาด
                     _rs_returns = {}
                     for r in pre_results:
                         try:
@@ -1534,11 +1529,21 @@ def momentum_scanner(request):
                             continue
                     _rs_map = {}
                     if _rs_returns:
-                        _rs_ser = _pd.Series(_rs_returns)
+                        _rs_ser = pd.Series(_rs_returns)
                         _rs_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
 
                     # FINAL: Save to DB
                     _c.set(ckey, {'state': 'running', 'progress': 95, 'phase': 'Saving results...'}, timeout=600)
+                    
+                    def _clean_float(val, default=0.0):
+                        if val is None: return default
+                        try:
+                            f = float(val)
+                            import math
+                            return default if (math.isnan(f) or math.isinf(f)) else f
+                        except (ValueError, TypeError):
+                            return default
+
                     bulk_objs = []
                     for r in pre_results:
                         sym = r['symbol']
@@ -1556,12 +1561,12 @@ def momentum_scanner(request):
 
                         bulk_objs.append(_MC(
                             user=user, symbol=sym, symbol_bk=f"{sym}.BK", market='SET', price=r['price'],
-                            rsi=tech.get('rsi', 0), 
-                            adx=float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0,
-                            mfi=float(df['MFI'].iloc[-1]) if 'MFI' in df.columns else 0,
-                            rvol=tech.get('rvol', 0), 
+                            rsi=_clean_float(tech.get('rsi', 0)), 
+                            adx=_clean_float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0.0,
+                            mfi=_clean_float(df['MFI'].iloc[-1]) if 'MFI' in df.columns else 0.0,
+                            rvol=_clean_float(tech.get('rvol', 0)), 
                             rvol_bullish=tech.get('rvol_bullish', False),
-                            technical_score=tech.get('score', 0),
+                            technical_score=int(tech.get('score', 0)),
                             rs_rating=_rs_map.get(sym, 0),
                             entry_strategy=entry_strat, 
                             demand_zone_start=dz_start, 
@@ -1573,17 +1578,20 @@ def momentum_scanner(request):
                             year_high=r['year_high'], 
                             upside_to_high=((r['year_high'] - r['price'])/r['price'])*100 if r['price'] > 0 else 0,
                             sector=f['sector'],
-                            eps_growth=f['eps_growth'],
-                            rev_growth=f['rev_growth'],
+                            eps_growth=_clean_float(f['eps_growth']),
+                            rev_growth=_clean_float(f['rev_growth']),
                             stage2=r.get('stage2', False),
                             bb_squeeze=r.get('bb_squeeze', False),
                             macd_crossover=r.get('macd_crossover', False),
-                            rel_1m=r.get('rel_1m', 0.0),
-                            rel_3m=r.get('rel_3m', 0.0),
-                            zone_proximity=r.get('zone_proximity', 999.0),
+                            rel_1m=_clean_float(r.get('rel_1m', 0.0)),
+                            rel_3m=_clean_float(r.get('rel_3m', 0.0)),
+                            zone_proximity=_clean_float(r.get('zone_proximity', 999.0), 999.0),
                         ))
-                    if bulk_objs:
-                        _MC.objects.bulk_create(bulk_objs)
+                    
+                    with transaction.atomic():
+                        _MC.objects.filter(user=user, market='SET').delete()
+                        if bulk_objs:
+                            _MC.objects.bulk_create(bulk_objs)
                 except Exception as e:
                     import logging; logging.getLogger('stocks').error(f"Momentum Scan Error: {e}")
                 finally:
@@ -1591,6 +1599,9 @@ def momentum_scanner(request):
 
             # Start Worker
             _th.Thread(target=_run_momentum_bg, args=(user_id, cache_key, scan_symbols), daemon=True).start()
+
+        from django.shortcuts import redirect as _redir
+        return _redir('stocks:momentum_scanner')
 
     # ====== Handle AI Summary Analysis (Optional) ======
     ai_analysis = ""

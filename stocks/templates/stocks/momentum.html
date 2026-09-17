@@ -32,9 +32,8 @@
 </style>
 
 {% include "stocks/includes/dark_mode_scanner.html" %}
-{% if is_scanning %}
 <div id="momentumLoadingOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.92);
-     z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+     z-index:9999;display:{% if is_scanning %}flex{% else %}none{% endif %};flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
     <div style="width:64px;height:64px;border-radius:50%;border:6px solid rgba(239,68,68,0.2);
                 border-top-color:#ef4444;animation:mSpin 1s linear infinite;"></div>
     <div style="color:white;font-size:1.2rem;font-weight:700;">
@@ -49,28 +48,37 @@
 </div>
 <style>@keyframes mSpin { to { transform: rotate(360deg); } }</style>
 <script>
+function showMomentumLoading() {
+    var overlay = document.getElementById('momentumLoadingOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+{% if is_scanning %}
 (function() {
-    var _mSawRunning = true;
     function poll() {
         fetch('?scan_status=1', { credentials: 'same-origin' })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.state === 'running') {
                     var prog = data.progress || 0, total = data.total || 1;
-                    document.getElementById('momentumPhase').textContent = data.phase || 'สแกน…';
-                    document.getElementById('momentumBar').style.width = Math.round(prog/total*100) + '%';
-                    document.getElementById('momentumProgressText').textContent = prog + ' / ' + total;
-                    setTimeout(poll, 2000);
-                } else {
+                    var phaseEl = document.getElementById('momentumPhase');
+                    var barEl = document.getElementById('momentumBar');
+                    var progEl = document.getElementById('momentumProgressText');
+                    if (phaseEl) phaseEl.textContent = data.phase || 'สแกน…';
+                    if (barEl) barEl.style.width = Math.min(100, Math.round(prog/total*100)) + '%';
+                    if (progEl) progEl.textContent = prog + ' / ' + total;
+                    setTimeout(poll, 1500);
+                } else if (data.state === 'done') {
                     window.location.href = window.location.pathname;
+                } else {
+                    setTimeout(poll, 2000);
                 }
             })
             .catch(function() { setTimeout(poll, 3000); });
     }
-    document.addEventListener('DOMContentLoaded', function() { setTimeout(poll, 1500); });
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(poll, 1000); });
 })();
-</script>
 {% endif %}
+</script>
 <div class="container-fluid px-2 px-md-4">
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
