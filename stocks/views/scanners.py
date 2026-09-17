@@ -3628,9 +3628,20 @@ def precision_momentum_scanner(request):
     context['cup_handle_symbols'] = ch_symbols
 
     # Latest Turtle Breakout
+    from django.db.models import Q as _Q
     latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
-    turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
+    turtle_qs = TurtleScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_turtle_run) if latest_turtle_run else TurtleScanCandidate.objects.none()
+    turtle_symbols = set(turtle_qs.filter(_Q(sys1_breakout=True) | _Q(sys2_breakout=True) | _Q(donchian_signal='LONG')).values_list('symbol', flat=True))
     context['turtle_symbols'] = turtle_symbols
+
+    # หุ้น Elite & 4W LONG Breakout คุณภาพสูงสุด (ผ่าน 4 ระบบ) สำหรับแสดงผลเป็นการ์ดต่อจาก Trade Flow
+    elite_4w_turtle = list(
+        turtle_qs.filter(is_elite=True).filter(_Q(donchian_signal='LONG') | _Q(sys1_breakout=True) | _Q(sys2_breakout=True)).order_by('-technical_score', '-rs_rating')
+    )
+    if not elite_4w_turtle and turtle_qs.exists():
+        elite_4w_turtle = list(turtle_qs.filter(is_elite=True).order_by('-technical_score', '-rs_rating')[:6])
+    context['elite_4w_turtle'] = elite_4w_turtle
+    context['elite_4w_symbols'] = set(c.symbol for c in elite_4w_turtle)
 
     # ── Pyramid Alert + Let Profit Run ───────────────────────────────────
     # Pyramid: แสดง badge เมื่อหุ้นในพอร์ตขึ้น >=3%, Volume >=1.5x, ยังเหลือ upside >=5%, ไม่มี exit signal
@@ -6958,9 +6969,20 @@ def us_precision_scanner(request):
     context['cup_handle_symbols'] = ch_symbols
 
     # Latest Turtle Breakout
+    from django.db.models import Q as _Q
     latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
-    turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
+    turtle_qs = TurtleScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_turtle_run) if latest_turtle_run else TurtleScanCandidate.objects.none()
+    turtle_symbols = set(turtle_qs.filter(_Q(sys1_breakout=True) | _Q(sys2_breakout=True) | _Q(donchian_signal='LONG')).values_list('symbol', flat=True))
     context['turtle_symbols'] = turtle_symbols
+
+    # หุ้น Elite & 4W LONG Breakout คุณภาพสูงสุด (ผ่าน 4 ระบบ) สำหรับแสดงผลเป็นการ์ดต่อจาก Trade Flow
+    elite_4w_turtle = list(
+        turtle_qs.filter(is_elite=True).filter(_Q(donchian_signal='LONG') | _Q(sys1_breakout=True) | _Q(sys2_breakout=True)).order_by('-technical_score', '-rs_rating')
+    )
+    if not elite_4w_turtle and turtle_qs.exists():
+        elite_4w_turtle = list(turtle_qs.filter(is_elite=True).order_by('-technical_score', '-rs_rating')[:6])
+    context['elite_4w_turtle'] = elite_4w_turtle
+    context['elite_4w_symbols'] = set(c.symbol for c in elite_4w_turtle)
 
     # ── Pyramid Alert + Let Profit Run ───────────────────────────────────
     # Pyramid: แสดง badge เมื่อหุ้นในพอร์ตขึ้น >=3%, Volume >=1.5x, ยังเหลือ upside >=5%, ไม่มี exit signal
@@ -9008,7 +9030,11 @@ def _run_master_pipeline_worker(user_id, market):
 
         turtle_cnt = 0
         try:
-            turtle_cnt = TurtleScanCandidate.objects.filter(user=user, market=market).count()
+            from django.db.models import Q as _MQ
+            turtle_qs = TurtleScanCandidate.objects.filter(user=user, market=market)
+            turtle_cnt = turtle_qs.filter(is_elite=True).filter(_MQ(donchian_signal='LONG') | _MQ(sys1_breakout=True) | _MQ(sys2_breakout=True)).count()
+            if turtle_cnt == 0:
+                turtle_cnt = turtle_qs.filter(_MQ(is_elite=True) | _MQ(sys1_breakout=True) | _MQ(sys2_breakout=True)).count()
         except Exception:
             pass
 
