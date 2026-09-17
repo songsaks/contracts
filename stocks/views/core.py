@@ -23,16 +23,68 @@ def dashboard(request):
     from stocks.pandas_ta_compat import ta
 
     from stocks.utils import analyze_momentum_technical
-    for item in watchlist:
-        try:
-            t = yf.Ticker(item.symbol)
-            hist = t.history(period="1y")
 
-            # Fallback: try alternate symbol if empty
+    # ── Batch-fetch price history (1 round-trip for all symbols) ──────────────
+    # Build the yfinance symbol list, applying .BK suffix for SET stocks
+    wl_list = list(watchlist)
+    _fetch_symbols = []
+    for _item in wl_list:
+        sym = _item.symbol
+        if '.BK' not in sym and '=' not in sym and '-' not in sym and '.' not in sym:
+            # Plain symbol without market marker: could be SET or US — try .BK first
+            _fetch_symbols.append(f"{sym}.BK")
+        else:
+            _fetch_symbols.append(sym)
+
+    _hist_map: dict = {}  # final_symbol → DataFrame
+    if _fetch_symbols:
+        try:
+            _batch = yf.download(
+                " ".join(_fetch_symbols),
+                period="1y",
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=True,
+                progress=False,
+                threads=True,
+            )
+            for _sym, _orig_item in zip(_fetch_symbols, wl_list):
+                # Extract per-ticker slice from multi-ticker download
+                if len(_fetch_symbols) == 1:
+                    _df = _batch.copy()
+                else:
+                    _df = _batch[_sym].copy() if _sym in _batch.columns.get_level_values(0) else pd.DataFrame()
+
+                if isinstance(_df.columns, pd.MultiIndex):
+                    _df.columns = _df.columns.droplevel(0)
+                _df = _df.dropna(how='all')
+
+                if _df.empty:
+                    # Fallback: single ticker call for this symbol only
+                    _alt = _sym.replace(".BK", "") if _sym.endswith(".BK") else f"{_sym}.BK"
+                    try:
+                        _fb = yf.download(_alt, period="1y", interval="1d", auto_adjust=True, progress=False)
+                        if not _fb.empty:
+                            if isinstance(_fb.columns, pd.MultiIndex):
+                                _fb.columns = _fb.columns.droplevel(1)
+                            _df = _fb
+                    except Exception:
+                        pass
+
+                _hist_map[_orig_item.symbol] = _df
+        except Exception:
+            pass  # on total failure fall through to per-symbol fetch below
+
+    for item in wl_list:
+        try:
+            # Use pre-fetched DataFrame; fall back to single Ticker call if batch missed it
+            hist = _hist_map.get(item.symbol, pd.DataFrame())
             if hist.empty:
-                alt_sym = f"{item.symbol}.BK" if ".BK" not in item.symbol else item.symbol.replace(".BK", "")
-                t = yf.Ticker(alt_sym)
+                t = yf.Ticker(item.symbol)
                 hist = t.history(period="1y")
+                if isinstance(hist.columns, pd.MultiIndex):
+                    hist.columns = [col[0] for col in hist.columns]
+                hist = hist.loc[:, ~hist.columns.duplicated()]
 
             current = None
             change = 0
@@ -46,11 +98,12 @@ def dashboard(request):
                     change = ((current - prev) / prev * 100) if prev else 0
             if not current:
                 try:
+                    t = yf.Ticker(item.symbol)
                     info = t.info
                     if isinstance(info, dict):
                         current = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose')
                         change = info.get('regularMarketChangePercent', 0)
-                except:
+                except Exception:
                     pass
 
             rsi_val = None
@@ -150,7 +203,7 @@ def dashboard(request):
                 'market': mkt,
             })
 
-        except:
+        except Exception:
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
 
     # --- สรุปข้อมูลสำหรับ Real Dashboard ---
@@ -1183,15 +1236,25 @@ def trading_accounts_view(request):
     from stocks.models import BrokerType, TradingAccount
     
     if request.method == 'POST':
-        broker = request.POST.get('broker')
-        acc_id = request.POST.get('account_id')
-        key    = request.POST.get('api_key', '')
-        secret = request.POST.get('api_secret', '')
-        
+        broker = request.POST.get('broker', '').strip()
+        acc_id = request.POST.get('account_id', '').strip()
+        key    = request.POST.get('api_key', '').strip()
+        secret = request.POST.get('api_secret', '').strip()
+
+        # Validate broker against allowed choices
+        allowed_brokers = [c[0] for c in BrokerType.choices]
+        if broker not in allowed_brokers:
+            messages.error(request, f"Broker ไม่ถูกต้อง กรุณาเลือกจากรายการที่กำหนด")
+            return redirect('stocks:trading_accounts')
+
+        if not acc_id:
+            messages.error(request, "กรุณากรอก Account ID")
+            return redirect('stocks:trading_accounts')
+
         TradingAccount.objects.create(
             user=request.user,
             broker=broker,
-            account_id=acc_id,
+            account_id=acc_id[:100],   # enforce model max_length
             api_key=key,
             api_secret=secret
         )
@@ -1203,6 +1266,7 @@ def trading_accounts_view(request):
         'broker_types': BrokerType.choices
     })
 
+@require_POST
 @login_required
 def delete_trading_account_view(request, pk):
     from stocks.models import TradingAccount
@@ -1210,7 +1274,7 @@ def delete_trading_account_view(request, pk):
     acc.delete()
     return redirect('stocks:trading_accounts')
 
-@csrf_exempt
+@require_POST
 @login_required
 def sync_trading_account_ajax(request, pk):
     """

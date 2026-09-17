@@ -16,6 +16,7 @@ _APP_ACCESS_MAP = {
     '/accounts/roles/': 'access_accounts',
     '/board/': 'access_board',
     '/ops/':   'access_ops',
+    '/marketing/': 'access_marketing',
 }
 
 # ชื่อแสดงผลสำหรับแต่ละ app
@@ -30,6 +31,7 @@ _APP_NAMES = {
     'access_accounts': 'ระบบจัดการพนักงาน',
     'access_board':    'ระบบ Dashboard (Board)',
     'access_ops':      'ระบบวางแผน (Ops App)',
+    'access_marketing': 'ระบบการตลาด AI (Marketing OS)',
 }
 
 

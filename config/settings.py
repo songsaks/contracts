@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     'chat',      # ระบบแชทแบบ Real-time
     'ops',       # ระบบจัดการแผนงานและการปฏิบัติงาน (Operations)
     'board',     # กระดานความรู้พนักงาน (Knowledge Board)
+    'marketing', # ระบบการตลาด AI (Marketing OS)
 ]
 
 # ====== Middleware ======

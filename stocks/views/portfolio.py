@@ -43,31 +43,86 @@ def portfolio_list(request):
     logger.debug("Portfolio Scan Started for %s", getattr(request.user, "username", "Anonymous"))
     _portfolio_us_set = _build_us_symbol_set(request.user)
 
-    for item in portfolio_items:
+    # ── Batch-fetch price history (1 round-trip for all portfolio symbols) ─────
+    _port_list = list(portfolio_items)
+    _port_fetch_map: dict = {}  # item.symbol → yfinance fetch symbol
+    for _item in _port_list:
+        _sym = _item.symbol
+        if _item.market == MarketType.SET and not _sym.endswith('.BK'):
+            _port_fetch_map[_sym] = f"{_sym}.BK"
+        elif _item.market == MarketType.CRYPTO and '-' not in _sym:
+            _port_fetch_map[_sym] = f"{_sym}-USD"
+        else:
+            _port_fetch_map[_sym] = _sym
+
+    _port_hist_map: dict = {}  # item.symbol → DataFrame
+    _fetch_syms_unique = list(dict.fromkeys(_port_fetch_map.values()))  # preserve order, deduplicate
+    if _fetch_syms_unique:
+        try:
+            _batch = yf.download(
+                " ".join(_fetch_syms_unique),
+                period="1y",
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=True,
+                progress=False,
+                threads=True,
+            )
+            for _orig_sym, _fetch_sym in _port_fetch_map.items():
+                if len(_fetch_syms_unique) == 1:
+                    _df = _batch.copy()
+                else:
+                    _df = _batch[_fetch_sym].copy() if _fetch_sym in _batch.columns.get_level_values(0) else pd.DataFrame()
+
+                if isinstance(_df.columns, pd.MultiIndex):
+                    _df.columns = _df.columns.droplevel(0)
+                _df = _df.dropna(how='all')
+
+                if _df.empty:
+                    # Fallback: single fetch for this symbol
+                    _alt = _fetch_sym.replace(".BK", "") if _fetch_sym.endswith(".BK") else _fetch_sym
+                    try:
+                        _fb = yf.download(_alt, period="1y", interval="1d", auto_adjust=True, progress=False)
+                        if not _fb.empty:
+                            if isinstance(_fb.columns, pd.MultiIndex):
+                                _fb.columns = _fb.columns.droplevel(1)
+                            _df = _fb
+                    except Exception:
+                        pass
+
+                _port_hist_map[_orig_sym] = _df
+        except Exception as _e:
+            logger.warning("Portfolio batch download failed: %s", _e)
+
+    # ── Pre-fetch PrecisionScanCandidate for all symbols (avoid N+1 query) ──────
+    from stocks.models import PrecisionScanCandidate
+    _prec_qs = (PrecisionScanCandidate.objects
+                .filter(user=request.user)
+                .order_by('-scan_run'))
+    _prec_map: dict = {}  # clean_symbol → latest PrecisionScanCandidate
+    for _p in _prec_qs:
+        if _p.symbol not in _prec_map:
+            _prec_map[_p.symbol] = _p
+
+    for item in _port_list:
         try:
             symbol = item.symbol
             logger.debug("Processing symbol: %s", symbol)
 
-            # ====== ดึงข้อมูลราคาจาก yfinance ======
-            # Determine correct symbol string for yfinance based on database market field
-            fetch_symbol = symbol
-            if item.market == MarketType.SET and not symbol.endswith('.BK'):
-                fetch_symbol = f"{symbol}.BK"
-            elif item.market == MarketType.CRYPTO and '-' not in symbol:
-                fetch_symbol = f"{symbol}-USD"
-            
-            t = yf.Ticker(fetch_symbol)
-            hist = t.history(period="1y")
+            # ====== ดึงข้อมูลราคาจาก batch cache ======
+            hist = _port_hist_map.get(symbol, pd.DataFrame())
+            used_symbol = _port_fetch_map.get(symbol, symbol)
 
-            # Fallback if empty (for robustness with manually entered symbols)
-            used_symbol = fetch_symbol
-            if hist.empty and fetch_symbol == symbol:
-                alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
-                logger.debug("Symbol %s empty, trying %s", symbol, alt_sym)
-                t = yf.Ticker(alt_sym)
+            if hist.empty:
+                # Last-resort: individual Ticker call
+                t = yf.Ticker(used_symbol)
                 hist = t.history(period="1y")
                 if not hist.empty:
-                    used_symbol = alt_sym
+                    if isinstance(hist.columns, pd.MultiIndex):
+                        hist.columns = [col[0] for col in hist.columns]
+                    hist = hist.loc[:, ~hist.columns.duplicated()]
+                    logger.debug("Symbol %s fallback individual fetch succeeded", symbol)
+                logger.debug("Symbol %s FAILED - No data", symbol)
 
             current_price = 0
             rsi_val = None
@@ -84,10 +139,11 @@ def portfolio_list(request):
                 # Double check price
                 if not current_price or pd.isna(current_price):
                     try:
-                        info = t.info
+                        _t_info = yf.Ticker(used_symbol)
+                        info = _t_info.info
                         if isinstance(info, dict):
                             current_price = info.get('currentPrice') or info.get('regularMarketPrice') or 0
-                    except: pass
+                    except Exception: pass
 
                 current_price = float(current_price or 0)
 
@@ -97,7 +153,7 @@ def portfolio_list(request):
                 rsi_val = rsi_series.iloc[-1] if (rsi_series is not None and not rsi_series.empty) else None
                 logger.debug("Symbol %s success price=%s", symbol, current_price)
             else:
-                logger.debug("Symbol %s FAILED - No data", symbol)
+                pass  # no data — current_price stays 0
 
             # คำนวณ % เปลี่ยนแปลงวันนี้ vs เมื่อวาน
             day_change = 0
@@ -226,7 +282,6 @@ def portfolio_list(request):
 
             # ====== ดึง/คำนวณ Zone Data - ใช้ PrecisionScanCandidate (v2) เสมอ ======
             clean_symbol = item.symbol.split('.')[0].upper()
-            from stocks.models import PrecisionScanCandidate
             from stocks.utils import analyze_momentum_technical_v2
 
             # 1. ลองหาผล Precision Scan ล่าสุดก่อน (ตรงกับ Precision Scanner ทุกค่า)
@@ -1006,41 +1061,38 @@ def update_cash_transaction_date(request, pk):
                          'month': tx.transaction_date.strftime('%Y-%m')})
 
 
+@require_POST
 @login_required
 def update_portfolio_fund(request):
     """
     แก้ไขข้อมูลกองทุนรวมแบบบันทึกด้วยมือ (Enforce single record)
     """
-    if request.method == 'POST':
-        from decimal import Decimal
+    from decimal import Decimal
 
-        from stocks.models import PortfolioFund
-        
-        name = request.POST.get('name', 'Total Mutual Funds')
-        cost = Decimal(request.POST.get('cost', '0'))
-        market_value = Decimal(request.POST.get('market_value', '0'))
-        
-        # ป้องกันกรณีมีข้อมูลเก่าหลายตัว (MultipleObjectsReturned fix)
-        funds = PortfolioFund.objects.filter(user=request.user)
-        if funds.exists():
-            fund = funds.first()
-            # ลบตัวอื่นๆ ทิ้งเพื่อให้เหลือตัวเดียวตามนโยบายใหม่
-            funds.exclude(id=fund.id).delete()
-        else:
-            fund = PortfolioFund.objects.create(user=request.user, name=name, cost=0, market_value=0)
-        
-        fund.name = name
-        fund.cost = cost
-        fund.market_value = market_value
-        fund.save()
-        
-        messages.success(request, f"อัปเดตยอดเงินลงทุนกองทุนเรียบร้อยแล้ว")
-        return redirect('stocks:portfolio_list')
+    from stocks.models import PortfolioFund
     
-    return redirect('stocks:portfolio_list')
+    name = request.POST.get('name', 'Total Mutual Funds')
+    cost = Decimal(request.POST.get('cost', '0'))
+    market_value = Decimal(request.POST.get('market_value', '0'))
     
+    # ป้องกันกรณีมีข้อมูลเก่าหลายตัว (MultipleObjectsReturned fix)
+    funds = PortfolioFund.objects.filter(user=request.user)
+    if funds.exists():
+        fund = funds.first()
+        # ลบตัวอื่นๆ ทิ้งเพื่อให้เหลือตัวเดียวตามนโยบายใหม่
+        funds.exclude(id=fund.id).delete()
+    else:
+        fund = PortfolioFund.objects.create(user=request.user, name=name, cost=0, market_value=0)
+    
+    fund.name = name
+    fund.cost = cost
+    fund.market_value = market_value
+    fund.save()
+    
+    messages.success(request, f"อัปเดตยอดเงินลงทุนกองทุนเรียบร้อยแล้ว")
     return redirect('stocks:portfolio_list')
 
+@require_POST
 @login_required
 def delete_portfolio_fund(request, fund_id):
     from stocks.models import PortfolioFund
@@ -1726,13 +1778,13 @@ def dividend_create(request):
     return redirect(redirect_url)
 
 
+@require_POST
 @login_required
 def dividend_delete(request, pk):
     """ลบรายการเงินปันผล"""
     record = get_object_or_404(DividendRecord, pk=pk, user=request.user)
-    if request.method == 'POST':
-        record.delete()
-        messages.success(request, 'ลบรายการเงินปันผลแล้ว')
+    record.delete()
+    messages.success(request, 'ลบรายการเงินปันผลแล้ว')
     return redirect('stocks:tithe_report')
 
 
@@ -1827,12 +1879,10 @@ def portfolio_refresh_prices(request):
 
     return JsonResponse({'updated': updated, 'skipped': skipped, 'errors': errors})
 
-@csrf_exempt
+@require_POST
 @login_required
 def manual_update_trade_exit(request):
     """อนุญาตให้ user กรอก exit price ด้วยตนเอง สำหรับ trade ที่ API ไม่ส่งข้อมูลกลับมา"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=400)
     import json
     from decimal import Decimal, InvalidOperation
 

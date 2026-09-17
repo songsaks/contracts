@@ -2001,7 +2001,10 @@ def precision_momentum_scanner(request):
     8. is_new_entry flag (หุ้นใหม่ vs ยังอยู่จากรอบก่อน)
     """
     from stocks.models import PrecisionScanRun
-    from stocks.precision_runs import rank_valid_returns, scan_timestamps
+    from stocks.precision_runs import (
+        rank_valid_returns, scan_timestamps, entry_risk_reward,
+        average_daily_turnover, deep_scan_outcome,
+    )
 
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
@@ -2046,6 +2049,8 @@ def precision_momentum_scanner(request):
                 import django
                 django.setup()
                 import concurrent.futures
+                import pandas as pd
+                import yfinance as yf
                 from datetime import datetime as _dt
                 from datetime import time as _dtime
                 from datetime import timedelta as _td
@@ -2189,19 +2194,18 @@ def precision_momentum_scanner(request):
                                 pass
 
                         if df is None or df.empty:
-                            return None
+                            return {'scan_error': 'missing_history'}
 
                         if isinstance(df.columns, pd.MultiIndex):
                             df.columns = df.columns.droplevel(1)
 
                         df = df.dropna(subset=['Close', 'High'])
                         if len(df) < 200:
-                            return None
+                            return {'scan_error': 'insufficient_history'}
 
-                        # ====== Liquidity & Quality Filters (Institutional Grade) ======
+                        # Average each session's notional, not the product of averages.
                         avg_vol_20 = float(df['Volume'].tail(20).mean())
-                        avg_close_20 = float(df['Close'].tail(20).mean())
-                        avg_turnover_20 = avg_vol_20 * avg_close_20
+                        avg_turnover_20 = average_daily_turnover(df)
                 
                         import logging as _lg; _scan_log = _lg.getLogger('stocks.scan')
                         current_price = float(df['Close'].iloc[-1])
@@ -2776,7 +2780,7 @@ def precision_momentum_scanner(request):
                     except Exception as e:
                         import logging
                         logging.getLogger('stocks').exception(f"[Precision] Error scanning {symbol}: {e}")
-                        return None
+                        return {'scan_error': 'analysis_failed'}
 
 
                 # ====== Phase 2: Deep Scan (only for candidates) ======
@@ -2784,12 +2788,18 @@ def precision_momentum_scanner(request):
                 
                 results = []
                 done_count = 0
+                failed_count = 0
+                rejected_count = 0
                 with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
                     futures = [executor.submit(_process_precision_scan, sym) for sym in results_to_process]
                     for future in concurrent.futures.as_completed(futures):
                         res = future.result()
-                        if res:
+                        if res and 'scan_error' in res:
+                            failed_count += 1
+                        elif res:
                             results.append(res)
+                        else:
+                            rejected_count += 1
                         done_count += 1
                         _cache.set(ckey, {'state': 'running', 'progress': 25 + int((done_count/len(results_to_process))*70), 
                                           'total': 100, 'phase': f'สแกนละเอียด {done_count}/{len(results_to_process)}...'}, timeout=900)
@@ -3024,9 +3034,11 @@ def precision_momentum_scanner(request):
                         PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run__in=old_runs).delete()
                         PrecisionScanRun.objects.filter(user=user, market='SET', started_at__in=old_runs).exclude(status='running').delete()
 
-                run_record.status = 'completed'
+                run_record.status, run_record.message = deep_scan_outcome(
+                    len(results), rejected_count, failed_count,
+                )
                 run_record.candidate_count = len(results)
-                run_record.save(update_fields=['status', 'candidate_count'])
+                run_record.save(update_fields=['status', 'candidate_count', 'message'])
                 _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
 
             except Exception as _bg_err:
@@ -3253,6 +3265,12 @@ def precision_momentum_scanner(request):
         for c in candidates:
             c.quality_score, c.quality_reasons = _compute_quality_score(c, upside_to_tp=c.upside_to_tp)
 
+        # ====== Historical Edge Annotation (Closed-Loop Feedback) ======
+        from stocks.scan_edge import annotate_candidates_with_edge
+        edge_summary = annotate_candidates_with_edge(candidates, request.user, market='SET')
+    else:
+        edge_summary = {'total_edge_count': 0, 'active_edge_map': {}}
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
@@ -3338,11 +3356,11 @@ def precision_momentum_scanner(request):
         # ====== Top 5 หุ้นที่ "ผ่านเกณฑ์ครบทุกข้อ" ======
         # ผ่อนปรนเกณฑ์ ADX 20 (เดิม 25) และ RSI ขยายเพื่อให้มีตัวเลือกมากขึ้น 
         def _is_fully_qualified(c):
-            rr = c.risk_reward_ratio or 0
             dz_start = float(c.demand_zone_start or 0)
             dz_end   = float(c.demand_zone_end   or 0)
             # ใช้ live price ถ้ามี เพราะ zone_proximity ใน DB เป็นค่า ณ เวลาสแกน
             price    = float(getattr(c, 'live_price', None) or c.price or 0)
+            rr = entry_risk_reward(price, c.stop_loss, c.supply_zone_start)
             live_prox = getattr(c, 'live_zone_prox', None)
             effective_prox = live_prox if live_prox is not None else c.zone_proximity
             in_zone  = dz_start > 0 and dz_end > 0 and dz_end <= price <= dz_start
@@ -3356,7 +3374,7 @@ def precision_momentum_scanner(request):
             price_near_target = target > 0 and upside_pct < 8
             return (
                 c.buy_score >= 65
-                and rr >= 1.5
+                and rr is not None and rr >= 1.5
                 and c.adx >= 20
                 and 45 <= c.rsi <= 82
                 and c.rvol_bullish
@@ -3565,6 +3583,7 @@ def precision_momentum_scanner(request):
         'scan_data_date': None,  # คำนวณด้านล่าง
         'market_condition': market_condition,
         'markov_regime': markov_regime,
+        'edge_summary': edge_summary,
     }
     # คำนวณ scan_data_date จาก scanned_at - ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
     # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า
@@ -6604,6 +6623,12 @@ def us_precision_scanner(request):
         for c in candidates:
             c.quality_score, c.quality_reasons = _compute_quality_score(c, upside_to_tp=c.upside_to_tp)
 
+        # ====== Historical Edge Annotation (Closed-Loop Feedback) ======
+        from stocks.scan_edge import annotate_candidates_with_edge
+        edge_summary = annotate_candidates_with_edge(candidates, request.user, market='US')
+    else:
+        edge_summary = {'total_edge_count': 0, 'active_edge_map': {}}
+
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
@@ -6916,6 +6941,7 @@ def us_precision_scanner(request):
         'scan_data_date': None,  # คำนวณด้านล่าง
         'market_condition': market_condition,
         'markov_regime': markov_regime,
+        'edge_summary': edge_summary,
     }
     # คำนวณ scan_data_date จาก scanned_at - ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
     # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า

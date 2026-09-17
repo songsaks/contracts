@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Marketing OS — 9Com Growth Intelligence{% endblock %}</title>
+    {% load static %}
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=2">
+
+    <!-- ① Theme Manager — Load early to prevent FOUC -->
+    <script src="{% static 'js/theme.js' %}"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f4ff',
+                            100: '#e0eaff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ApexCharts for Professional Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        /* CSS Design Tokens for Light & Dark Theme */
+        :root {
+            --m-bg: #F8FAFC;
+            --m-panel-bg: rgba(255, 255, 255, 0.88);
+            --m-panel-border: rgba(226, 232, 240, 0.9);
+            --m-text-primary: #0F172A;
+            --m-text-secondary: #475569;
+            --m-text-muted: #64748B;
+            --m-subcard-bg: rgba(248, 250, 252, 0.9);
+            --m-subcard-border: #E2E8F0;
+            --m-input-bg: #FFFFFF;
+            --m-input-border: #CBD5E1;
+            --m-input-text: #0F172A;
+        }
+
+        html.dark, [data-theme="dark"] {
+            --m-bg: #0B0F19;
+            --m-panel-bg: rgba(17, 24, 39, 0.78);
+            --m-panel-border: rgba(255, 255, 255, 0.08);
+            --m-text-primary: #F8FAFC;
+            --m-text-secondary: #CBD5E1;
+            --m-text-muted: #94A3B8;
+            --m-subcard-bg: rgba(17, 24, 39, 0.6);
+            --m-subcard-border: rgba(31, 41, 55, 0.8);
+            --m-input-bg: #111827;
+            --m-input-border: #374151;
+            --m-input-text: #F9FAFB;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Prompt', sans-serif;
+            background-color: var(--m-bg);
+            color: var(--m-text-primary);
+            background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.04) 0px, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.04) 0px, transparent 50%);
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        html.dark body {
+            background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.07) 0px, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.06) 0px, transparent 50%);
+        }
+
+        .glass-panel {
+            background: var(--m-panel-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--m-panel-border);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+            transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+        html.dark .glass-panel {
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+        }
+
+        .subcard-panel {
+            background: var(--m-subcard-bg);
+            border: 1px solid var(--m-subcard-border);
+        }
+
+        .glow-card {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glow-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px -8px rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+        html.dark .glow-card:hover {
+            box-shadow: 0 12px 30px -10px rgba(59, 130, 246, 0.3);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #DB2777 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        html.dark .gradient-text {
+            background: linear-gradient(135deg, #60A5FA 0%, #A78BFA 50%, #F472B6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full flex flex-col md:flex-row overflow-x-hidden">
+
+    <!-- Mobile Top Navigation Bar -->
+    <header class="md:hidden glass-panel flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-gray-800 sticky top-0 z-40">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold shadow-md shadow-blue-500/20">
+                <i class="fas fa-brain text-sm"></i>
+            </div>
+            <span class="font-bold tracking-tight text-slate-900 dark:text-white">AI Marketing <span class="text-blue-600 dark:text-blue-400">OS</span></span>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'marketing:user_guide' %}" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-600 dark:text-blue-400 border border-slate-200 dark:border-gray-700 text-xs flex items-center justify-center transition-all" title="คู่มือการใช้งาน">
+                <i class="fas fa-book-open"></i>
+            </a>
+            <button data-t-toggle type="button" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-600 dark:text-amber-400 border border-slate-200 dark:border-gray-700 text-xs flex items-center justify-center transition-all" title="สลับโหมดสว่าง / มืด">
+                <i class="fas fa-sun"></i>
+            </button>
+            <button id="mobileMenuBtn" class="text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white p-1.5 focus:outline-none">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="hidden md:flex md:w-64 flex-col glass-panel border-r border-slate-200/80 dark:border-gray-800/80 p-4 shrink-0 z-50">
+        <!-- Logo & Brand Header -->
+        <div class="flex items-center justify-between px-2 py-3 mb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white text-lg font-black shadow-lg shadow-indigo-500/25">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-black text-lg tracking-tight text-slate-900 dark:text-white">Marketing</span>
+                        <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">AI OS</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-gray-400">Growth Intelligence</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="flex-1 space-y-1.5 overflow-y-auto">
+            <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-gray-500 px-3 pt-2 pb-1">ศูนย์บัญชาการ</div>
+            
+            <a href="{% url 'marketing:dashboard' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'dashboard_alt' %}bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/20 font-semibold{% else %}text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-gray-800/60{% endif %}">
+                <i class="fas fa-chart-line w-4 text-center"></i>
+                <span>ภาพรวม (Dashboard)</span>
+            </a>
+
+            <a href="{% url 'marketing:campaign_list' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all {% if request.resolver_match.url_name == 'campaign_list' %}bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/20 font-semibold{% else %}text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-gray-800/60{% endif %}">
+                <i class="fas fa-bullseye w-4 text-center"></i>
+                <span>แคมเปญ & Ads Matrix</span>
+            </a>
+
+            <a href="{% url 'marketing:daily_metrics' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all {% if request.resolver_match.url_name == 'daily_metrics' %}bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/20 font-semibold{% else %}text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-gray-800/60{% endif %}">
+                <i class="fas fa-coins w-4 text-center"></i>
+                <span>บันทึกสถิติ ROAS & ยอด</span>
+            </a>
+
+            <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-gray-500 px-3 pt-4 pb-1">AI Automation</div>
+
+            <a href="{% url 'marketing:action_plans' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all {% if request.resolver_match.url_name == 'action_plans' %}bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/20 font-semibold{% else %}text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-gray-800/60{% endif %}">
+                <i class="fas fa-robot w-4 text-center text-purple-500 dark:text-purple-400"></i>
+                <span>AI Action Plan รายวัน</span>
+                <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30">Auto</span>
+            </a>
+
+            <a href="{% url 'marketing:creative_lab' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all {% if request.resolver_match.url_name == 'creative_lab' %}bg-gradient-to-r from-pink-600 to-rose-600 text-white shadow-md shadow-pink-600/20 font-semibold{% else %}text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-gray-800/60{% endif %}">
+                <i class="fas fa-magic w-4 text-center text-pink-500 dark:text-pink-400"></i>
+                <span>Creative & Script Lab</span>
+            </a>
+
+            <a href="{% url 'marketing:competitor_radar' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all {% if request.resolver_match.url_name == 'competitor_radar' %}bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md shadow-amber-600/20 font-semibold{% else %}text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-gray-800/60{% endif %}">
+                <i class="fas fa-radar w-4 text-center text-amber-500 dark:text-amber-400"></i>
+                <span>Competitor Radar</span>
+            </a>
+
+            <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-gray-500 px-3 pt-4 pb-1">ศูนย์ช่วยเหลือ & คู่มือ</div>
+
+            <a href="{% url 'marketing:user_guide' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all {% if request.resolver_match.url_name == 'user_guide' %}bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/20 font-semibold{% else %}text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-gray-800/60{% endif %}">
+                <i class="fas fa-book-open w-4 text-center text-blue-500 dark:text-blue-400"></i>
+                <span>คู่มือการใช้งาน (Manual)</span>
+                <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold border border-blue-500/30">10 บท</span>
+            </a>
+        </nav>
+
+        <!-- Quick AI Trigger & Theme Switcher in Sidebar -->
+        <div class="mt-4 pt-4 border-t border-slate-200/80 dark:border-gray-800/80 space-y-2">
+            <button onclick="triggerAiActionPlan()" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-blue-500/20 transition-all active:scale-95">
+                <i class="fas fa-sparkles"></i>
+                <span>ประมวลผล Action Plan</span>
+            </button>
+            <div class="flex items-center gap-2">
+                <button data-t-toggle type="button" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800/60 dark:hover:bg-gray-800 text-slate-700 dark:text-gray-300 font-medium text-xs border border-slate-200 dark:border-gray-700/50 transition-all" title="สลับโหมดสว่าง / มืด">
+                    <i class="fas fa-sun"></i>
+                    <span>สลับธีม</span>
+                </button>
+                <a href="/" class="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800/60 dark:hover:bg-gray-800 text-slate-700 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-gray-700/50 transition-all" title="กลับสู่ 9Com Portal">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <!-- Top App Header -->
+        <div class="glass-panel px-6 py-4 border-b border-slate-200/80 dark:border-gray-800/80 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
+                    {% block header_title %}ศูนย์บัญชาการการตลาด AI (Marketing OS){% endblock %}
+                </h1>
+                <p class="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                    {% block header_subtitle %}ระบบปฏิบัติการวิเคราะห์ผลกำไร ROAS และควบคุมทีมการตลาดอัตโนมัติ{% endblock %}
+                </p>
+            </div>
+            
+            <div class="flex items-center gap-2.5">
+                <!-- User Guide Button -->
+                <a href="{% url 'marketing:user_guide' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800/80 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-gray-700/60 font-semibold text-xs transition-all shadow-sm" title="เปิดอ่านคู่มือการใช้งานระบบ (User Manual)">
+                    <i class="fas fa-book-open text-blue-600 dark:text-blue-400"></i>
+                    <span class="hidden sm:inline">คู่มือการใช้งาน</span>
+                </a>
+
+                <!-- Theme Toggle Button -->
+                <button data-t-toggle type="button" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800/80 dark:hover:bg-gray-700 text-slate-600 dark:text-amber-400 border border-slate-200 dark:border-gray-700/60 transition-all flex items-center justify-center text-sm shadow-sm" title="สลับโหมดสว่าง / มืด (Light / Dark Theme)">
+                    <i class="fas fa-sun"></i>
+                </button>
+
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-gray-800/60 border border-slate-200 dark:border-gray-700/50 text-xs text-slate-600 dark:text-gray-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
+                    <span>AI Engine: <strong>Google Gemini 2.5</strong></span>
+                </div>
+                <button onclick="triggerAiActionPlan()" class="hidden md:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all">
+                    <i class="fas fa-wand-magic-sparkles"></i> สแกนวิเคราะห์สด
+                </button>
+            </div>
+        </div>
+
+        <!-- Notification Messages -->
+        {% if messages %}
+        <div class="px-6 pt-4 space-y-2">
+            {% for message in messages %}
+            <div class="p-3.5 rounded-xl text-sm flex items-center gap-2.5 {% if message.tags == 'error' %}bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300{% else %}bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-300{% endif %}">
+                <i class="fas {% if message.tags == 'error' %}fa-circle-exclamation text-rose-500 dark:text-rose-400{% else %}fa-circle-check text-emerald-500 dark:text-emerald-400{% endif %}"></i>
+                <span>{{ message|safe }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Child Template Content -->
+        <div class="p-4 sm:p-6 space-y-6">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Global CSRF & Action Plan Trigger Script -->
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function triggerAiActionPlan() {
+            const btn = event?.currentTarget;
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังประมวลผล...';
+            }
+
+            try {
+                const res = await fetch("{% url 'marketing:api_generate_action_plan' %}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    window.location.href = "{% url 'marketing:action_plans' %}";
+                } else {
+                    alert('เกิดข้อผิดพลาด: ' + (data.message || 'ไม่สามารถวิเคราะห์ได้'));
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            }
+        }
+
+        // Mobile drawer toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        if (mobileMenuBtn && sidebar) {
+            mobileMenuBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('hidden');
+                sidebar.classList.toggle('fixed');
+                sidebar.classList.toggle('inset-0');
+            });
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

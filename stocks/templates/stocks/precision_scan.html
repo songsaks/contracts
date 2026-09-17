@@ -8,7 +8,7 @@
 
 {% block content %}
 {% if scan_run_info %}
-<div class="alert {% if scan_run_info.status == 'failed' %}alert-danger{% elif scan_run_info.rs_count < scan_run_info.total_symbols %}alert-warning{% else %}alert-info{% endif %} mx-3 mt-3" role="status">
+<div class="alert {% if scan_run_info.status == 'failed' %}alert-danger{% elif scan_run_info.message or scan_run_info.rs_count < scan_run_info.total_symbols %}alert-warning{% else %}alert-info{% endif %} mx-3 mt-3" role="status">
     <strong>รอบสแกน {{ scan_run_info.started_at|date:"d/m/Y H:i" }}</strong><br>
     {% if scan_run_info.status == 'failed' %}
         {{ scan_run_info.message }} — รอบนี้ไม่แสดงคำแนะนำหุ้น กรุณาเลือกรอบก่อนหน้าเพื่อดูประวัติ
@@ -17,6 +17,7 @@
     {% else %}
         ผ่านเกณฑ์ {{ scan_run_info.candidate_count }} ตัว
     {% endif %}
+    {% if scan_run_info.status != 'failed' and scan_run_info.message %}<div>{{ scan_run_info.message }}</div>{% endif %}
     <div>ข้อมูล RS ใช้งานได้ {{ scan_run_info.rs_count }}/{{ scan_run_info.total_symbols }} ตัว
     {% if scan_run_info.rs_count < scan_run_info.total_symbols %}
         — ข้อมูลไม่ครบ อันดับเทียบเฉพาะหุ้นที่มีข้อมูล หุ้นที่ข้อมูลขาดจะไม่ถูกให้คะแนนหรือคัดเลือก
@@ -73,6 +74,61 @@
     max-width: 135px;
     margin-left: auto;
 }
+/* Scanner Header & Unified Control Bar */
+.scanner-hero-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+[data-bs-theme="dark"] .scanner-hero-card {
+    background: rgba(15, 23, 42, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.scanner-title {
+    color: #1e293b;
+}
+[data-bs-theme="dark"] .scanner-title {
+    color: #f8fafc !important;
+}
+
+.strategy-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    text-decoration: none;
+    transition: all 0.18s ease-in-out;
+}
+.strategy-chip:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+[data-bs-theme="dark"] .strategy-chip {
+    color: #cbd5e1 !important;
+    background: rgba(30, 41, 59, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-bs-theme="dark"] .strategy-chip:hover {
+    color: #ffffff !important;
+    background: rgba(51, 65, 85, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.btn-action-glow {
+    transition: all 0.18s ease-in-out;
+}
+.btn-action-glow:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+}
 </style>
 
 
@@ -100,70 +156,123 @@
 
 
 
-<div>
-<div class="row align-items-end mb-4">
-    <div class="col-md-7">
-        <h1 class="fw-bold mb-1" style="color: #a78bfa;"><i class="fas fa-crosshairs me-2"></i> Precision Momentum Scanner</h1>
-        <p style="color:#94a3b8; margin-bottom:0;">
-            กรองคุณภาพสูง: ERC ต้องยืนยันด้วย Volume + ADX ≥ 20 + Liquidity ≥ 500k หุ้น/วัน<br>
-            Supply Target = max(52-Week High, Entry + 4×ATR) | Stop Loss คำนวณจาก ATR | RVOL แยกทิศทาง Bull/Bear
-        </p>
-    </div>
-    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
-        <!-- ★ ปุ่มที่ใช้บ่อยที่สุด — จัดกลุ่มไว้ด้วยกัน เด่นกว่าปุ่มอื่น -->
-        <div class="d-inline-flex flex-wrap align-items-center gap-2 p-2 rounded-3 mb-2 mb-md-0"
-             style="background:rgba(124,58,237,0.10); border:1px solid rgba(167,139,250,0.40); box-shadow:0 4px 16px rgba(124,58,237,0.18);">
-            <a href="{% url 'stocks:refresh_market_caps' %}?next={{ request.path }}" class="btn btn-lg fw-bold d-inline-flex align-items-center gap-2"
-               style="background: linear-gradient(135deg, #fbbf24, #d97706); color: white; border: none; box-shadow:0 6px 18px rgba(217,119,6,0.45);">
-                <i class="fas fa-list-ol"></i> อัปเดตอันดับ Market Cap
-            </a>
-            <form method="post" id="precisionScanForm" style="display:inline;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="scan">
-                {% if has_scanned %}
-                <button type="button" onclick="confirmRescanPrecision()" class="btn btn-lg fw-bold d-inline-flex align-items-center gap-2"
-                        style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color:white; box-shadow:0 6px 18px rgba(124,58,237,0.5);">
-                    <i class="fas fa-crosshairs"></i> Precision Scan ใหม่ (Top 400)
-                </button>
-                {% else %}
-                <button type="submit" class="btn btn-lg fw-bold d-inline-flex align-items-center gap-2"
-                        style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color:white; box-shadow:0 6px 18px rgba(124,58,237,0.5);">
-                    <i class="fas fa-crosshairs"></i> Precision Scan (Top 400)
-                </button>
+<div class="card border-0 shadow-sm rounded-4 mb-4 scanner-hero-card">
+    <div class="card-body p-3 p-md-4">
+        <!-- Top Row: Title & Badges on Left, Primary Execution on Right -->
+        <div class="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3">
+            <!-- Left: Title & Specs -->
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    <span class="badge rounded-pill px-2.5 py-1 fw-bold text-uppercase"
+                          style="background: rgba(124,58,237,0.12); color: #7c3aed; border: 1px solid rgba(124,58,237,0.25); font-size: 0.72rem; letter-spacing: 0.04em;">
+                        <i class="fas fa-crosshairs me-1"></i> SET Precision Engine
+                    </span>
+                    <span class="badge rounded-pill px-2.5 py-1 text-muted"
+                          style="background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.2); font-size: 0.72rem;">
+                        Top 400 Universe
+                    </span>
+                    <span class="badge rounded-pill px-2.5 py-1 text-muted"
+                          style="background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.2); font-size: 0.72rem;">
+                        Institutional Grade
+                    </span>
+                </div>
+                <h1 class="h3 fw-bold mb-1 scanner-title" style="letter-spacing: -0.02em;">
+                    Precision Momentum Scanner
+                </h1>
+                <p class="text-muted small mb-0" style="font-size: 0.83rem;">
+                    กรองเข้มข้น: ERC ยืนยันด้วย Volume · ADX ≥ 20 · สภาพคล่อง ≥ 500k/วัน · ATR Supply Target &amp; Dynamic Risk Model
+                </p>
+            </div>
+
+            <!-- Right: Primary Execution Actions (Unified Height & Cohesive Style) -->
+            <div class="d-flex flex-wrap align-items-center gap-2 justify-content-xl-end">
+                <a href="{% url 'stocks:refresh_market_caps' %}?next={{ request.path }}" 
+                   class="btn btn-action-glow d-inline-flex align-items-center gap-2 fw-semibold"
+                   style="background: rgba(245,158,11,0.12); color: #d97706; border: 1px solid rgba(245,158,11,0.35); padding: 0.52rem 0.95rem; border-radius: 10px; font-size: 0.86rem;"
+                   title="อัปเดตอันดับ Market Cap ประจำวัน">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>อัปเดต Market Cap</span>
+                </a>
+
+                <a href="{% url 'stocks:scan_quality_report' %}?market=SET" 
+                   class="btn btn-action-glow d-inline-flex align-items-center gap-2 fw-semibold"
+                   style="background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.35); padding: 0.52rem 0.95rem; border-radius: 10px; font-size: 0.86rem;"
+                   title="วัดผลจริงของสัญญาณย้อนหลัง (5D/10D/20D Win Rate &amp; Edge)">
+                    <i class="fas fa-chart-line"></i>
+                    <span>คุณภาพตัวสแกน (Edge)</span>
+                </a>
+
+                {% if has_scanned and ai_scan_json %}
+                <a id="btn-ai-analyze" href="{% url 'stocks:precision_scan_report' %}" target="_blank" 
+                   class="btn btn-action-glow d-inline-flex align-items-center gap-2 fw-semibold"
+                   style="background: rgba(6,182,212,0.12); color: #0891b2; border: 1px solid rgba(6,182,212,0.35); padding: 0.52rem 0.95rem; border-radius: 10px; font-size: 0.86rem;"
+                   title="วิเคราะห์สรุปผลหุ้นด้วย AI">
+                    <i class="fas fa-robot"></i>
+                    <span>AI วิเคราะห์หุ้น</span>
+                </a>
                 {% endif %}
-            </form>
+
+                <form method="post" id="precisionScanForm" class="m-0 d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="scan">
+                    {% if has_scanned %}
+                    <button type="button" onclick="confirmRescanPrecision()" 
+                            class="btn btn-action-glow fw-bold d-inline-flex align-items-center gap-2 shadow-sm"
+                            style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border: none; padding: 0.52rem 1.25rem; border-radius: 10px; font-size: 0.88rem; box-shadow: 0 4px 14px rgba(124,58,237,0.35) !important;">
+                        <i class="fas fa-crosshairs"></i>
+                        <span>Precision Scan ใหม่ (Top 400)</span>
+                    </button>
+                    {% else %}
+                    <button type="submit" 
+                            class="btn btn-action-glow fw-bold d-inline-flex align-items-center gap-2 shadow-sm"
+                            style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border: none; padding: 0.52rem 1.25rem; border-radius: 10px; font-size: 0.88rem; box-shadow: 0 4px 14px rgba(124,58,237,0.35) !important;">
+                        <i class="fas fa-crosshairs"></i>
+                        <span>Precision Scan (Top 400)</span>
+                    </button>
+                    {% endif %}
+                </form>
+            </div>
         </div>
-        <a href="{% url 'stocks:momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
-            <i class="fas fa-rocket"></i> ไปหน้า Momentum Scan เดิม
-        </a>
-        <a href="{% url 'stocks:minervini_sepa_scanner' %}" class="btn d-inline-flex align-items-center gap-2" style="background:#0f172a; color:white; border:none;">
-            <span style="font-size:1rem;">🦅</span> SEPA Mode
-        </a>
-        <a href="{% url 'stocks:turnaround_scanner' %}" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8); color:white; border:none;" title="หาหุ้นรอกลับตัว (Selling Climax) แทนหุ้นแรงส่งที่ Trade Flow เน้น">
-            <i class="fas fa-rotate-left"></i> Turnaround Scanner
-        </a>
-        <a href="{% url 'stocks:stock_ai_advisor' %}" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#7c3aed,#4c1d95); color:white; border:none;" title="พิมพ์ชื่อหุ้นแล้วให้ AI สรุปสัญญาณ+คำแนะนำจากข้อมูลในระบบ">
-            <i class="fas fa-robot"></i> AI Stock Advisor
-        </a>
-        <a href="{% url 'stocks:sector_rotation_dashboard' %}?market=SET" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#0ea5e9,#0284c7); color:white; border:none;" title="ดูทิศทางเงินทุนรายกลุ่มอุตสาหกรรม (Leading Sisters)">
-            <i class="fas fa-project-diagram"></i> Sector Rotation
-        </a>
-        {% if has_scanned and ai_scan_json %}
-        <a id="btn-ai-analyze" href="{% url 'stocks:precision_scan_report' %}" target="_blank" class="btn d-inline-flex align-items-center gap-2"
-                style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
-            <i class="fas fa-robot"></i> AI วิเคราะห์หุ้น
-        </a>
-        {% endif %}
-        {% if has_scanned %}
-        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน Precision SET ทั้งหมด?')">
-            {% csrf_token %}
-            <input type="hidden" name="scanner" value="precision_set">
-            <input type="hidden" name="next" value="{% url 'stocks:precision_momentum_scanner' %}">
-            <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
-                <i class="fas fa-trash-alt"></i> ล้างข้อมูล
-            </button>
-        </form>
-        {% endif %}
+
+        <!-- Bottom Row: Strategy Mode Switchers & Utility Strip -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-3 mt-3 border-top"
+             style="border-color: rgba(148,163,184,0.18) !important;">
+            <!-- Left: Strategy Navigation Chips -->
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small fw-semibold me-1 d-inline-flex align-items-center gap-1" style="font-size:0.78rem;">
+                    <i class="fas fa-compass"></i> กลยุทธ์อื่น:
+                </span>
+                <a href="{% url 'stocks:minervini_sepa_scanner' %}" class="strategy-chip">
+                    <span>🦅</span> SEPA Mode
+                </a>
+                <a href="{% url 'stocks:turnaround_scanner' %}" class="strategy-chip" title="หาหุ้นรอกลับตัว (Selling Climax)">
+                    <i class="fas fa-rotate-left text-primary"></i> Turnaround
+                </a>
+                <a href="{% url 'stocks:sector_rotation_dashboard' %}?market=SET" class="strategy-chip" title="ดูทิศทางเงินทุนรายกลุ่มอุตสาหกรรม (Leading Sisters)">
+                    <i class="fas fa-project-diagram text-info"></i> Sector Rotation
+                </a>
+                <a href="{% url 'stocks:momentum_scanner' %}" class="strategy-chip" title="ไปหน้า Momentum Scan มาตรฐานเดิม">
+                    <i class="fas fa-rocket text-warning"></i> Momentum เดิม
+                </a>
+                <a href="{% url 'stocks:stock_ai_advisor' %}" class="strategy-chip" title="พิมพ์ชื่อหุ้นแล้วให้ AI สรุปสัญญาณ">
+                    <i class="fas fa-robot text-purple"></i> AI Advisor
+                </a>
+            </div>
+
+            <!-- Right: Clear Data / Utility -->
+            {% if has_scanned %}
+            <div class="d-flex align-items-center">
+                <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="m-0" onsubmit="return confirm('ลบข้อมูลสแกน Precision SET ทั้งหมด?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="scanner" value="precision_set">
+                    <input type="hidden" name="next" value="{% url 'stocks:precision_momentum_scanner' %}">
+                    <button type="submit" class="btn btn-sm btn-link text-danger text-decoration-none px-2 py-1 opacity-75 hover-opacity-100 d-inline-flex align-items-center gap-1" style="font-size:0.8rem;">
+                        <i class="fas fa-trash-alt"></i> <span>ล้างข้อมูลสแกน</span>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -1849,6 +1958,11 @@
                     <!-- หมวด C: จังหวะเข้า -->
                     <div class="d-flex flex-wrap gap-3 align-items-center">
                         <span class="badge rounded-pill px-2 py-1" style="background:#fef2f2;color:#dc2626;font-size:0.62rem;font-weight:700;min-width:118px;">C · จังหวะเข้า</span>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(79,70,229,0.08));border:1px solid rgba(124,58,237,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
+                            <input class="form-check-input" type="checkbox" id="edgeFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-bold" for="edgeFilterSET" style="cursor:pointer; color:#7c3aed;">⭐ Historical Edge Only</label>
+                            <span style="font-size:0.85rem;color:#7c3aed;cursor:pointer;" title="Historical Edge Only: กรองเฉพาะหุ้นที่มี Setup ที่มีสถิติกำไร (Win Rate / Expectancy) ยืนยันจาก Scan Quality Analytics ย้อนหลัง"><i class="fas fa-question-circle"></i></span>
+                        </div>
                         <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
                             <input class="form-check-input" type="checkbox" id="buyableFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
                             <label class="form-check-label small fw-bold" for="buyableFilterSET" style="cursor:pointer; color:#059669;">🎯 อยู่ในโซนซื้อ (In Zone)</label>
@@ -2149,6 +2263,7 @@
                         {% for item in candidates %}
                         <tr class="{% if item.symbol in trailing_status %}row-trailing-active{% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}"
     data-symbol="{{ item.symbol }}"
+    data-edge="{{ item.edge_tier|default:'none' }}"
     data-price="{{ item.live_price|default:item.price }}"
     data-chg-pct="{{ item.live_change_pct|default:0 }}"
     data-zone-start="{{ item.demand_zone_start|default:0 }}"
@@ -2241,6 +2356,11 @@
                                     </div>
                                     <div>
                                         <span class="fw-bold">{{ item.symbol }}</span>
+                                        {% if item.edge_tier == 'high' %}
+                                        <span class="badge px-1 py-0 shadow-sm" style="background:linear-gradient(135deg,#059669,#047857);color:white;font-size:0.55rem;border:1px solid #10b981;" title="{{ item.edge_tooltip }}">⭐ High Edge</span>
+                                        {% elif item.edge_tier == 'positive' %}
+                                        <span class="badge px-1 py-0 bg-success-subtle text-success border border-success-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge</span>
+                                        {% endif %}
                                         {% if item.htf_setup %}
                                         <span class="badge px-1 py-0" style="background:#ef4444;color:white;font-size:0.55rem;" title="High Tight Flag / Power Play: พุ่ง +{{ item.htf_surge_pct|floatformat:0 }}% พักตัว {{ item.htf_base_depth|floatformat:0 }}%">🚀 HTF</span>
                                         {% endif %}
@@ -3718,7 +3838,7 @@
 
 {% if has_scanned and ai_scan_json %}
 <!-- AI Scan JSON data -->
-<script id="ai-scan-data" type="application/json">{{ ai_scan_json|safe }}</script>
+{{ ai_scan_json|json_script:"ai-scan-data" }}
 <span id="ai-endpoint" data-url="{% url 'stocks:precision_scan_ai_analysis' %}" data-csrf="{{ csrf_token }}"></span>
 
 
@@ -4521,10 +4641,11 @@ function applyPreset(presetType) {
     const squeezeOn  = document.getElementById('squeezeOnFilterSET');
     const ep         = document.getElementById('epFilterSET');
     const safe       = document.getElementById('safeFilterSET');
+    const edge       = document.getElementById('edgeFilterSET');
     const abcd       = document.getElementById('abcdFilterSET');
 
     // Reset all
-    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, insideBar, accDist, buyable, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe, abcd].forEach(el => {
+    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, insideBar, accDist, buyable, edge, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe, abcd].forEach(el => {
         if (el) el.checked = false;
     });
 
@@ -4650,6 +4771,7 @@ function _applyFiltersSET() {
         var rrOn           = document.getElementById('rrFilterSET')           && document.getElementById('rrFilterSET').checked;
         var rsFilterOn     = document.getElementById('rsFilterSET')           && document.getElementById('rsFilterSET').checked;
         var abcdOn         = document.getElementById('abcdFilterSET')         && document.getElementById('abcdFilterSET').checked;
+        var edgeOn         = document.getElementById('edgeFilterSET')         && document.getElementById('edgeFilterSET').checked;
         var secEl  = document.getElementById('sectorFilterSET');
         var secVal = secEl ? secEl.value : '';
 
@@ -4719,7 +4841,11 @@ function _applyFiltersSET() {
             var _zoneConfirm = (cmf >= 0.1 || pp || rvol >= 1.2);
             var isBuyable = s2 && !extended && rsi <= 68 && rsRatingVal >= 70 && cmf >= 0.05 && _zoneConfirm && (inzone || prox <= 3 || nearMa50);
 
+            var edgeTier = row.dataset.edge || 'none';
+            var isEdge = (edgeTier === 'high' || edgeTier === 'positive');
+
             var show = (!rsiOn       || rsi < 70) &&
+                       (!edgeOn      || isEdge) &&
                        (!buyableOn   || isBuyable) &&
                        (!s2On        || s2) &&
                        (!ppOn        || pp) &&
@@ -4806,7 +4932,7 @@ function _applyFiltersSET() {
 var FILTER_IDS_SET = ['rsiFilter70SET','stage2FilterSET','ppFilterSET','cmfPositiveFilterSET',
                       'volSurgeFilterSET','ichiFilterSET','launcherFilterSET','vcpFilterSET','vpFilterSET',
                       'itlFilterSET','canslimFilterSET','buynowFilterSET','insideBarFilterSET','accDistFilterSET','buyableFilterSET',
-                      'trendTemplateFilterSET','sectorConfirmedFilterSET','abcdFilterSET'];
+                      'edgeFilterSET','trendTemplateFilterSET','sectorConfirmedFilterSET','abcdFilterSET'];
 
 function _saveFilterStateSET() {
     try {

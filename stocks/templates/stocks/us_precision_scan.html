@@ -536,50 +536,150 @@
     [data-theme="dark"] .filter-label-vcp, [data-bs-theme="dark"] .filter-label-vcp { color: #fb7185 !important; }
     [data-theme="dark"] .filter-label-vp, [data-bs-theme="dark"] .filter-label-vp { color: #a78bfa !important; }
     [data-theme="dark"] .filter-label-itl, [data-bs-theme="dark"] .filter-label-itl { color: #ffedd5 !important; }
+
+/* Scanner Header & Unified Control Bar */
+.scanner-hero-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+[data-bs-theme="dark"] .scanner-hero-card {
+    background: rgba(15, 23, 42, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.scanner-title {
+    color: #1e293b;
+}
+[data-bs-theme="dark"] .scanner-title {
+    color: #f8fafc !important;
+}
+
+.strategy-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    text-decoration: none;
+    transition: all 0.18s ease-in-out;
+}
+.strategy-chip:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+[data-bs-theme="dark"] .strategy-chip {
+    color: #cbd5e1 !important;
+    background: rgba(30, 41, 59, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-bs-theme="dark"] .strategy-chip:hover {
+    color: #ffffff !important;
+    background: rgba(51, 65, 85, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.btn-action-glow {
+    transition: all 0.18s ease-in-out;
+}
+.btn-action-glow:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+}
 </style>
 
-<div>
-<div class="row align-items-end mb-4">
-    <div class="col-md-7">
-        <h1 class="fw-bold mb-1" style="color: #4f46e5;"><i class="fas fa-crosshairs me-2"></i> US Precision Momentum Scanner</h1>
-        <p class="text-muted mb-0">
-            Institutional Grade Filter: RS Rating ≥ 60 + ADX ≥ 15 + Stage 2 Tracking<br>
-            Supply Target = max(52-Week High, Entry + 4×ATR) | Stop Loss: ATR-based | RVOL: Direction-Aware (Bull/Bear)
-        </p>
-    </div>
-    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
-        <!-- ★ ปุ่มที่ใช้บ่อยที่สุด — พินไว้หน้าสุด เด่นกว่าปุ่มอื่น -->
-        <div class="d-inline-flex flex-wrap align-items-center gap-2 p-2 rounded-3 mb-2 mb-md-0"
-             style="background:rgba(124,58,237,0.10); border:1px solid rgba(167,139,250,0.40); box-shadow:0 4px 16px rgba(124,58,237,0.18);">
-            <form method="post" id="precisionScanForm" style="display:inline;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="scan">
-                {% if has_scanned %}
-                <button type="button" onclick="confirmRescanPrecision()" class="btn btn-lg fw-bold d-inline-flex align-items-center gap-2"
-                        style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color:white; box-shadow:0 6px 18px rgba(124,58,237,0.5);">
-                    <i class="fas fa-crosshairs"></i> Re-Scan US (S&P 500)
-                </button>
-                {% else %}
-                <button type="submit" class="btn btn-lg fw-bold d-inline-flex align-items-center gap-2"
-                        style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color:white; box-shadow:0 6px 18px rgba(124,58,237,0.5);">
-                    <i class="fas fa-crosshairs"></i> Run Precision Scan
-                </button>
-                {% endif %}
-            </form>
+<div class="card border-0 shadow-sm rounded-4 mb-4 scanner-hero-card">
+    <div class="card-body p-3 p-md-4">
+        <!-- Top Row: Title & Badges on Left, Primary Execution on Right -->
+        <div class="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3">
+            <!-- Left: Title & Specs -->
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    <span class="badge rounded-pill px-2.5 py-1 fw-bold text-uppercase"
+                          style="background: rgba(79,70,229,0.12); color: #4f46e5; border: 1px solid rgba(79,70,229,0.25); font-size: 0.72rem; letter-spacing: 0.04em;">
+                        <span class="me-1">🇺🇸</span> US Precision Engine
+                    </span>
+                    <span class="badge rounded-pill px-2.5 py-1 text-muted"
+                          style="background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.2); font-size: 0.72rem;">
+                        S&amp;P 500 Universe
+                    </span>
+                    <span class="badge rounded-pill px-2.5 py-1 text-muted"
+                          style="background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.2); font-size: 0.72rem;">
+                        Institutional Grade
+                    </span>
+                </div>
+                <h1 class="h3 fw-bold mb-1 scanner-title" style="letter-spacing: -0.02em;">
+                    US Precision Momentum Scanner
+                </h1>
+                <p class="text-muted small mb-0" style="font-size: 0.83rem;">
+                    Institutional Grade Filter: RS Rating ≥ 60 · ADX ≥ 15 · Stage 2 Tracking · ATR Supply &amp; Dynamic Stop Loss · Bull/Bear RVOL
+                </p>
+            </div>
+
+            <!-- Right: Primary Execution Actions (Unified Height & Cohesive Style) -->
+            <div class="d-flex flex-wrap align-items-center gap-2 justify-content-xl-end">
+                <a href="{% url 'stocks:scan_quality_report' %}?market=US" 
+                   class="btn btn-action-glow d-inline-flex align-items-center gap-2 fw-semibold"
+                   style="background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.35); padding: 0.52rem 0.95rem; border-radius: 10px; font-size: 0.86rem;"
+                   title="Track actual forward returns and setup edge (5D/10D/20D)">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Scan Quality &amp; Edge</span>
+                </a>
+
+                <a id="btn-ai-analyze" href="{% url 'stocks:us_precision_scan_report' %}" target="_blank" 
+                   class="btn btn-action-glow d-inline-flex align-items-center gap-2 fw-semibold"
+                   style="background: rgba(6,182,212,0.12); color: #0891b2; border: 1px solid rgba(6,182,212,0.35); padding: 0.52rem 0.95rem; border-radius: 10px; font-size: 0.86rem;"
+                   title="AI Market Analysis Report">
+                    <i class="fas fa-robot"></i>
+                    <span>AI Market Analysis</span>
+                </a>
+
+                <form method="post" id="precisionScanForm" class="m-0 d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="scan">
+                    {% if has_scanned %}
+                    <button type="button" onclick="confirmRescanPrecision()" 
+                            class="btn btn-action-glow fw-bold d-inline-flex align-items-center gap-2 shadow-sm"
+                            style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border: none; padding: 0.52rem 1.25rem; border-radius: 10px; font-size: 0.88rem; box-shadow: 0 4px 14px rgba(124,58,237,0.35) !important;">
+                        <i class="fas fa-crosshairs"></i>
+                        <span>Re-Scan US (S&amp;P 500)</span>
+                    </button>
+                    {% else %}
+                    <button type="submit" 
+                            class="btn btn-action-glow fw-bold d-inline-flex align-items-center gap-2 shadow-sm"
+                            style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border: none; padding: 0.52rem 1.25rem; border-radius: 10px; font-size: 0.88rem; box-shadow: 0 4px 14px rgba(124,58,237,0.35) !important;">
+                        <i class="fas fa-crosshairs"></i>
+                        <span>Run Precision Scan</span>
+                    </button>
+                    {% endif %}
+                </form>
+            </div>
         </div>
-        <a href="{% url 'stocks:us_momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
-            <i class="fas fa-rocket"></i> Go to Standard US Scan
-        </a>
-        <a href="{% url 'stocks:us_sepa_scanner' %}" class="btn d-inline-flex align-items-center gap-2" style="background:#0f172a; color:white; border:none;">
-            <span style="font-size:1rem;">🦅</span> SEPA Mode (Minervini)
-        </a>
-        <a href="{% url 'stocks:sector_rotation_dashboard' %}?market=US" class="btn d-inline-flex align-items-center gap-2" style="background:linear-gradient(135deg,#0ea5e9,#0284c7); color:white; border:none;" title="ดูทิศทางเงินทุนรายกลุ่มอุตสาหกรรม (Leading Sisters)">
-            <i class="fas fa-project-diagram"></i> Sector Rotation
-        </a>
-        <a id="btn-ai-analyze" href="{% url 'stocks:us_precision_scan_report' %}" target="_blank" class="btn d-inline-flex align-items-center gap-2"
-                style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
-            <i class="fas fa-robot"></i> AI Market Analysis
-        </a>
+
+        <!-- Bottom Row: Strategy Mode Switchers -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-3 mt-3 border-top"
+             style="border-color: rgba(148,163,184,0.18) !important;">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small fw-semibold me-1 d-inline-flex align-items-center gap-1" style="font-size:0.78rem;">
+                    <i class="fas fa-compass"></i> Other Strategies:
+                </span>
+                <a href="{% url 'stocks:us_sepa_scanner' %}" class="strategy-chip">
+                    <span>🦅</span> SEPA Mode (Minervini)
+                </a>
+                <a href="{% url 'stocks:sector_rotation_dashboard' %}?market=US" class="strategy-chip" title="Sector Rotation Dashboard">
+                    <i class="fas fa-project-diagram text-info"></i> Sector Rotation
+                </a>
+                <a href="{% url 'stocks:us_momentum_scanner' %}" class="strategy-chip" title="Standard US Momentum Scanner">
+                    <i class="fas fa-rocket text-warning"></i> Standard US Scan
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1948,6 +2048,11 @@
                     <!-- หมวด C: จังหวะเข้า -->
                     <div class="d-flex flex-wrap gap-3 align-items-center">
                         <span class="badge rounded-pill px-2 py-1" style="background:#fef2f2;color:#dc2626;font-size:0.62rem;font-weight:700;min-width:118px;">C · จังหวะเข้า</span>
+                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(79,70,229,0.08));border:1px solid rgba(124,58,237,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
+                            <input class="form-check-input" type="checkbox" id="edgeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                            <label class="form-check-label small fw-bold" for="edgeFilterUS" style="cursor:pointer; color:#7c3aed;">⭐ Historical Edge Only</label>
+                            <span style="font-size:0.85rem;color:#7c3aed;cursor:pointer;" title="Historical Edge Only: กรองเฉพาะหุ้นที่มี Setup ที่มีสถิติกำไร (Win Rate / Expectancy) ยืนยันจาก Scan Quality Analytics ย้อนหลัง"><i class="fas fa-question-circle"></i></span>
+                        </div>
                         <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
                             <input class="form-check-input" type="checkbox" id="buyableFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
                             <label class="form-check-label small fw-bold" for="buyableFilterUS" style="cursor:pointer; color:#059669;">🎯 อยู่ในโซนซื้อ (In Zone)</label>
@@ -2241,6 +2346,7 @@
                         {% for item in candidates %}
                         <tr class="{% if item.symbol in trailing_status %}row-trailing-active{% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}"
     data-symbol="{{ item.symbol }}"
+    data-edge="{{ item.edge_tier|default:'none' }}"
     data-price="{{ item.live_price|default:item.price }}"
     data-chg-pct="{{ item.live_change_pct|default:0 }}"
     data-zone-start="{{ item.demand_zone_start|default:0 }}"
@@ -2332,6 +2438,11 @@
                                     </div>
                                     <div>
                                         <span class="fw-bold">{{ item.symbol }}</span>
+                                        {% if item.edge_tier == 'high' %}
+                                        <span class="badge px-1 py-0 shadow-sm" style="background:linear-gradient(135deg,#059669,#047857);color:white;font-size:0.55rem;border:1px solid #10b981;" title="{{ item.edge_tooltip }}">⭐ High Edge</span>
+                                        {% elif item.edge_tier == 'positive' %}
+                                        <span class="badge px-1 py-0 bg-success-subtle text-success border border-success-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge</span>
+                                        {% endif %}
                                         {% if item.htf_setup %}
                                         <span class="badge px-1 py-0" style="background:#ef4444;color:white;font-size:0.55rem;" title="High Tight Flag / Power Play: Surge +{{ item.htf_surge_pct|floatformat:0 }}% Base {{ item.htf_base_depth|floatformat:0 }}%">🚀 HTF</span>
                                         {% endif %}
@@ -3792,10 +3903,11 @@ function applyPreset(presetType) {
     const squeezeOn  = document.getElementById('squeezeOnFilterUS');
     const ep         = document.getElementById('epFilterUS');
     const safe       = document.getElementById('safeFilterUS');
+    const edge       = document.getElementById('edgeFilterUS');
     const abcd       = document.getElementById('abcdFilterUS');
 
     // Reset all
-    [rsi, stage2, pp, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, cmfPos, insideBar, accDist, buyable, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe, abcd].forEach(el => {
+    [rsi, stage2, pp, vol, ichi, launcher, vcp, vp, itl, canslim, buynow, cmfPos, insideBar, accDist, buyable, edge, trendTemplate, sectorConfirmed, htf, squeezeFired, squeezeOn, ep, safe, abcd].forEach(el => {
         if (el) el.checked = false;
     });
 
@@ -3906,6 +4018,7 @@ function _applyFiltersUS() {
         var rrOn           = document.getElementById('rrFilterUS')           && document.getElementById('rrFilterUS').checked;
         var rsFilterOn     = document.getElementById('rsFilterUS')           && document.getElementById('rsFilterUS').checked;
         var abcdOn         = document.getElementById('abcdFilterUS')         && document.getElementById('abcdFilterUS').checked;
+        var edgeOn         = document.getElementById('edgeFilterUS')         && document.getElementById('edgeFilterUS').checked;
         var secEl  = document.getElementById('sectorFilterUS');
         var secVal = secEl ? secEl.value : '';
 
@@ -3975,7 +4088,11 @@ function _applyFiltersUS() {
             var _zoneConfirm = (cmf >= 0.1 || pp || rvol >= 1.2);
             var isBuyable = s2 && !extended && rsi <= 68 && rsRatingVal >= 70 && cmf >= 0.05 && _zoneConfirm && (inzone || prox <= 3 || nearMa50);
 
+            var edgeTier = row.dataset.edge || 'none';
+            var isEdge = (edgeTier === 'high' || edgeTier === 'positive');
+
             var show = (!rsiOn       || rsi < 70) &&
+                       (!edgeOn      || isEdge) &&
                        (!buyableOn   || isBuyable) &&
                        (!s2On        || s2) &&
                        (!ppOn        || pp) &&
@@ -4062,7 +4179,7 @@ function _applyFiltersUS() {
 var FILTER_IDS_US = ['rsiFilter70US','stage2FilterUS','ppFilterUS','cmfPositiveFilterUS',
                      'volSurgeFilterUS','ichiFilterUS','launcherFilterUS','vcpFilterUS','vpFilterUS',
                      'itlFilterUS','canslimFilterUS','buynowFilterUS','insideBarFilterUS','accDistFilterUS','buyableFilterUS',
-                     'trendTemplateFilterUS','sectorConfirmedFilterUS','abcdFilterUS'];
+                     'edgeFilterUS','trendTemplateFilterUS','sectorConfirmedFilterUS','abcdFilterUS'];
 
 function _saveFilterStateUS() {
     try {

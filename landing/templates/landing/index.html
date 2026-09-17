@@ -321,6 +321,181 @@
             box-shadow: 0 20px 50px -12px rgba(99, 102, 241, 0.18), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
         }
 
+        .card--rose::before {
+            background: linear-gradient(90deg, #ec4899, #f43f5e);
+        }
+        .card--rose:hover {
+            border-color: rgba(244, 63, 94, 0.35);
+            box-shadow: 0 20px 50px -12px rgba(244, 63, 94, 0.2), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
+        }
+
+        /* ====== Hero Card for Marketing OS ====== */
+        .card--marketing-hero {
+            background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 50%, #eff6ff 100%);
+            border: 2px solid rgba(99, 102, 241, 0.35);
+            box-shadow: 0 20px 45px -10px rgba(99, 102, 241, 0.2), 0 8px 16px -4px rgba(0, 0, 0, 0.05);
+            position: relative;
+            overflow: hidden;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            display: block;
+            text-decoration: none;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card--marketing-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #f43f5e);
+        }
+        .card--marketing-hero:hover {
+            transform: translateY(-4px);
+            border-color: rgba(99, 102, 241, 0.6);
+            box-shadow: 0 25px 55px -10px rgba(99, 102, 241, 0.3);
+        }
+        .marketing-hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.85rem;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 9999px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #4338ca;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4f46e5;
+            box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7);
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(79, 70, 229, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+        }
+        .marketing-hero-body {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .marketing-hero-icon {
+            width: 72px;
+            height: 72px;
+            min-width: 72px;
+            border-radius: 1.25rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+            margin-bottom: 0;
+        }
+        .marketing-hero-icon svg {
+            width: 36px;
+            height: 36px;
+            color: white;
+        }
+        .marketing-hero-text {
+            flex: 1;
+        }
+        .marketing-hero-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .hero-tag {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 0.2rem 0.5rem;
+            background: linear-gradient(135deg, #ec4899, #f43f5e);
+            color: white;
+            border-radius: 6px;
+            letter-spacing: 0.05em;
+        }
+        .marketing-hero-highlights {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .hero-chip {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            color: #334155;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .marketing-hero-cta {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            margin-left: auto;
+        }
+        .hero-btn {
+            padding: 0.75rem 1.4rem;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: white;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border-radius: 9999px;
+            box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.35);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .card--marketing-hero:hover .hero-btn {
+            transform: translateX(4px);
+            box-shadow: 0 10px 25px -4px rgba(79, 70, 229, 0.5);
+        }
+        .category-header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1.75rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .category-header__icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+        }
+        .category-header__title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        .category-header__desc {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-left: 0.5rem;
+        }
+
         /* ====== กล่องไอคอนของการ์ด (Smaller) ====== */
         .card__icon {
             position: relative;
@@ -483,6 +658,7 @@
         .card--purple .card__action { color: #8b5cf6; }
         .card--emerald .card__action { color: #059669; }
         .card--indigo .card__action { color: #6366f1; }
+        .card--rose .card__action { color: #e11d48; }
 
         .card__action svg {
             width: 16px;
@@ -926,8 +1102,156 @@
         <div class="cards-grid">
             <!-- แสดงการ์ดระบบเฉพาะเมื่อผู้ใช้ล็อกอินแล้ว -->
             {% if user.is_authenticated %}
-                <!-- ====== การ์ด: ระบบสัญญาเช่า ====== -->
-                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ rentals หรือ profile.access_rentals หรือเป็น superuser -->
+
+                <!-- ====== HIGHLIGHT HERO: ระบบการตลาด AI (Marketing OS) ====== -->
+                {% if perms.marketing or user.profile.access_marketing or user.is_superuser %}
+                <div class="hero-marketing-container" style="grid-column: 1 / -1; margin-bottom: 0.5rem;">
+                    <a href="{% url 'marketing:dashboard' %}" class="card--marketing-hero" id="card-marketing-hero">
+                        <div class="marketing-hero-badge">
+                            <span class="pulse-dot"></span>
+                            <span>⚡ AI MARKETING & GROWTH OS — ธุรกิจโตขึ้นโดยไม่ต้องจ้างคนเพิ่ม</span>
+                        </div>
+                        <div class="marketing-hero-body">
+                            <div class="marketing-hero-icon">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                                </svg>
+                            </div>
+                            <div class="marketing-hero-text">
+                                <div class="marketing-hero-title">
+                                    <span class="card__title-th" style="font-size: 1.45rem; color: #1e1b4b; margin: 0;">ศูนย์บัญชาการการตลาด AI (Marketing OS)</span>
+                                    <span class="hero-tag">HIGHLIGHT</span>
+                                </div>
+                                <div class="card__title-en" style="color: #4f46e5; font-weight: 700; margin-bottom: 0.4rem;">Autonomous Marketing & Growth Intelligence</div>
+                                <p class="card__desc" style="display: block; font-size: 0.88rem; color: #475569; margin-bottom: 0.6rem; line-height: 1.5;">
+                                    ควบคุมค่าแอด, วิเคราะห์ ROAS & กำไรสุทธิ Real-time, AI Action Plan วางแผนการตลาดรายวัน, สคริปต์คลิป TikTok/Reels และเรดาร์ส่องคู่แข่ง — ทำงานแทนทีมการตลาดหลักแสน
+                                </p>
+                                <div class="marketing-hero-highlights">
+                                    <span class="hero-chip"><i class="fas fa-robot text-purple-600"></i> Gemini AI Agent</span>
+                                    <span class="hero-chip"><i class="fas fa-chart-line text-emerald-600"></i> ROAS & Profit Dashboard</span>
+                                    <span class="hero-chip"><i class="fas fa-bolt text-amber-500"></i> Daily Action Checklist</span>
+                                    <span class="hero-chip"><i class="fas fa-video text-pink-600"></i> TikTok / Reels Script Lab</span>
+                                </div>
+                            </div>
+                            <div class="marketing-hero-cta">
+                                <span class="hero-btn">เปิดระบบการตลาด AI <i class="fas fa-arrow-right"></i></span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- ====== หมวดที่ 1: การตลาด & การเติบโต (Marketing & Growth) ====== -->
+                <div class="category-header">
+                    <div class="category-header__icon" style="background: rgba(99, 102, 241, 0.12); color: #4f46e5;">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <div class="category-header__title">การตลาดออนไลน์ & การเติบโต (Marketing & Growth)</div>
+                    <div class="category-header__desc">ระบบ AI วิเคราะห์การตลาด สเกลยอดขาย และบริหารสินทรัพย์</div>
+                </div>
+
+                <!-- การ์ด: ระบบการตลาด AI (Compact Card) -->
+                {% if perms.marketing or user.profile.access_marketing or user.is_superuser %}
+                <a href="{% url 'marketing:dashboard' %}" class="card card--rose" id="card-marketing">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25l3-3m0 0l3 3m-3-3v7.5" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ศูนย์การตลาด AI</div>
+                        <div class="card__title-en">Marketing OS</div>
+                        <p class="card__desc">วิเคราะห์ ROAS, ค่าแอด และ Action Plan รายวัน</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                <!-- การ์ด: วิเคราะห์หุ้นและสินทรัพย์ AI -->
+                {% if user.is_superuser and user.is_staff and perms.stocks or user.profile.access_stocks %}
+                <a href="{% url 'stocks:dashboard' %}" class="card card--purple" id="card-stocks">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M2.25 18L9 11.25l4.5 4.5L21.75 7.5M21.75 7.5V12m0-4.5H17.25" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">วิเคราะห์หุ้น & สินทรัพย์ AI</div>
+                        <div class="card__title-en">Stock & Asset Analyst</div>
+                        <p class="card__desc">สแกนโมเมนตัม วินิจฉัยสัญญาณซื้อขายด้วย AI</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                <!-- ====== หมวดที่ 2: งานขาย & ปฏิบัติการหน้าร้าน (Commerce & Operations) ====== -->
+                <div class="category-header">
+                    <div class="category-header__icon" style="background: rgba(34, 197, 94, 0.12); color: #16a34a;">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    <div class="category-header__title">งานขาย & บริการลูกค้า (Commerce & Operations)</div>
+                    <div class="category-header__desc">จุดขายสินค้า งานซ่อมบำรุง สัญญาเช่า และบริหารโครงการ</div>
+                </div>
+
+                <!-- การ์ด: ระบบขายสินค้า (POS) -->
+                {% if perms.pos or user.profile.access_pos or user.is_superuser %}
+                <a href="{% url 'pos:index' %}" class="card card--green" id="card-pos">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบขายสินค้า (POS)</div>
+                        <div class="card__title-en">POS System</div>
+                        <p class="card__desc">จุดขายหน้าร้าน คิดเงิน คุมสต็อกสินค้า</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                <!-- การ์ด: ระบบซ่อมบำรุง -->
+                {% if perms.repairs or user.profile.access_repairs or user.is_superuser %}
+                <a href="{% url 'repairs:repair_list' %}" class="card card--orange" id="card-repairs">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M11.42 15.17l-5.59-5.59a2 2 0 010-2.83l.83-.83a2 2 0 012.83 0l5.59 5.59m-6.66 6.66l6.66-6.66m4.24 4.24l-4.24-4.24m4.24 4.24a2 2 0 010-2.83l-1.41-1.41a2 2 0 00-2.83 0" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบงานซ่อมบำรุง</div>
+                        <div class="card__title-en">Repair System</div>
+                        <p class="card__desc">ติดตามสถานะงานซ่อม เบิกอะไหล่ จัดการช่าง</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                <!-- การ์ด: ระบบสัญญาเช่า -->
                 {% if perms.rentals or user.profile.access_rentals or user.is_superuser %}
                 <a href="/contracts/" class="card card--blue" id="card-contracts">
                     <div class="card__icon">
@@ -939,7 +1263,7 @@
                     <div class="card__content">
                         <div class="card__title-th">ระบบสัญญาเช่า</div>
                         <div class="card__title-en">Contracts System</div>
-                        <p class="card__desc">จัดการสัญญาเช่า ผู้เช่า และห้องเช่า</p>
+                        <p class="card__desc">จัดการสัญญาเช่า ผู้เช่า ทรัพย์สิน และใบแจ้งหนี้</p>
                     </div>
                     <div class="card__action">
                         เข้าสู่ระบบ
@@ -950,56 +1274,7 @@
                 </a>
                 {% endif %}
 
-                <!-- ====== การ์ด: ระบบซ่อมบำรุง ====== -->
-                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ repairs หรือ profile.access_repairs หรือเป็น superuser -->
-                {% if perms.repairs or user.profile.access_repairs or user.is_superuser %}
-                <a href="{% url 'repairs:repair_list' %}" class="card card--orange" id="card-repairs">
-                    <div class="card__icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M11.42 15.17l-5.59-5.59a2 2 0 010-2.83l.83-.83a2 2 0 012.83 0l5.59 5.59m-6.66 6.66l6.66-6.66m4.24 4.24l-4.24-4.24m4.24 4.24a2 2 0 010-2.83l-1.41-1.41a2 2 0 00-2.83 0" />
-                        </svg>
-                    </div>
-                    <div class="card__content">
-                        <div class="card__title-th">ระบบซ่อมบำรุง</div>
-                        <div class="card__title-en">Repair System</div>
-                        <p class="card__desc">ติดตามงานซ่อม และบำรุงรักษา</p>
-                    </div>
-                    <div class="card__action">
-                        เข้าสู่ระบบ
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </div>
-                </a>
-                {% endif %}
-
-                <!-- ====== การ์ด: ระบบขายสินค้า (POS) ====== -->
-                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ pos หรือ profile.access_pos หรือเป็น superuser -->
-                {% if perms.pos or user.profile.access_pos or user.is_superuser %}
-                <a href="{% url 'pos:index' %}" class="card card--green" id="card-pos">
-                    <div class="card__icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-                        </svg>
-                    </div>
-                    <div class="card__content">
-                        <div class="card__title-th">ระบบขายสินค้า</div>
-                        <div class="card__title-en">POS System</div>
-                        <p class="card__desc">จุดขายสินค้า และจัดการสต๊อก</p>
-                    </div>
-                    <div class="card__action">
-                        เข้าสู่ระบบ
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </div>
-                </a>
-                {% endif %}
-
-                <!-- ====== การ์ด: ระบบจัดการโครงการ (PMS) ====== -->
-                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ pms หรือ profile.access_pms หรือเป็น superuser -->
+                <!-- การ์ด: ระบบจัดการโครงการ (PMS) -->
                 {% if perms.pms or user.profile.access_pms or user.is_superuser %}
                 <a href="{% url 'pms:project_list' %}" class="card card--cyan" id="card-pms">
                     <div class="card__icon">
@@ -1009,9 +1284,9 @@
                         </svg>
                     </div>
                     <div class="card__content">
-                        <div class="card__title-th">ระบบจัดการโครงการ</div>
+                        <div class="card__title-th">ระบบจัดการโครงการ (PMS)</div>
                         <div class="card__title-en">Project System</div>
-                        <p class="card__desc">จัดการโครงการ และบริการ</p>
+                        <p class="card__desc">จัดการโครงการติดตั้ง บริการ และส่งมอบงาน</p>
                     </div>
                     <div class="card__action">
                         เข้าสู่ระบบ
@@ -1022,8 +1297,16 @@
                 </a>
                 {% endif %}
 
-                <!-- ====== การ์ด: ศูนย์แชทกลาง (Communication Hub) ====== -->
-                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ chat หรือ profile.access_chat หรือเป็น superuser -->
+                <!-- ====== หมวดที่ 3: องค์กร & การบริหารทีม (Team & Organization) ====== -->
+                <div class="category-header">
+                    <div class="category-header__icon" style="background: rgba(59, 130, 246, 0.12); color: #2563eb;">
+                        <i class="fas fa-users-gear"></i>
+                    </div>
+                    <div class="category-header__title">บริหารทีมงาน & การสื่อสาร (Team & Organization)</div>
+                    <div class="category-header__desc">สื่อสารภายในทีม วางแผนงานองค์กร บัญชีเงินเดือน และสิทธิ์พนักงาน</div>
+                </div>
+
+                <!-- การ์ด: ศูนย์แชทกลาง -->
                 {% if perms.chat or user.profile.access_chat or user.is_superuser %}
                 <a href="{% url 'chat:index' %}" class="card card--blue" id="card-chat">
                     <div class="card__icon" style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe); border: 1px solid #a5b4fc;">
@@ -1034,7 +1317,7 @@
                     </div>
                     <div class="card__content">
                         <div class="card__title-th">ศูนย์แชทกลาง</div>
-                        <div class="card__title-en">Communication Hub</div>
+                        <div class="card__title-en">Central Chat Hub</div>
                         <p class="card__desc">แชทติดต่อสื่อสารระหว่างทีมงานแบบ Real-time</p>
                     </div>
                     <div class="card__action" style="color: #4338ca; opacity:1; transform:translateY(0);">
@@ -1046,77 +1329,7 @@
                 </a>
                 {% endif %}
 
-                <!-- ====== การ์ด: ระบบเงินเดือน (Payroll) ====== -->
-                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ payroll หรือ profile.access_payroll หรือเป็น superuser -->
-                {% if perms.payroll or user.profile.access_payroll or user.is_superuser %}
-                <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">
-                    <div class="card__icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                    </div>
-                    <div class="card__content">
-                        <div class="card__title-th">ระบบเงินเดือน</div>
-                        <div class="card__title-en">Payroll System</div>
-                        <p class="card__desc">จัดการเงินเดือน และรายงานผลงาน</p>
-                    </div>
-                    <div class="card__action">
-                        เข้าสู่ระบบ
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </div>
-                </a>
-                {% endif %}
-
-                <!-- ====== การ์ด: ระบบจัดการพนักงาน (User Management) ====== -->
-                <!-- แสดงเฉพาะ superuser เท่านั้น -->
-                {% if user.is_superuser %}
-                <a href="{% url 'accounts:user_list' %}" class="card card--blue" id="card-accounts">
-                    <div class="card__icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                    </div>
-                    <div class="card__content">
-                        <div class="card__title-th">จัดการพนักงาน</div>
-                        <div class="card__title-en">User Management</div>
-                        <p class="card__desc">จัดการสิทธิ์ บทบาท และทีมงาน</p>
-                    </div>
-                    <div class="card__action">
-                        เข้าสู่ระบบ
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </div>
-                </a>
-                {% endif %}
-
-                {% if user.is_superuser and user.is_staff and perms.stocks or user.profile.access_stocks %}
-                <!-- ระบบวิเคราะห์หุ้น AI (Admin Only) -->
-                <a href="{% url 'stocks:dashboard' %}" class="card card--purple" id="card-stocks">
-                    <div class="card__icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M2.25 18L9 11.25l4.5 4.5L21.75 7.5M21.75 7.5V12m0-4.5H17.25" />
-                        </svg>
-                    </div>
-                    <div class="card__content">
-                        <div class="card__title-th">วิเคราะห์หุ้น AI</div>
-                        <div class="card__title-en">Stock Analyst AI</div>
-                        <p class="card__desc">วิเคราะห์สินทรัพย์ด้วยพลัง AI</p>
-                    </div>
-                    <div class="card__action">
-                        เข้าสู่ระบบ
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </div>
-                </a>
-                {% endif %}
-
-                <!-- ====== การ์ด: Ops Management (Weekly Operations) ====== -->
+                <!-- การ์ด: Ops Management -->
                 {% if user.is_superuser or user.profile.access_ops %}
                 <a href="{% url 'ops:dashboard' %}" class="card card--purple" id="card-ops">
                     <div class="card__icon">
@@ -1127,7 +1340,7 @@
                     <div class="card__content">
                         <div class="card__title-th">วางแผนการประกอบการ</div>
                         <div class="card__title-en">Ops Management</div>
-                        <p class="card__desc">วางแผนงานประชุม และติดตามงานรายฝ่าย</p>
+                        <p class="card__desc">วางแผนงานประจำสัปดาห์ ประชุม และติดตาม KPI</p>
                     </div>
                     <div class="card__action">
                         เข้าสู่ระบบ
@@ -1138,7 +1351,7 @@
                 </a>
                 {% endif %}
 
-                <!-- ====== การ์ด: ระบบกระดานข่าว (Knowledge Board) ====== -->
+                <!-- การ์ด: ระบบกระดานข่าว (Knowledge Board) -->
                 {% if user.is_superuser or user.profile.access_board %}
                 <a href="{% url 'board:list' %}" class="card card--indigo" id="card-board">
                     <div class="card__icon">
@@ -1148,14 +1361,59 @@
                         </svg>
                     </div>
                     <div class="card__content">
-                        <div class="card__title-th">กระดานข่าวสาร</div>
+                        <div class="card__title-th">กระดานข่าวสารองค์กร</div>
                         <div class="card__title-en">Knowledge Board</div>
-                        <p class="card__desc">ข่าวสาร ความรู้ และการแลกเปลี่ยนข้อมูลภายในทีม</p>
+                        <p class="card__desc">ข่าวสาร นโยบาย และการแลกเปลี่ยนความรู้ในทีม</p>
                     </div>
                     <div class="card__action">
                         เข้าสู่ระบบ
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                <!-- การ์ด: ระบบเงินเดือน (Payroll) -->
+                {% if perms.payroll or user.profile.access_payroll or user.is_superuser %}
+                <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบเงินเดือน & ค่าตอบแทน</div>
+                        <div class="card__title-en">Payroll System</div>
+                        <p class="card__desc">คำนวณเงินเดือน สรุปผลงาน และพิมพ์สลิป</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                <!-- การ์ด: จัดการพนักงาน (Admin Only) -->
+                {% if user.is_superuser %}
+                <a href="{% url 'accounts:user_list' %}" class="card card--blue" id="card-accounts">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">จัดการพนักงาน & สิทธิ์</div>
+                        <div class="card__title-en">User Management</div>
+                        <p class="card__desc">จัดการสิทธิ์เข้าถึงระบบ บทบาท และทีมงาน</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
                     </div>
                 </a>

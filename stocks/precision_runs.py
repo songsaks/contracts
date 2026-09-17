@@ -30,3 +30,36 @@ def rank_valid_returns(returns):
 
 def scan_timestamps(candidate_times, runs):
     return sorted(set(candidate_times) | {r.started_at for r in runs}, reverse=True)
+
+
+def entry_risk_reward(price, stop, target):
+    try:
+        price, stop, target = map(float, (price, stop, target))
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(v) for v in (price, stop, target)):
+        return None
+    if not 0 < stop < price < target:
+        return None
+    return (target - price) / (price - stop)
+
+
+def average_daily_turnover(df):
+    rows = df[['Close', 'Volume']].tail(20)
+    if len(rows) < 20 or rows.isna().any().any():
+        raise ValueError('Incomplete 20-session liquidity data')
+    values = []
+    for price, volume in rows.itertuples(index=False, name=None):
+        price, volume = float(price), float(volume)
+        if not math.isfinite(price) or not math.isfinite(volume) or price <= 0 or volume < 0:
+            raise ValueError('Invalid liquidity data')
+        values.append(price * volume)
+    return sum(values) / len(values)
+
+
+def deep_scan_outcome(passed, rejected, failed):
+    if failed and passed + rejected == 0:
+        return 'failed', f'สแกนรายละเอียดล้มเหลว {failed} ตัว ไม่มีผลวิเคราะห์ที่ใช้ได้ กรุณาลองใหม่'
+    if failed:
+        return 'completed', f'ผลไม่ครบ: ผ่าน {passed} ตัว ไม่ผ่านเกณฑ์ {rejected} ตัว วิเคราะห์ล้มเหลว {failed} ตัว'
+    return 'completed', ''

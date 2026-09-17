@@ -39,7 +39,13 @@
           โดยตามราคาหลังวันที่สแกนเจอ — ไม่ใช่ backtest ย้อนหลัง แต่เป็นผลของสัญญาณที่ระบบเคยส่งออกมาจริง
         </div>
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <button type="button" class="btn btn-sm fw-bold d-inline-flex align-items-center gap-2"
+                onclick="runScanQualityAi()"
+                style="background:linear-gradient(135deg,#06b6d4,#0891b2); color:white; border:none; box-shadow:0 4px 12px rgba(6,182,212,0.35); border-radius:8px; padding:0.4rem 0.85rem;"
+                title="ให้ Gemini AI วิเคราะห์ความได้เปรียบทางสถิติและแนะนำกลยุทธ์การเทรด">
+          <i class="fas fa-robot"></i> <span>AI วิเคราะห์ Edge &amp; กลยุทธ์</span>
+        </button>
         <div class="btn-group btn-group-sm">
           <a href="?market=SET&horizon={{ horizon }}" class="btn {% if market == 'SET' %}btn-light{% else %}btn-outline-light{% endif %}">SET</a>
           <a href="?market=US&horizon={{ horizon }}" class="btn {% if market == 'US' %}btn-light{% else %}btn-outline-light{% endif %}">US</a>
@@ -54,18 +60,102 @@
   </div>
 
   {% if not has_data %}
-    <div class="sq-card p-4 text-center">
-      <div class="fs-1 mb-2">📊</div>
-      <h6 class="fw-bold">ยังไม่มีข้อมูลให้สรุป</h6>
-      <p class="text-muted mb-3" style="font-size:.88rem; max-width:40rem; margin:0 auto;">
-        ระบบเริ่มเก็บ snapshot ทุกครั้งที่รัน Precision Scan แล้ว
-        จากนั้นต้องรอให้ราคาเดินไปข้างหน้าอย่างน้อย {{ horizon }} วันทำการ แล้วรันคำสั่งนี้เพื่อเติมผล:
+    <div class="sq-card p-4 text-center mb-4">
+      <div class="fs-1 mb-2">⏳</div>
+      <h5 class="fw-bold mb-1">อยู่ระหว่างสะสมข้อมูลราคาตลาด (Tracking in Progress)</h5>
+      <p class="text-muted mb-3" style="font-size:.9rem; max-width:44rem; margin:0 auto;">
+        ระบบบันทึก Snapshot ไว้แล้ว <b>{{ total_rows }}</b> รายการ
+        {% if evaluated_count %}
+          — ดึงราคาตลาดจริงอัปเดตแล้ว <b class="text-success">{{ evaluated_count }}</b> รายการ!
+          <br>การวัดผลล่วงหน้า <b>{{ horizon }}D</b> ต้องใช้ราคาตลาดหลังวันสแกนอย่างน้อย <b>{{ horizon }} วันทำการ</b>
+          <br>ปัจจุบันตลาดเดินหน้ามาแล้ว <b>{{ max_bars }}</b> วันทำการ
+          <br><span class="badge bg-primary-subtle text-primary border px-2.5 py-1 mt-2">
+            <i class="fas fa-clock me-1"></i> อีกประมาณ {{ days_left }} วันทำการ ระบบจะเริ่มคำนวณและสรุปกราฟ Win Rate / Edge ให้อัตโนมัติ
+          </span>
+        {% else %}
+          — จากนั้นต้องรอให้ราคาเดินไปข้างหน้าอย่างน้อย {{ horizon }} วันทำการ แล้วรันคำสั่งนี้เพื่อเติมผล:
+          <br><code class="d-inline-block px-3 py-2 bg-light rounded mt-2">python manage.py evaluate_scan_outcomes</code>
+        {% endif %}
       </p>
-      <code class="d-inline-block px-3 py-2 bg-light rounded">python manage.py evaluate_scan_outcomes</code>
       {% if total_rows %}
-        <div class="mt-3"><span class="n-badge">เก็บ snapshot ไว้แล้ว {{ total_rows }} รายการ · รอวัดผล {{ pending }}</span></div>
+        <div class="d-flex justify-content-center gap-2 flex-wrap">
+          <span class="n-badge">📦 บันทึกประวัติ {{ total_rows }} รายการ</span>
+          <span class="n-badge text-success">✅ อัปเดตราคาแล้ว {{ evaluated_count }} รายการ</span>
+          <span class="n-badge text-muted">⏳ เพิ่งสแกนล่าสุด/รอวัดผล {{ pending }} รายการ</span>
+        </div>
       {% endif %}
     </div>
+
+    {% if recent_tracked %}
+    <!-- ── ตารางหุ้นที่กำลังติดตามผลจริง (Active Tracking Table) ── -->
+    <div class="sq-card mb-4">
+      <div class="hd d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h6 class="fw-bold"><i class="fas fa-satellite-dish me-1 text-primary"></i> รายการหุ้นที่ระบบกำลังติดตามผลจริง (Active Forward Tracking)</h6>
+          <div class="sub">หุ้นที่ระบบ Precision Scan บันทึกไว้ และดึงราคาตลาดจริงมาวัดผลงานระหว่างทาง</div>
+        </div>
+        <span class="badge bg-secondary-subtle text-secondary">{{ recent_tracked|length }} รายการล่าสุด</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table sq-table table-hover">
+          <thead>
+            <tr>
+              <th>หุ้น</th>
+              <th>วันที่สแกน</th>
+              <th class="text-end">ราคาเข้า</th>
+              <th class="text-end">TP / SL</th>
+              <th class="text-end">MFE (กำไรสูงสุด)</th>
+              <th class="text-end">MAE (ย่อลึกสุด)</th>
+              <th class="text-end">R ล่าสุด</th>
+              <th class="text-center">ความคืบหน้า</th>
+              <th class="text-center">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in recent_tracked %}
+            <tr>
+              <td>
+                <span class="fw-bold text-primary">{{ r.symbol }}</span>
+                {% if r.technical_score %}<span class="badge bg-light text-dark ms-1" style="font-size:0.68rem;">Score {{ r.technical_score }}</span>{% endif %}
+              </td>
+              <td class="text-muted" style="font-size:0.8rem;">{{ r.scan_date|date:"d M Y" }}</td>
+              <td class="text-end fw-semibold">{{ r.price_at_scan|floatformat:2 }}</td>
+              <td class="text-end muted" style="font-size:0.78rem;">
+                {% if r.target_price %}<span class="text-success">{{ r.target_price|floatformat:2 }}</span>{% else %}–{% endif %} / 
+                {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
+              </td>
+              <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
+                {% if r.mfe_pct and r.mfe_pct > 0 %}+{{ r.mfe_pct|floatformat:1 }}%{% elif r.mfe_pct %}{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
+              </td>
+              <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
+                {% if r.mae_pct and r.mae_pct > 0 %}+{{ r.mae_pct|floatformat:1 }}%{% elif r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
+              </td>
+              <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
+                {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
+              </td>
+              <td class="text-center">
+                <span class="badge bg-light text-dark border" style="font-size:0.72rem;">
+                  {{ r.bars_evaluated|default:0 }}/{{ horizon }} วัน
+                </span>
+              </td>
+              <td class="text-center">
+                {% if r.first_hit == 'TP' %}
+                  <span class="badge bg-success text-white">Hit TP 🎯</span>
+                {% elif r.first_hit == 'SL' %}
+                  <span class="badge bg-danger text-white">Hit SL 🛑</span>
+                {% elif r.status == 'partial' %}
+                  <span class="badge bg-info-subtle text-info">กำลังติดตาม</span>
+                {% else %}
+                  <span class="badge bg-secondary-subtle text-muted">รอข้อมูล</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
   {% else %}
 
   <!-- ── ภาพรวม ── -->
@@ -229,6 +319,74 @@
     </div>
   </div>
 
+  {% if recent_tracked %}
+  <!-- ── รายการหุ้นล่าสุดที่นำมาคำนวณ ── -->
+  <div class="sq-card mt-3">
+    <div class="hd d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h6 class="fw-bold"><i class="fas fa-satellite-dish me-1 text-primary"></i> รายการหุ้นล่าสุดที่กำลังติดตามผล (Active Tracking)</h6>
+      <span class="badge bg-secondary-subtle text-secondary">{{ recent_tracked|length }} รายการ</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table sq-table table-hover">
+        <thead>
+          <tr>
+            <th>หุ้น</th>
+            <th>วันที่สแกน</th>
+            <th class="text-end">ราคาเข้า</th>
+            <th class="text-end">TP / SL</th>
+            <th class="text-end">MFE (กำไรสูงสุด)</th>
+            <th class="text-end">MAE (ย่อลึกสุด)</th>
+            <th class="text-end">R ล่าสุด</th>
+            <th class="text-center">ความคืบหน้า</th>
+            <th class="text-center">สถานะ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recent_tracked %}
+          <tr>
+            <td>
+              <span class="fw-bold text-primary">{{ r.symbol }}</span>
+              {% if r.technical_score %}<span class="badge bg-light text-dark ms-1" style="font-size:0.68rem;">Score {{ r.technical_score }}</span>{% endif %}
+            </td>
+            <td class="text-muted" style="font-size:0.8rem;">{{ r.scan_date|date:"d M Y" }}</td>
+            <td class="text-end fw-semibold">{{ r.price_at_scan|floatformat:2 }}</td>
+            <td class="text-end muted" style="font-size:0.78rem;">
+              {% if r.target_price %}<span class="text-success">{{ r.target_price|floatformat:2 }}</span>{% else %}–{% endif %} / 
+              {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
+            </td>
+            <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
+              {% if r.mfe_pct and r.mfe_pct > 0 %}+{{ r.mfe_pct|floatformat:1 }}%{% elif r.mfe_pct %}{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
+            </td>
+            <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
+              {% if r.mae_pct and r.mae_pct > 0 %}+{{ r.mae_pct|floatformat:1 }}%{% elif r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
+            </td>
+            <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
+              {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
+            </td>
+            <td class="text-center">
+              <span class="badge bg-light text-dark border" style="font-size:0.72rem;">
+                {{ r.bars_evaluated|default:0 }}/{{ horizon }} วัน
+              </span>
+            </td>
+            <td class="text-center">
+              {% if r.first_hit == 'TP' %}
+                <span class="badge bg-success text-white">Hit TP 🎯</span>
+              {% elif r.first_hit == 'SL' %}
+                <span class="badge bg-danger text-white">Hit SL 🛑</span>
+              {% elif r.status == 'partial' %}
+                <span class="badge bg-info-subtle text-info">กำลังติดตาม</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-muted">รอข้อมูล</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="text-muted mt-3" style="font-size:.78rem;">
     วิธีวัด: entry = ราคา ณ วันที่สแกนเจอ · R-multiple อิง stop loss ที่ตัวสแกนให้ไว้วันนั้น ·
     ถ้าแท่งเดียวกันแตะทั้ง TP และ SL จะนับเป็น SL (ข้อมูลรายวันไม่บอกว่าอันไหนก่อน จึงเลือกทางที่ไม่เข้าข้างตัวเอง)
@@ -236,4 +394,101 @@
 
   {% endif %}
 </div>
+
+<!-- AI Strategy Modal -->
+<div class="modal fade" id="scanQualityAiModal" tabindex="-1" aria-labelledby="scanQualityAiModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-0 pb-3" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:38px;height:38px;background:rgba(6,182,212,0.25);color:#38bdf8;font-size:1.1rem;">
+            <i class="fas fa-robot"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold fs-6 mb-0" id="scanQualityAiModalLabel">AI Quant Strategist — วิเคราะห์ Edge &amp; แผนการเทรด ({{ market }})</h5>
+            <small class="text-white-50" style="font-size:0.75rem;">ประเมินผลจริงจากฐานข้อมูล ScanOutcome ด้วย Google Gemini AI</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4" id="aiModalBody" style="min-height: 280px; font-size: 0.92rem; line-height: 1.65;">
+        <div class="text-center py-5" id="aiModalLoading">
+          <div class="spinner-border text-info mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+          <div class="fw-bold text-dark fs-6" id="aiLoadingTitle">AI กำลังอ่านและวิเคราะห์สถิติผลลัพธ์ย้อนหลัง...</div>
+          <div class="text-muted small mt-1">ประเมิน Win Rate, Expected R, Setup Flags และพฤติกรรมราคา MFE/MAE เพื่อสกัดเป็นกลยุทธ์</div>
+        </div>
+        <div id="aiModalText" class="markdown-content d-none"></div>
+      </div>
+      <div class="modal-footer border-top bg-light d-flex justify-content-between">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="runScanQualityAi()">
+          <i class="fas fa-sync-alt me-1"></i> วิเคราะห์ใหม่
+        </button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="btnCopyAiAnalysis" onclick="copyAiAnalysis()" style="display:none;">
+            <i class="fas fa-copy me-1"></i> คัดลอกรายงาน
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" data-bs-dismiss="modal">ปิด</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let _cachedAiAnalysis = null;
+
+function runScanQualityAi() {
+    const modalEl = document.getElementById('scanQualityAiModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    const loadingEl = document.getElementById('aiModalLoading');
+    const textEl = document.getElementById('aiModalText');
+    const copyBtn = document.getElementById('btnCopyAiAnalysis');
+
+    loadingEl.style.display = 'block';
+    textEl.classList.add('d-none');
+    copyBtn.style.display = 'none';
+
+    fetch("{% url 'stocks:api_scan_quality_ai_analysis' %}?market={{ market }}&horizon={{ horizon }}")
+        .then(response => response.json())
+        .then(data => {
+            loadingEl.style.display = 'none';
+            if (!data.success) {
+                textEl.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${data.error || 'เกิดข้อผิดพลาดในการวิเคราะห์'}</div>`;
+                textEl.classList.remove('d-none');
+                return;
+            }
+
+            _cachedAiAnalysis = data.analysis;
+            // Parse Markdown simple and cleanly
+            let html = data.analysis
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/^### (.*)$/gm, '<h6 class="fw-bold text-primary mt-4 mb-2 pb-1 border-bottom"><i class="fas fa-chevron-right me-1 small"></i>$1</h6>')
+                .replace(/^## (.*)$/gm, '<h5 class="fw-bold text-dark mt-3 mb-2">$1</h5>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-dark">$1</strong>')
+                .replace(/^- (.*)$/gm, '<div class="ps-3 mb-1">• $1</div>')
+                .replace(/\n\n/g, '<div class="my-2"></div>');
+
+            textEl.innerHTML = html;
+            textEl.classList.remove('d-none');
+            copyBtn.style.display = 'inline-block';
+        })
+        .catch(err => {
+            loadingEl.style.display = 'none';
+            textEl.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>การเชื่อมต่อขัดข้อง: ${err.message}</div>`;
+            textEl.classList.remove('d-none');
+        });
+}
+
+function copyAiAnalysis() {
+    if (!_cachedAiAnalysis) return;
+    navigator.clipboard.writeText(_cachedAiAnalysis).then(() => {
+        const btn = document.getElementById('btnCopyAiAnalysis');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check text-success me-1"></i> คัดลอกแล้ว!';
+        setTimeout(() => { btn.innerHTML = orig; }, 2000);
+    });
+}
+</script>
 {% endblock %}
