@@ -3,6 +3,10 @@ from stocks.utils import MINERVINI_NEAR_HIGH_RATIO   # เกณฑ์ใกล�
 import logging
 import time
 
+# สูตรให้คะแนนความพร้อมของ setup — ระดับโมดูล ไม่ใช่ในฟังก์ชัน
+# เพราะทั้งหน้า SET และหน้า US เรียกใช้ตัวเดียวกัน
+from stocks.scan_scoring import compute_setup_scores
+
 logger = logging.getLogger(__name__)
 
 from .base import (
@@ -3287,39 +3291,11 @@ def precision_momentum_scanner(request):
     from stocks.market_timing import get_market_timing_status
     market_timing = get_market_timing_status(market='SET')
 
-    # ====== Win Probability Calculation (v11.1) ======
+    # ====== Setup Readiness Score (เดิมชื่อ Win Probability v11.1) ======
+    # สูตรย้ายไป stocks/scan_scoring.py แล้ว — เดิมโค้ดชุดนี้ถูกคัดลอกไว้สองที่
+    # ในไฟล์นี้ (หน้า SET กับหน้า US) เหมือนกันทุกตัวอักษร
     if candidates:
-        m_state = markov_regime.get('state', 'UNKNOWN')
-        m_prob = markov_regime.get('prob', 0) / 100.0
-        _mt_code = market_timing.get('status_code', 'GREEN')
-        for c in candidates:
-            score = 35.0
-            rs_val = getattr(c, 'rs_rating', 0) or 0
-            score += (rs_val / 99.0) * 25.0
-            tech_val = getattr(c, 'technical_score', 0) or 0
-            score += (min(tech_val, 100) / 100.0) * 15.0
-            adx_val = getattr(c, 'adx', 0) or 0
-            score += (min(adx_val, 50) / 50.0) * 10.0
-            cmf_val = getattr(c, 'cmf', 0) or 0
-            vol_surge = getattr(c, 'volume_surge', 1.0) or 1.0
-            if cmf_val > 0.15: score += 10.0
-            elif cmf_val > 0: score += 5.0
-            if vol_surge >= 1.5: score += 5.0
-            elif vol_surge >= 1.2: score += 2.0
-            if m_state == 'TRENDING': score += 10.0 * (0.5 + 0.5 * m_prob)
-            elif m_state == 'CHOPPY': score += 4.0
-            elif m_state == 'UNKNOWN' and m_prob == 0: score += 5.0
-            prox = getattr(c, 'live_zone_prox', None)
-            if prox is None:
-                prox = getattr(c, 'zone_proximity', 99.0)
-            if prox is None:
-                prox = 99.0
-            if prox > 15 and prox < 100: score -= 10.0
-            elif prox > 10 and prox < 100: score -= 5.0
-            # Market Timing penalty - ตลาดแจกของหนัก (RED) ให้ลดความมั่นใจแรง, YELLOW ลดปานกลาง
-            if _mt_code == 'RED': score -= 20.0
-            elif _mt_code == 'YELLOW': score -= 8.0
-            c.win_probability = round(max(min(score, 98.2), 30.0), 1)
+        compute_setup_scores(candidates, markov_regime, market_timing)
 
         # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
         if sort_by == 'buy':
@@ -6645,39 +6621,11 @@ def us_precision_scanner(request):
     from stocks.market_timing import get_market_timing_status
     market_timing = get_market_timing_status(market='US')
 
-    # ====== Win Probability Calculation (v11.1) ======
+    # ====== Setup Readiness Score (เดิมชื่อ Win Probability v11.1) ======
+    # สูตรย้ายไป stocks/scan_scoring.py แล้ว — เดิมโค้ดชุดนี้ถูกคัดลอกไว้สองที่
+    # ในไฟล์นี้ (หน้า SET กับหน้า US) เหมือนกันทุกตัวอักษร
     if candidates:
-        m_state = markov_regime.get('state', 'UNKNOWN')
-        m_prob = markov_regime.get('prob', 0) / 100.0
-        _mt_code = market_timing.get('status_code', 'GREEN')
-        for c in candidates:
-            score = 35.0
-            rs_val = getattr(c, 'rs_rating', 0) or 0
-            score += (rs_val / 99.0) * 25.0
-            tech_val = getattr(c, 'technical_score', 0) or 0
-            score += (min(tech_val, 100) / 100.0) * 15.0
-            adx_val = getattr(c, 'adx', 0) or 0
-            score += (min(adx_val, 50) / 50.0) * 10.0
-            cmf_val = getattr(c, 'cmf', 0) or 0
-            vol_surge = getattr(c, 'volume_surge', 1.0) or 1.0
-            if cmf_val > 0.15: score += 10.0
-            elif cmf_val > 0: score += 5.0
-            if vol_surge >= 1.5: score += 5.0
-            elif vol_surge >= 1.2: score += 2.0
-            if m_state == 'TRENDING': score += 10.0 * (0.5 + 0.5 * m_prob)
-            elif m_state == 'CHOPPY': score += 4.0
-            elif m_state == 'UNKNOWN' and m_prob == 0: score += 5.0
-            prox = getattr(c, 'live_zone_prox', None)
-            if prox is None:
-                prox = getattr(c, 'zone_proximity', 99.0)
-            if prox is None:
-                prox = 99.0
-            if prox > 15 and prox < 100: score -= 10.0
-            elif prox > 10 and prox < 100: score -= 5.0
-            # Market Timing penalty - ตลาดแจกของหนัก (RED) ให้ลดความมั่นใจแรง, YELLOW ลดปานกลาง
-            if _mt_code == 'RED': score -= 20.0
-            elif _mt_code == 'YELLOW': score -= 8.0
-            c.win_probability = round(max(min(score, 98.2), 30.0), 1)
+        compute_setup_scores(candidates, markov_regime, market_timing)
 
         # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
         if sort_by == 'buy':

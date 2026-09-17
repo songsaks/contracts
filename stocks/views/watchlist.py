@@ -1,5 +1,7 @@
 from .base import * 
 
+from stocks.scan_scoring import compute_setup_scores
+
 from .base import (
     _get_usd_thb, _compute_signals, _get_market_condition, _get_precision_scan_data,
     _US_SECTOR_MAP, _US_MOMENTUM_SYMBOLS, _build_us_symbol_set, _is_us_symbol,
@@ -143,6 +145,11 @@ def scan_watchlist_view(request):
     m_state = markov_regime.get('state', 'UNKNOWN')
     m_prob = markov_regime.get('prob', 0) / 100.0
 
+    # ต้องดึงก่อนลูป เพราะสูตรคะแนนหักตามสภาวะตลาดด้วย — เดิมไฟล์นี้ดึงหลังลูป
+    # จึงให้คะแนนโดยไม่รู้ว่าตลาดกำลังแจกของอยู่หรือเปล่า
+    from stocks.market_timing import get_market_timing_status
+    market_timing = get_market_timing_status(market=market)
+
     enriched = []
     for item in items:
         latest = latest_map.get(item.symbol)
@@ -176,30 +183,13 @@ def scan_watchlist_view(request):
             latest.buy_score = buy_score
             latest.sell_score = sell_score
 
-            # 2. Calculate Win Probability (markov regime ดึงไว้แล้วนอกลูป)
-            score = 35.0
-            rs_val = getattr(latest, 'rs_rating', 0) or 0
-            score += (rs_val / 99.0) * 25.0
-            tech_val = getattr(latest, 'technical_score', 0) or 0
-            score += (min(tech_val, 100) / 100.0) * 15.0
-            adx_val = getattr(latest, 'adx', 0) or 0
-            score += (min(adx_val, 50) / 50.0) * 10.0
-            cmf_val = getattr(latest, 'cmf', 0) or 0
-            vol_surge = getattr(latest, 'volume_surge', 1.0) or 1.0
-            if cmf_val > 0.15: score += 10.0
-            elif cmf_val > 0: score += 5.0
-            if vol_surge >= 1.5: score += 5.0
-            elif vol_surge >= 1.2: score += 2.0
-            if m_state == 'TRENDING': score += 10.0 * (0.5 + 0.5 * m_prob)
-            elif m_state == 'CHOPPY': score += 4.0
-            elif m_state == 'UNKNOWN' and m_prob == 0: score += 5.0
-            
-            prox = getattr(latest, 'zone_proximity', 99)
-            if prox > 15 and prox < 100: score -= 10.0
-            elif prox > 10 and prox < 100: score -= 5.0
-            win_prob = round(max(min(score, 98.2), 30.0), 1)
-            
-            latest.win_probability = win_prob
+            # 2. คะแนนความพร้อมของ Setup (markov regime ดึงไว้แล้วนอกลูป)
+            # ใช้สูตรกลางตัวเดียวกับหน้า Precision Scan — เดิมไฟล์นี้มีสำเนาสูตร
+            # เป็นของตัวเอง และสำเนานั้นไม่มีส่วนหักคะแนนตาม Market Timing ด้วย
+            # ทำให้หุ้นตัวเดียวกันได้คะแนนคนละค่าระหว่างหน้า Watchlist กับหน้าสแกน
+            compute_setup_scores([latest], {'state': m_state, 'prob': m_prob * 100},
+                                 market_timing)
+            win_prob = latest.setup_score
             zone_prox = latest.zone_proximity if latest.zone_proximity is not None else 999.0
             
             price_val = latest.price
@@ -266,9 +256,6 @@ def scan_watchlist_view(request):
         ))
     elif sort_by == 'symbol':
         enriched.sort(key=lambda x: x['watchlist'].symbol)
-
-    from stocks.market_timing import get_market_timing_status
-    market_timing = get_market_timing_status(market=market)
 
     return render(request, 'stocks/scan_watchlist.html', {
         'items':       enriched,

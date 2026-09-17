@@ -2442,6 +2442,12 @@
                                         <span class="badge px-1 py-0 shadow-sm" style="background:linear-gradient(135deg,#059669,#047857);color:white;font-size:0.55rem;border:1px solid #10b981;" title="{{ item.edge_tooltip }}">⭐ High Edge</span>
                                         {% elif item.edge_tier == 'positive' %}
                                         <span class="badge px-1 py-0 bg-success-subtle text-success border border-success-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge</span>
+                                        {% elif item.edge_tier == 'thin' %}
+                                        {# มีสถิติแต่ตัวอย่างน้อย — สีเทาและมี ? กำกับ ไม่ให้อ่านเหมือนของที่พิสูจน์แล้ว #}
+                                        <span class="badge px-1 py-0 bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge? <span style="opacity:.75;">n={{ item.edge_sample_count }}</span></span>
+                                        {% elif item.edge_tier == 'setup_only' %}
+                                        {# ไม่มีสถิติเลย รู้แค่ว่าเข้ารูปแบบ — ห้ามใช้คำว่า Edge #}
+                                        <span class="badge px-1 py-0 bg-light text-muted border" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">◇ Setup</span>
                                         {% endif %}
                                         {% if item.htf_setup %}
                                         <span class="badge px-1 py-0" style="background:#ef4444;color:white;font-size:0.55rem;" title="High Tight Flag / Power Play: Surge +{{ item.htf_surge_pct|floatformat:0 }}% Base {{ item.htf_base_depth|floatformat:0 }}%">🚀 HTF</span>

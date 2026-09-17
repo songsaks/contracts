@@ -1574,7 +1574,7 @@
                             <div><span class="checkmark-green">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
                             <div><span class="checkmark-green">✓</span> RS Rating {{ item.rs_rating }} · ADX {{ item.adx|floatformat:0 }}</div>
                             <div><span class="checkmark-green">✓</span> RVOL {{ item.rvol|floatformat:1 }}x ▲</div>
-                            <div><span class="checkmark-green">✓</span> Win Prob: <strong class="text-primary">{{ item.win_probability }}%</strong></div>
+                            <div><span class="checkmark-green">✓</span> ความพร้อม Setup: <strong class="text-primary">{{ item.setup_score }}</strong>/100</div>
                             {% if item.macd_crossover %}<div><span class="checkmark-green">✓</span> MACD ✕ crossover</div>{% endif %}
                             {% if item.ema20_aligned %}<div><span class="checkmark-blue">✓</span> EMA20 aligned</div>{% endif %}
                             {% if item.bb_squeeze %}<div><span class="checkmark-orange">✓</span> BB Squeeze ⚡</div>{% endif %}
@@ -1694,7 +1694,7 @@
                             {% endif %}
                             <span class="fw-bold stats-rs" title="RS Rating 0-99">RS {{ item.rs_rating }}</span>
                             <span class="fw-semibold {% if item.rvol >= 1.5 %}stats-rvol-high{% elif item.rvol >= 1.0 %}stats-rvol-med{% else %}stats-rvol-low{% endif %}">{{ item.rvol|floatformat:1 }}x {% if item.rvol_bullish %}▲{% else %}▼{% endif %}</span>
-                            <span class="fw-bold stats-win">Win {{ item.win_probability }}%</span>
+                            <span class="fw-bold stats-win" title="คะแนนความพร้อมของ Setup ไม่ใช่อัตราชนะ">Setup {{ item.setup_score }}</span>
                             <span class="stats-neutral">ADX {{ item.adx|floatformat:0 }}</span>
                             <span class="stats-neutral">RSI {{ item.rsi|floatformat:0 }}</span>
                         </div>
@@ -2074,7 +2074,7 @@
                 <select class="form-select form-select-sm rounded-pill d-md-none" style="width:auto;font-size:0.72rem;border:1px solid #0ea5e9;color:#0ea5e9;cursor:pointer;background-color:#f0f9ff;" onchange="location.href='?run_idx={{ selected_run_idx }}&sort=' + this.value">
                     <option value="" disabled selected>เรียงลำดับ...</option>
                     <option value="symbol" {% if current_sort == 'symbol' %}selected{% endif %}>Symbol</option>
-                    <option value="win" {% if current_sort == 'win' %}selected{% endif %}>Win Prob</option>
+                    <option value="win" {% if current_sort == 'win' %}selected{% endif %}>ความพร้อม Setup</option>
                     <option value="buy" {% if current_sort == 'buy' %}selected{% endif %}>Buy Score</option>
                     <option value="rs" {% if current_sort == 'rs' %}selected{% endif %}>RS Rating</option>
                     <option value="launcher" {% if current_sort == 'launcher' %}selected{% endif %}>Launcher</option>
@@ -2180,7 +2180,7 @@
                             <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE</a></th>
                             <th class="col-hide-md"><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
                             <th>
-                                <a href="?sort=win&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'win' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'win' %}color:#059669;{% endif %}" title="Win Probability (Statistical Edge)">WIN PROB</a>
+                                <a href="?sort=win&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'win' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'win' %}color:#059669;{% endif %}" title="คะแนนความพร้อมของ Setup — ผลรวมองค์ประกอบทางเทคนิค ไม่ใช่อัตราชนะจากสถิติ">ความพร้อม</a>
                                 <span onclick="document.getElementById('winProbModal').style.display='flex'"
                                       style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#ecfdf5;color:#059669;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
                                       title="วิธีใช้ Win Probability">?</span>
@@ -2360,6 +2360,12 @@
                                         <span class="badge px-1 py-0 shadow-sm" style="background:linear-gradient(135deg,#059669,#047857);color:white;font-size:0.55rem;border:1px solid #10b981;" title="{{ item.edge_tooltip }}">⭐ High Edge</span>
                                         {% elif item.edge_tier == 'positive' %}
                                         <span class="badge px-1 py-0 bg-success-subtle text-success border border-success-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge</span>
+                                        {% elif item.edge_tier == 'thin' %}
+                                        {# มีสถิติแต่ตัวอย่างน้อย — สีเทาและมี ? กำกับ ไม่ให้อ่านเหมือนของที่พิสูจน์แล้ว #}
+                                        <span class="badge px-1 py-0 bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge? <span style="opacity:.75;">n={{ item.edge_sample_count }}</span></span>
+                                        {% elif item.edge_tier == 'setup_only' %}
+                                        {# ไม่มีสถิติเลย รู้แค่ว่าเข้ารูปแบบ — ห้ามใช้คำว่า Edge #}
+                                        <span class="badge px-1 py-0 bg-light text-muted border" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">◇ Setup</span>
                                         {% endif %}
                                         {% if item.htf_setup %}
                                         <span class="badge px-1 py-0" style="background:#ef4444;color:white;font-size:0.55rem;" title="High Tight Flag / Power Play: พุ่ง +{{ item.htf_surge_pct|floatformat:0 }}% พักตัว {{ item.htf_base_depth|floatformat:0 }}%">🚀 HTF</span>
@@ -2547,17 +2553,20 @@
                                 </div>
                             </td>
 
-                            <!-- WIN PROBABILITY -->
-                            <td class="text-center" style="background: rgba(5,150,105,0.02);">
+                            <!-- SETUP READINESS SCORE -->
+                            {# เดิมแสดงว่า "โอกาสชนะ %" ซึ่งทำให้เข้าใจว่าเป็นอัตราชนะจากผลเทรดจริง
+                               แต่มันคือผลรวมคะแนนจากสูตรถ่วงน้ำหนักด้วยมือ ที่ไม่เคย calibrate กับ ScanOutcome — ดู stocks/scan_scoring.py #}
+                            <td class="text-center" style="background: rgba(5,150,105,0.02);"
+                                title="คะแนนองค์ประกอบทางเทคนิค (RS / เทคนิค / ADX / CMF / วอลุ่ม) เต็ม 100 — ไม่ใช่อัตราชนะจากสถิติผลเทรดจริง{% for cv in item.setup_caveats %}&#10;{{ cv }}{% endfor %}">
                                 <div class="d-flex flex-column align-items-center">
-                                    <span class="fw-bold {% if item.win_probability >= 85 %}text-success{% elif item.win_probability >= 65 %}text-primary{% else %}text-warning{% endif %}" style="font-size:0.85rem;">
-                                        {{ item.win_probability }}%
+                                    <span class="fw-bold {% if item.setup_score >= 85 %}text-success{% elif item.setup_score >= 65 %}text-primary{% else %}text-warning{% endif %}" style="font-size:0.85rem;">
+                                        {{ item.setup_score }}
                                     </span>
                                     <div class="progress" style="width:40px;height:4px;border-radius:10px;background:rgba(0,0,0,0.05);">
-                                        <div class="progress-bar {% if item.win_probability >= 85 %}bg-success{% elif item.win_probability >= 65 %}bg-primary{% else %}bg-warning{% endif %}"
-                                             role="progressbar" style="width:{{ item.win_probability }}%"></div>
+                                        <div class="progress-bar {% if item.setup_score >= 85 %}bg-success{% elif item.setup_score >= 65 %}bg-primary{% else %}bg-warning{% endif %}"
+                                             role="progressbar" style="width:{{ item.setup_score }}%"></div>
                                     </div>
-                                    <div class="val-hint mt-1">โอกาสชนะ</div>
+                                    <div class="val-hint mt-1">ความพร้อม{% if item.setup_caveats %} <span class="text-warning" title="{{ item.setup_caveats|join:' | ' }}">⚠</span>{% endif %}</div>
                                 </div>
                             </td>
 

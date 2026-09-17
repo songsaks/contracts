@@ -96,7 +96,7 @@
                     🟢 BUY Score
                 </a>
                 <a href="?market={{ market }}&sort=win_prob" class="btn btn-sm rounded-pill px-3 py-1 {% if current_sort == 'win_prob' %}btn-primary text-white shadow-sm{% else %}btn-link text-muted{% endif %}">
-                    🏆 โอกาสชนะ
+                    🏆 ความพร้อม Setup
                 </a>
                 <a href="?market={{ market }}&sort=prox" class="btn btn-sm rounded-pill px-3 py-1 {% if current_sort == 'prox' %}btn-primary text-white shadow-sm{% else %}btn-link text-muted{% endif %}">
                     ⏳ ใกล้แนวรับ
@@ -121,7 +121,7 @@
                     ⏳ ใกล้โซน (<5%)
                 </button>
                 <button onclick="filterWatchlist('high_win')" id="filter-high_win" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-info">
-                    🏆 โอกาสชนะสูง (≥85%)
+                    🏆 ความพร้อมสูง (≥85)
                 </button>
                 <button onclick="filterWatchlist('launcher')" id="filter-launcher" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-primary">
                     🚀 พร้อมระเบิด
@@ -264,8 +264,8 @@
                 <!-- Win Probability Gauge -->
                 <div class="gauge-item mb-2">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="gauge-label"><i class="fas fa-award text-success me-1"></i> โอกาสชนะ (Win Probability)</span>
-                        <span class="gauge-val text-success">{{ s.win_probability|default:"0" }}%</span>
+                        <span class="gauge-label" title="ผลรวมองค์ประกอบทางเทคนิค (RS / เทคนิค / ADX / CMF / วอลุ่ม) เต็ม 100 — ไม่ใช่อัตราชนะจากสถิติผลเทรดจริง"><i class="fas fa-award text-success me-1"></i> ความพร้อม Setup</span>
+                        <span class="gauge-val text-success">{{ s.win_probability|default:"0" }}/100</span>
                     </div>
                     <div class="progress" style="height:6px; border-radius:99px; background:#f1f5f9;">
                         <div class="progress-bar bg-success rounded-pill" role="progressbar" style="width:{{ s.win_probability|default:0 }}%"></div>
@@ -490,7 +490,7 @@
                     <th class="ps-4">หุ้น (Symbol)</th>
                     <th>ราคาปัจจุบัน</th>
                     <th>สถานะ</th>
-                    <th>โอกาสชนะ</th>
+                    <th title="คะแนนความพร้อมของ Setup ไม่ใช่อัตราชนะ">ความพร้อม</th>
                     <th>BUY Score</th>
                     <th>โซนซื้อ (Demand)</th>
                     <th>Stop Loss</th>
