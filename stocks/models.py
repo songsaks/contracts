@@ -1240,6 +1240,16 @@ class TurtleScanCandidate(models.Model):
     # Stop = ราคาเข้า − 2N ตามกฎ Turtle (N = ATR 20 วัน) เดิมเก็บแต่ ATR ไม่เคยแปลงเป็น stop
     stop_2n = models.FloatField(null=True, blank=True, help_text="Stop ตามกฎ Turtle = entry − 2N")
 
+    # -- Donchian 4-Week Rule (กฎดั้งเดิมที่เป็นต้นทางของ Turtle) --
+    # Donchian ใช้กรอบ 20 วันทั้งเข้าและออก ส่วน Turtle S1 เข้า 20 ออก 10
+    # จึงให้สัญญาณขายคนละจุด ต้องเก็บแยก ไม่ใช่ยืมตัวเลขของอีกระบบมาแสดง
+    donchian_signal = models.CharField(max_length=8, blank=True, default='',
+                                       help_text="LONG / SHORT / HOLD ตามกฎ 4-Week Rule")
+    donchian_upper = models.FloatField(null=True, blank=True)
+    donchian_lower = models.FloatField(null=True, blank=True)
+    donchian_pos_pct = models.FloatField(null=True, blank=True,
+                                         help_text="ราคาอยู่ตรงไหนในกรอบ (0=ก้น, 100=ยอด)")
+
     # -- Quality Metrics (v2 Upgrade) --
     technical_score = models.IntegerField(null=True, blank=True, help_text="คะแนนจาก Precision Scan")
     rs_rating       = models.IntegerField(null=True, blank=True, help_text="Relative Strength Rating")

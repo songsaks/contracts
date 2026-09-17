@@ -217,3 +217,52 @@ def breakout_state(df, use_close=False):
         'trigger_price': trigger,
         'uses_close': use_close,
     }
+
+
+# ----------------------------------------------------------------------
+# Donchian 4-Week Rule — กฎดั้งเดิมที่เป็นต้นทางของทั้งสาย
+#
+# สิ่งที่ต่างจาก Turtle: Donchian ใช้กรอบ 20 วันทั้งขาเข้าและขาออก
+#   ซื้อ/Long  เมื่อราคาทะลุ High 20 วัน
+#   ขาย/Short  เมื่อราคาทะลุ Low 20 วัน
+# ส่วน Turtle System 1 เข้าที่ High 20 วันแต่ออกเร็วกว่าที่ Low 10 วัน
+# สองระบบนี้จึงให้สัญญาณขายคนละจุด และต้องแสดงแยกกัน ไม่ใช่ตัวเลขชุดเดียว
+# ----------------------------------------------------------------------
+
+FOUR_WEEK_DAYS = 20
+
+
+def four_week_rule(df, period=FOUR_WEEK_DAYS, use_close=False):
+    """
+    สถานะตามกฎ 4-Week Rule ของ Richard Donchian
+
+    คืน dict: upper, lower, signal ('LONG'/'SHORT'/'HOLD'), position_pct
+    position_pct = ราคาอยู่ตรงไหนในกรอบ (0% = ก้นกรอบ, 100% = ยอดกรอบ)
+    ซึ่งบอกว่ากำลังเข้าใกล้ฝั่งไหนของกรอบ ก่อนที่จะทะลุจริง
+    """
+    if df is None or len(df) < period + 1:
+        return None
+
+    upper = float(df['High'].rolling(period).max().shift(1).iloc[-1])
+    lower = float(df['Low'].rolling(period).min().shift(1).iloc[-1])
+    if np.isnan(upper) or np.isnan(lower) or upper <= lower:
+        return None
+
+    close = float(df['Close'].iloc[-1])
+    hi = float(df['Close'].iloc[-1] if use_close else df['High'].iloc[-1])
+    lo = float(df['Close'].iloc[-1] if use_close else df['Low'].iloc[-1])
+
+    if hi > upper:
+        signal = 'LONG'
+    elif lo < lower:
+        signal = 'SHORT'
+    else:
+        signal = 'HOLD'
+
+    return {
+        'upper': round(upper, 4),
+        'lower': round(lower, 4),
+        'signal': signal,
+        'position_pct': round((close - lower) / (upper - lower) * 100, 1),
+        'period': period,
+    }

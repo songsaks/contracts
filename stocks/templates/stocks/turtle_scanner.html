@@ -175,6 +175,8 @@
                             <th class="text-center" style="width: 11%;">Signal</th>
                             <th class="text-center col-hide-sm" style="width: 10%;">S1 (20D)</th>
                             <th class="text-center col-hide-md" style="width: 10%;">S2 (55D)</th>
+                            <th class="text-center col-hide-lg" style="width: 10%;"
+                                title="Donchian 4-Week Rule — ซื้อเมื่อทะลุ High 20 วัน ขายเมื่อหลุด Low 20 วัน (จุดขายคนละจุดกับ Turtle S1 ที่ออกที่ Low 10 วัน)">4-Week</th>
                             <th class="text-end pe-3" style="width: 100px;">Action</th>
                         </tr>
                     </thead>
@@ -232,6 +234,10 @@
                                 <div class="fw-bold text-dark" style="font-size: 0.8rem;">
                                     {{ c.atr_20d|floatformat:2 }} <span class="text-secondary small fw-normal">(N)</span>
                                 </div>
+                                {% if c.stop_2n %}
+                                <div class="text-danger" style="font-size:0.65rem; font-weight:600;"
+                                     title="Stop ตามกฎ Turtle = ราคาเข้า − 2N">SL 2N: {{ c.stop_2n|floatformat:2 }}</div>
+                                {% endif %}
                                 <div class="position-calc-result d-none mt-1" style="line-height: 1.2;">
                                     <div class="fw-bold text-success" style="font-size: 0.72rem;">1U: <span class="unit-shares">0</span> หุ้น</div>
                                     <div class="text-muted" style="font-size: 0.65rem;">(<span class="unit-cost">0</span> ฿)</div>
@@ -245,7 +251,11 @@
                                 <div class="next-unit-placeholder text-muted small">-</div>
                             </td>
                             <td class="text-center" style="line-height: 1.2;">
-                                {% if c.sys1_breakout or c.sys2_breakout %}
+                                {% if c.sys1_skipped and not c.sys2_breakout %}
+                                    <span class="badge bg-secondary fw-bold px-1.5 py-0.5" style="font-size:0.65rem;"
+                                          title="{{ c.sys1_skip_reason }}">⏭ ข้ามตามกฎ S1</span>
+                                    <div class="text-muted" style="font-size:0.6rem;">breakout ก่อนกำไร</div>
+                                {% elif c.sys1_breakout or c.sys2_breakout %}
                                     {% if c.sys1_days_ago == 0 or c.sys2_days_ago == 0 %}
                                         <span class="badge bg-success fw-bold px-1.5 py-0.5" style="font-size:0.65rem;">🚀 Just Broke</span>
                                         <div class="text-muted" style="font-size:0.65rem;">วันนี้</div>
@@ -289,6 +299,12 @@
                                     <span class="badge badge-sys1 py-0.5 px-1.5 fw-bold" style="font-size:0.62rem;">S1 Break</span>
                                     <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_20d|floatformat:2 }}</div>
                                     <div class="text-danger" style="font-size:0.68rem; font-weight:600;">Ex: {{ c.low_10d|floatformat:2 }}</div>
+                                {% elif c.sys1_skipped %}
+                                    {# ทะลุ High 20 วันแล้ว แต่กฎ Dennis/Eckhardt สั่งข้าม — ต้องแสดงให้เห็น ไม่ใช่ซ่อน #}
+                                    <span class="badge bg-secondary bg-opacity-15 text-secondary border border-secondary border-opacity-25 py-0.5 px-1.5 fw-bold"
+                                          style="font-size:0.62rem;" title="{{ c.sys1_skip_reason }}">⏭ S1 Skip</span>
+                                    <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_20d|floatformat:2 }}</div>
+                                    <div class="text-secondary" style="font-size:0.6rem;">ไม้ก่อนกำไร</div>
                                 {% elif c.sys1_near %}
                                     <span class="badge bg-warning bg-opacity-15 text-warning-emphasis border border-warning border-opacity-25 py-0.5 px-1.5" style="font-size:0.62rem;">Near {{ c.pct_to_20d|floatformat:1 }}%</span>
                                     <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_20d|floatformat:2 }}</div>
@@ -306,6 +322,27 @@
                                     <div class="text-muted mt-1" style="font-size:0.68rem;">H: {{ c.high_55d|floatformat:2 }}</div>
                                 {% else %}
                                     <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center col-hide-lg" style="line-height: 1.2;">
+                                {% if c.donchian_signal == 'LONG' %}
+                                    <span class="badge bg-success py-0.5 px-1.5 fw-bold" style="font-size:0.62rem;">↑ LONG</span>
+                                {% elif c.donchian_signal == 'SHORT' %}
+                                    <span class="badge bg-danger py-0.5 px-1.5 fw-bold" style="font-size:0.62rem;">↓ SHORT</span>
+                                {% elif c.donchian_signal == 'HOLD' %}
+                                    <span class="badge bg-light text-muted border py-0.5 px-1.5" style="font-size:0.62rem;">— ในกรอบ</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                                {% if c.donchian_upper %}
+                                <div class="text-muted mt-1" style="font-size:0.62rem;"
+                                     title="กรอบ 20 วัน: ทะลุขอบบน = ซื้อ / หลุดขอบล่าง = ขาย">{{ c.donchian_lower|floatformat:2 }}–{{ c.donchian_upper|floatformat:2 }}</div>
+                                {% endif %}
+                                {% if c.donchian_pos_pct is not None %}
+                                <div class="progress mx-auto mt-1" style="width:36px;height:3px;background:#e9ecef;">
+                                    <div class="progress-bar {% if c.donchian_pos_pct >= 80 %}bg-success{% elif c.donchian_pos_pct <= 20 %}bg-danger{% else %}bg-secondary{% endif %}"
+                                         role="progressbar" style="width:{{ c.donchian_pos_pct }}%"></div>
+                                </div>
                                 {% endif %}
                             </td>
                             <td class="text-end pe-3">

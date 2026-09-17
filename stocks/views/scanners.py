@@ -10,6 +10,7 @@ from stocks.scan_scoring import compute_setup_scores
 from stocks.trend_following import (
     system1_should_skip as _tf_system1_should_skip,
     turtle_stop as _tf_turtle_stop,
+    four_week_rule as _tf_four_week_rule,
 )
 
 logger = logging.getLogger(__name__)
@@ -8713,6 +8714,9 @@ def turtle_scanner_run_ajax(request):
 
                         # Stop ตามกฎ Turtle = ราคาเข้า − 2N (N = ATR 20 วัน)
                         stop_2n = _tf_turtle_stop(h20 if sys1_raw else current_close, atr)
+
+                        # Donchian 4-Week Rule — กฎต้นทางของทั้งสาย เก็บแยกจาก Turtle
+                        _dc = _tf_four_week_rule(df) or {}
                         sys1_near = (not sys1_raw) and h20 > 0 and current_close >= h20 * 0.97
                         sys2_near = (not sys2) and h55 > 0 and current_close >= h55 * 0.97
 
@@ -8744,6 +8748,10 @@ def turtle_scanner_run_ajax(request):
                                 sys1_breakout=sys1, sys1_raw_breakout=sys1_raw,
                                 sys1_skipped=sys1_skipped, sys1_skip_reason=sys1_skip_reason,
                                 stop_2n=stop_2n,
+                                donchian_signal=_dc.get('signal', ''),
+                                donchian_upper=_dc.get('upper'),
+                                donchian_lower=_dc.get('lower'),
+                                donchian_pos_pct=_dc.get('position_pct'),
                                 sys1_days_ago=sys1_days_ago,
                                 high_20d=round(h20, 2), low_10d=round(l10, 2),
                                 sys2_breakout=sys2, sys2_days_ago=sys2_days_ago,
