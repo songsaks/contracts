@@ -24,8 +24,13 @@ ScanOutcome ยังสะสมไม่พอ โค้ดจะ fallback ไ
 ข้อมูลที่ยังไม่รู้ผลคือการเอาความไม่รู้ไปปนกับความมั่นใจ
 """
 
+from datetime import timedelta
+
+from django.utils import timezone
+
 from stocks.models import ScanOutcome
-from stocks.scan_outcomes import SETUP_FLAGS, flag_comparison
+from stocks.scan_outcomes import (EVALUATION_WINDOW_DAYS, HORIZONS, SETUP_FLAGS,
+                                  flag_comparison)
 
 CORE_HIGH_EDGE_FLAGS = {
     'pocket_pivot': 'Pocket Pivot',
@@ -53,13 +58,19 @@ EVIDENCE_THIN = 'thin'              # วัดจากผลจริง แ�
 EVIDENCE_PROVISIONAL = 'provisional'  # ประเมินหยาบจาก MFE/MAE ของไม้ที่ยังไม่ปิด
 
 
-def _sample_warning(evidence, n):
+def _sample_warning(evidence, n, horizon_used=None, horizon_asked=None):
     """คำเตือนกำกับตัวเลข — คืนสตริงว่างเมื่อไม่มีอะไรต้องเตือน"""
+    # ใช้ horizon สั้นกว่าที่ขอ = ต้องบอก ไม่ใช่สลับเงียบๆ แล้วให้คนอ่านเข้าใจว่า
+    # เป็นสถิติ 20 วันทั้งที่จริงเป็น 5 หรือ 10 วัน
+    swapped = ''
+    if horizon_used and horizon_asked and horizon_used != horizon_asked:
+        swapped = (f" (วัดที่ {horizon_used} วัน ไม่ใช่ {horizon_asked} วัน "
+                   f"เพราะยังไม่มีไม้ไหนครบ {horizon_asked} วัน)")
     if evidence == EVIDENCE_RELIABLE:
-        return ''
+        return swapped.strip()
     if evidence == EVIDENCE_THIN:
         return (f"⚠️ ข้อมูลน้อย (n={n}) ยังสรุปไม่ได้ว่าเป็นความได้เปรียบจริง "
-                f"หรือเป็นความบังเอิญ — ต้องมีอย่างน้อย {MIN_SAMPLE_RELIABLE} ไม้")
+                f"หรือเป็นความบังเอิญ — ต้องมีอย่างน้อย {MIN_SAMPLE_RELIABLE} ไม้{swapped}")
     return (f"⚠️ ยังไม่มีผลลัพธ์ปิดไม้มารองรับ (ประเมินหยาบจาก {n} ไม้ที่ยังติดตามอยู่) "
             f"ถือเป็นการคาดการณ์ ไม่ใช่สถิติ")
 
@@ -77,12 +88,20 @@ def get_setup_edge_map(user, market='SET', horizon=20):
     if not user:
         return {}
 
+    # นับเฉพาะแถวที่ "ยังมีสิทธิ์ถูกประเมิน" — ตัวเติมผล (evaluate_scan_outcomes)
+    # แตะเฉพาะแถวที่อยู่ในหน้าต่าง EVALUATION_WINDOW_DAYS แถวที่เก่ากว่านั้นและยัง
+    # pending อยู่จะค้างแบบนั้นตลอดไป ถ้าปล่อยให้มันอยู่ในกองที่เอามานับ ตัวเลข
+    # ตัวอย่างบนป้ายจะดูเยอะกว่าความจริง ทั้งที่ไม่มีวันรู้ผล
+    cutoff = timezone.now().date() - timedelta(days=EVALUATION_WINDOW_DAYS)
+
+    # horizon ที่ขอมาอาจยังไม่มีข้อมูล (ต้องรอครบ 20 แท่ง) จึงดึงทุก horizon มา
+    # แล้วค่อยเลือกอันที่ใช้ได้ — แต่ต้องบอกผู้ใช้ว่าใช้อันไหน ไม่ใช่สลับเงียบๆ
     rows = list(
         ScanOutcome.objects
-        .filter(user=user, market=market)
+        .filter(user=user, market=market, scan_date__gte=cutoff)
         .values(
             'status', 'bars_evaluated', 'r_multiple', 'mfe_pct', 'mae_pct',
-            f'ret_d{horizon}', *[f for f, _ in SETUP_FLAGS]
+            *[f'ret_d{h}' for h in HORIZONS], *[f for f, _ in SETUP_FLAGS]
         )
         [:2000]
     )
@@ -90,27 +109,34 @@ def get_setup_edge_map(user, market='SET', horizon=20):
     edge_map = {}
 
     if len(rows) >= MIN_ROWS_FOR_EDGE:
-        for flag, label in SETUP_FLAGS:
-            cmp_ = flag_comparison(rows, flag, horizon=horizon)
-            on_count = cmp_['on']['n']
-            edge_r = cmp_['edge_r']
+        # ลองจาก horizon ที่ขอก่อน แล้วถอยไปสั้นลงเรื่อยๆ จนกว่าจะมีข้อมูลพอ
+        # (20 วันต้องรอนานสุด ช่วงแรกของระบบจึงมักมีแต่ d5/d10)
+        ladder = [horizon] + [h for h in sorted(HORIZONS, reverse=True) if h != horizon]
+        for h in ladder:
+            for flag, label in SETUP_FLAGS:
+                cmp_ = flag_comparison(rows, flag, horizon=h)
+                on_count = cmp_['on']['n']
+                edge_r = cmp_['edge_r']
 
-            if on_count >= MIN_SAMPLE_REPORT and edge_r is not None:
-                evidence = (EVIDENCE_RELIABLE if on_count >= MIN_SAMPLE_RELIABLE
-                            else EVIDENCE_THIN)
-                edge_map[flag] = {
-                    'label': label,
-                    'edge_r': edge_r,
-                    'win_rate': cmp_['on']['win_rate'],
-                    'avg_r': cmp_['on']['avg_r'],
-                    'is_positive': edge_r > 0.05,
-                    # is_high สงวนไว้ให้เฉพาะตัวอย่างที่พอเชื่อได้ ตัวอย่าง 3 ไม้
-                    # ที่บังเอิญได้ edge สูงไม่ควรได้ป้ายเดียวกับ 50 ไม้
-                    'is_high': edge_r >= 0.25 and evidence == EVIDENCE_RELIABLE,
-                    'sample_count': on_count,
-                    'evidence': evidence,
-                    'warning': _sample_warning(evidence, on_count),
-                }
+                if on_count >= MIN_SAMPLE_REPORT and edge_r is not None:
+                    evidence = (EVIDENCE_RELIABLE if on_count >= MIN_SAMPLE_RELIABLE
+                                else EVIDENCE_THIN)
+                    edge_map[flag] = {
+                        'label': label,
+                        'edge_r': edge_r,
+                        'win_rate': cmp_['on']['win_rate'],
+                        'avg_r': cmp_['on']['avg_r'],
+                        'is_positive': edge_r > 0.05,
+                        # is_high สงวนไว้ให้เฉพาะตัวอย่างที่พอเชื่อได้ ตัวอย่าง 3 ไม้
+                        # ที่บังเอิญได้ edge สูงไม่ควรได้ป้ายเดียวกับ 50 ไม้
+                        'is_high': edge_r >= 0.25 and evidence == EVIDENCE_RELIABLE,
+                        'sample_count': on_count,
+                        'evidence': evidence,
+                        'horizon_used': h,
+                        'warning': _sample_warning(evidence, on_count, h, horizon),
+                    }
+            if edge_map:
+                break
 
     # กรณีข้อมูลยังสะสมไม่ถึง หรือตัวอย่างน้อย: ประเมินจากค่า MFE/MAE ล่าสุดของรายการที่กำลังติดตาม
     # ผลจากทางนี้เป็นการคาดการณ์จากไม้ที่ยังไม่ปิด ไม่ใช่สถิติผลลัพธ์ จึงถูกตี
@@ -138,7 +164,9 @@ def get_setup_edge_map(user, market='SET', horizon=20):
                     # ไม่งั้นจะเอาเลขสองชนิดมาเทียบกับเกณฑ์เดียวกัน
                     'sample_count': len(flag_rows),
                     'evidence': EVIDENCE_PROVISIONAL,
-                    'warning': _sample_warning(EVIDENCE_PROVISIONAL, len(flag_rows)),
+                    'horizon_used': None,
+                    'warning': _sample_warning(EVIDENCE_PROVISIONAL, len(flag_rows),
+                                               None, horizon),
                 }
 
     return edge_map
@@ -153,6 +181,7 @@ def _clear_edge(c):
     c.edge_sample_count = 0
     c.edge_evidence = ''
     c.edge_warning = ''
+    c.edge_horizon = None
 
 
 def annotate_candidates_with_edge(candidates, user, market='SET', horizon=20):
@@ -175,12 +204,15 @@ def annotate_candidates_with_edge(candidates, user, market='SET', horizon=20):
         samples = []
         warnings = []
         weak_evidences = []
+        horizons_used = []
 
         for flag, data in edge_map.items():
             if not getattr(c, flag, False) or not data.get('is_positive'):
                 continue
             label = data['label']
             samples.append(data.get('sample_count', 0))
+            if data.get('horizon_used'):
+                horizons_used.append(data['horizon_used'])
             if data.get('warning'):
                 warnings.append(data['warning'])
 
@@ -192,6 +224,8 @@ def annotate_candidates_with_edge(candidates, user, market='SET', horizon=20):
 
         matched = reliable_high + reliable_pos + weak
         min_n = min(samples) if samples else 0
+        # ถ้าหลายธงมาจากคนละ horizon ให้รายงานอันสั้นสุด ซึ่งเป็นอันที่อ่อนที่สุด
+        c.edge_horizon = min(horizons_used) if horizons_used else None
 
         if reliable_high:
             # หลักฐานแน่นจริง — ที่เดียวที่ได้ป้ายเต็มและได้บวกคะแนนเต็ม
@@ -199,7 +233,8 @@ def annotate_candidates_with_edge(candidates, user, market='SET', horizon=20):
             c.edge_badge_label = '⭐ High Edge'
             c.edge_evidence = EVIDENCE_RELIABLE
             c.edge_sample_count = min_n
-            c.edge_tooltip = (f"Setup ที่มีสถิติชนะเด่น (n≥{MIN_SAMPLE_RELIABLE}): "
+            c.edge_tooltip = (f"Setup ที่มีสถิติชนะเด่น (n≥{MIN_SAMPLE_RELIABLE}, "
+                              f"วัดที่ {c.edge_horizon or horizon} วัน): "
                               f"{', '.join(matched[:3])}")
             c.edge_reasons = matched
             _boost(c, 5.0, f"⭐ High Historical Edge (+5): {', '.join(matched[:2])}")
@@ -210,7 +245,8 @@ def annotate_candidates_with_edge(candidates, user, market='SET', horizon=20):
             c.edge_badge_label = '⭐ Edge'
             c.edge_evidence = EVIDENCE_RELIABLE
             c.edge_sample_count = min_n
-            c.edge_tooltip = (f"Setup ที่มีสถิติเป็นบวก (n≥{MIN_SAMPLE_RELIABLE}): "
+            c.edge_tooltip = (f"Setup ที่มีสถิติเป็นบวก (n≥{MIN_SAMPLE_RELIABLE}, "
+                              f"วัดที่ {c.edge_horizon or horizon} วัน): "
                               f"{', '.join(matched[:3])}")
             c.edge_reasons = matched
             _boost(c, 2.5, f"⭐ Historical Edge (+2.5): {matched[0]}")

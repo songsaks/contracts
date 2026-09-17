@@ -17,7 +17,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from stocks.models import ScanOutcome
-from stocks.scan_outcomes import MAX_HORIZON, STATUS_COMPLETE, evaluate_forward
+from stocks.scan_outcomes import (EVALUATION_WINDOW_DAYS, MAX_HORIZON,
+                                  STATUS_COMPLETE, evaluate_forward)
 
 
 def _to_yf_symbol(symbol, market):
@@ -33,7 +34,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--market', type=str, default=None, help='SET หรือ US (ไม่ใส่ = ทั้งหมด)')
-        parser.add_argument('--days', type=int, default=90, help='ย้อนหลังกี่วัน (default 90)')
+        parser.add_argument('--days', type=int, default=EVALUATION_WINDOW_DAYS,
+                            help=f'ย้อนหลังกี่วัน (default {EVALUATION_WINDOW_DAYS})')
         parser.add_argument('--batch', type=int, default=40, help='กี่ symbol ต่อ request')
         parser.add_argument('--dry-run', action='store_true', help='ไม่เขียน DB')
 
@@ -42,7 +44,7 @@ class Command(BaseCommand):
         import yfinance as yf
 
         market = opts.get('market')
-        days = max(int(opts.get('days') or 90), MAX_HORIZON)
+        days = max(int(opts.get('days') or EVALUATION_WINDOW_DAYS), MAX_HORIZON)
         batch_size = max(int(opts.get('batch') or 40), 1)
         dry_run = bool(opts.get('dry_run'))
 

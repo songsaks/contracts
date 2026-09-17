@@ -2439,9 +2439,9 @@
                                     <div>
                                         <span class="fw-bold">{{ item.symbol }}</span>
                                         {% if item.edge_tier == 'high' %}
-                                        <span class="badge px-1 py-0 shadow-sm" style="background:linear-gradient(135deg,#059669,#047857);color:white;font-size:0.55rem;border:1px solid #10b981;" title="{{ item.edge_tooltip }}">⭐ High Edge</span>
+                                        <span class="badge px-1 py-0 shadow-sm" style="background:linear-gradient(135deg,#059669,#047857);color:white;font-size:0.55rem;border:1px solid #10b981;" title="{{ item.edge_tooltip }}">⭐ High Edge{% if item.edge_horizon %} <span style="opacity:.7;">d{{ item.edge_horizon }}</span>{% endif %}</span>
                                         {% elif item.edge_tier == 'positive' %}
-                                        <span class="badge px-1 py-0 bg-success-subtle text-success border border-success-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge</span>
+                                        <span class="badge px-1 py-0 bg-success-subtle text-success border border-success-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge{% if item.edge_horizon %} <span style="opacity:.7;">d{{ item.edge_horizon }}</span>{% endif %}</span>
                                         {% elif item.edge_tier == 'thin' %}
                                         {# มีสถิติแต่ตัวอย่างน้อย — สีเทาและมี ? กำกับ ไม่ให้อ่านเหมือนของที่พิสูจน์แล้ว #}
                                         <span class="badge px-1 py-0 bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:0.55rem;" title="{{ item.edge_tooltip }}">⭐ Edge? <span style="opacity:.75;">{% if item.edge_evidence == 'provisional' %}ยังไม่ปิดไม้ {{ item.edge_sample_count }}{% else %}วัดผลแล้ว {{ item.edge_sample_count }}{% endif %}</span></span>

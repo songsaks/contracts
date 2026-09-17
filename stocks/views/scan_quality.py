@@ -16,6 +16,12 @@ from stocks.scan_outcomes import (
 )
 
 # ฟิลด์ที่ดึงมาทำสถิติ — ระบุให้ชัดเพื่อไม่ให้ query ลากทั้งตารางมาโดยไม่จำเป็น
+from datetime import timedelta
+
+from django.utils import timezone
+
+from stocks.scan_outcomes import EVALUATION_WINDOW_DAYS
+
 _STAT_FIELDS = (
     'symbol', 'market', 'scan_date', 'price_at_scan', 'entry_strategy', 'sector',
     'stop_loss', 'target_price', 'technical_score', 'buy_score', 'rs_rating', 'score_bucket',
@@ -79,7 +85,18 @@ def scan_quality_report(request):
     evaluated_count = sum(1 for r in rows if r.get('status') in ('partial', 'complete'))
     max_bars = max((r.get('bars_evaluated') or 0 for r in rows), default=0)
     days_left = max(horizon - max_bars, 0)
-    recent_tracked = [r for r in rows if (r.get('bars_evaluated') or 0) > 0 or r.get('status') != 'pending'][:60]
+    # แสดงแถวที่ยังรอประเมินด้วย — เดิมกรองทิ้ง ทำให้หน้าดูเหมือนหยุดอยู่ที่วัน
+    # สแกนล่าสุดที่ถูกประเมินแล้ว ทั้งที่ข้อมูลของวันใหม่เข้ามาครบทุกวัน
+    # ตัวเติมผลรันวันละครั้ง แถวของวันนี้จึงยังไม่มีแท่งให้วัดเป็นเรื่องปกติ
+    recent_tracked = list(rows[:60])
+    _eval_cutoff = timezone.now().date() - timedelta(days=EVALUATION_WINDOW_DAYS)
+    for r in recent_tracked:
+        bars = r.get('bars_evaluated') or 0
+        r['bars_left'] = max(horizon - bars, 0)
+        # แถวที่เก่ากว่าหน้าต่างประเมินจะไม่ถูกแตะอีกเลย ต้องบอกให้รู้ ไม่ใช่ปล่อยให้
+        # ดูเหมือนกำลังรออยู่เฉยๆ ทั้งที่รอไปก็ไม่มีอะไรเกิดขึ้น
+        r['beyond_window'] = (bars == 0 and r.get('status') == 'pending'
+                              and r.get('scan_date') and r['scan_date'] < _eval_cutoff)
 
     return render(request, 'stocks/scan_quality.html', {
         'market': market,

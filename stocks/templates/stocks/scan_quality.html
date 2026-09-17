@@ -145,8 +145,14 @@
                   <span class="badge bg-danger text-white">Hit SL 🛑</span>
                 {% elif r.status == 'partial' %}
                   <span class="badge bg-info-subtle text-info">กำลังติดตาม</span>
+                  {% if r.bars_left %}<div class="text-muted" style="font-size:0.66rem;">อีก {{ r.bars_left }} วันครบ</div>{% endif %}
+                {% elif r.beyond_window %}
+                  {# เก่ากว่าหน้าต่างประเมิน ตัวเติมผลจะไม่แตะอีกแล้ว — ต้องบอก ไม่ใช่ปล่อยให้ดูเหมือนกำลังรอ #}
+                  <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"
+                        title="เก่ากว่าหน้าต่างประเมินผล จะไม่ถูกเติมผลอีก เว้นแต่รันย้อนหลังด้วย --days ที่กว้างกว่านี้">เกินหน้าต่าง</span>
                 {% else %}
-                  <span class="badge bg-secondary-subtle text-muted">รอข้อมูล</span>
+                  <span class="badge bg-secondary-subtle text-muted">รอประเมิน</span>
+                  <div class="text-muted" style="font-size:0.66rem;">ตัวเติมผลรันวันละครั้ง</div>
                 {% endif %}
               </td>
             </tr>
