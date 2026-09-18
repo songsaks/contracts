@@ -1,0 +1,129 @@
+<div class="sq-card mt-3 mb-4" id="activeTrackingCard">
+  <!-- Card Header -->
+  <div class="hd d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h6 class="fw-bold">
+        <i class="fas fa-satellite-dish me-1 text-primary"></i> 
+        รายการหุ้นติดตามผล (Forward Tracking)
+      </h6>
+      <div class="sub">ติดตามความคืบหน้ารายวัน เทียบราคาเข้ากับจุด Take Profit / Stop Loss จากราคาตลาดจริง</div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnSyncMarket" onclick="syncMarketData()" title="ดึงราคาปิดตลาดจริงจาก Yahoo Finance มาประเมินสถานะ MFE/MAE/TP/SL ทันที">
+        <i class="fas fa-sync-alt me-1" id="iconSyncMarket"></i> <span>ดึงราคาตลาด &amp; วัดผลล่าสุด</span>
+      </button>
+      <span class="badge bg-secondary-subtle text-secondary" id="trackingVisibleBadge">{{ recent_tracked|length }} รายการ</span>
+    </div>
+  </div>
+
+  <!-- Filter Toolbar -->
+  <div class="p-3 bg-light border-bottom d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <!-- Status Filter Buttons -->
+    <div class="btn-group btn-group-sm flex-wrap" role="group" id="trackingStatusGroup">
+      <button type="button" class="btn btn-primary active track-filter-btn" data-status="all" onclick="setTrackingStatusFilter('all', this)">
+        ทั้งหมด <span class="badge bg-white text-dark ms-1">{{ recent_tracked|length }}</span>
+      </button>
+      <button type="button" class="btn btn-outline-secondary track-filter-btn" data-status="in_progress" onclick="setTrackingStatusFilter('in_progress', this)">
+        <i class="fas fa-play text-info me-1"></i> กำลังติดตาม <span class="badge bg-info text-white ms-1">{{ in_progress_count }}</span>
+      </button>
+      <button type="button" class="btn btn-outline-secondary track-filter-btn" data-status="completed" onclick="setTrackingStatusFilter('completed', this)">
+        <i class="fas fa-flag-checkered text-success me-1"></i> รู้ผลแล้ว (TP/SL) <span class="badge bg-success text-white ms-1">{{ completed_count }}</span>
+      </button>
+      <button type="button" class="btn btn-outline-secondary track-filter-btn" data-status="pending" onclick="setTrackingStatusFilter('pending', this)">
+        <i class="fas fa-clock text-secondary me-1"></i> เพิ่งสแกน (Day 0) <span class="badge bg-secondary text-white ms-1">{{ new_pending_count }}</span>
+      </button>
+    </div>
+
+    <!-- Date Dropdown & Symbol Search -->
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="input-group input-group-sm" style="width: auto; min-width: 160px;">
+        <span class="input-group-text bg-white"><i class="fas fa-calendar-alt text-muted"></i></span>
+        <select class="form-select form-select-sm" id="trackingDateSelect" onchange="applyTrackingFilters()">
+          <option value="all">ทุกวันที่สแกน</option>
+          {% for d in available_dates %}
+            <option value="{{ d|date:'Y-m-d' }}">{{ d|date:"d M Y" }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="input-group input-group-sm" style="width: 170px;">
+        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+        <input type="text" class="form-control form-control-sm" id="trackingSearchInput" placeholder="ค้นหาชื่อหุ้น..." onkeyup="applyTrackingFilters()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-responsive">
+    <table class="table sq-table table-hover mb-0" id="trackingTable">
+      <thead class="table-light">
+        <tr>
+          <th>หุ้น</th>
+          <th>วันที่สแกน</th>
+          <th class="text-end">ราคาเข้า</th>
+          <th class="text-end">TP / SL</th>
+          <th class="text-end">MFE (กำไรสูงสุด)</th>
+          <th class="text-end">MAE (ย่อลึกสุด)</th>
+          <th class="text-end">R ล่าสุด</th>
+          <th class="text-center">ความคืบหน้า</th>
+          <th class="text-center">สถานะ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_tracked %}
+        <tr class="tracking-table-row"
+            data-status="{{ r.track_cat }}"
+            data-date="{{ r.scan_date|date:'Y-m-d' }}"
+            data-symbol="{{ r.symbol|upper }}">
+          <td>
+            <span class="fw-bold text-primary">{{ r.symbol }}</span>
+            {% if r.technical_score %}
+              <span class="badge bg-light text-dark border ms-1" style="font-size:0.68rem;">Score {{ r.technical_score }}</span>
+            {% endif %}
+          </td>
+          <td class="text-muted" style="font-size:0.8rem;">{{ r.scan_date|date:"d M Y" }}</td>
+          <td class="text-end fw-semibold">{{ r.price_at_scan|floatformat:2 }}</td>
+          <td class="text-end muted" style="font-size:0.78rem;">
+            {% if r.target_price %}<span class="text-success">{{ r.target_price|floatformat:2 }}</span>{% else %}–{% endif %} / 
+            {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
+          </td>
+          <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
+            {% if r.mfe_pct and r.mfe_pct > 0 %}+{{ r.mfe_pct|floatformat:1 }}%{% elif r.mfe_pct %}{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
+          </td>
+          <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
+            {% if r.mae_pct and r.mae_pct > 0 %}+{{ r.mae_pct|floatformat:1 }}%{% elif r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
+          </td>
+          <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
+            {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
+          </td>
+          <td class="text-center">
+            <span class="badge bg-light text-dark border" style="font-size:0.72rem;">
+              {{ r.bars_evaluated|default:0 }}/{{ horizon }} วัน
+            </span>
+          </td>
+          <td class="text-center">
+            {% if r.first_hit == 'TP' %}
+              <span class="badge bg-success text-white"><i class="fas fa-check-circle me-1"></i>Hit TP 🎯</span>
+            {% elif r.first_hit == 'SL' %}
+              <span class="badge bg-danger text-white"><i class="fas fa-times-circle me-1"></i>Hit SL 🛑</span>
+            {% elif r.track_cat == 'in_progress' %}
+              <span class="badge bg-info-subtle text-info fw-bold"><i class="fas fa-chart-line me-1"></i>กำลังติดตาม</span>
+              {% if r.bars_left %}<div class="text-muted" style="font-size:0.66rem;">อีก {{ r.bars_left }} วันครบ</div>{% endif %}
+            {% elif r.beyond_window %}
+              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="เก่ากว่าหน้าต่างประเมินผล">เกินหน้าต่าง</span>
+            {% else %}
+              <span class="badge bg-secondary-subtle text-muted">รอข้อมูล</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        <tr id="trackingNoMatchRow" class="d-none">
+          <td colspan="9" class="text-center py-4 text-muted">
+            <i class="fas fa-filter fa-2x mb-2 d-block opacity-50"></i>
+            ไม่พบรายการหุ้นที่ตรงกับตัวกรองที่เลือก
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

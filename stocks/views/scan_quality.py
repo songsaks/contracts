@@ -100,10 +100,37 @@ def scan_quality_report(request):
     evaluated_count = sum(1 for r in rows if r.get('status') in ('partial', 'complete'))
     max_bars = max((r.get('bars_evaluated') or 0 for r in rows), default=0)
     days_left = max(horizon - max_bars, 0)
-    # แสดงแถวที่ยังรอประเมินด้วย — เดิมกรองทิ้ง ทำให้หน้าดูเหมือนหยุดอยู่ที่วัน
-    # สแกนล่าสุดที่ถูกประเมินแล้ว ทั้งที่ข้อมูลของวันใหม่เข้ามาครบทุกวัน
-    # ตัวเติมผลรันวันละครั้ง แถวของวันนี้จึงยังไม่มีแท่งให้วัดเป็นเรื่องปกติ
-    recent_tracked = list(rows[:60])
+
+    # จัดหมวดหมู่แถวเพื่อไม่ให้แถวของวันล่าสุดบดบังแถวของวันก่อนหน้า
+    # 1) กำลังติดตาม (In Progress): มีแท่งราคาเดินหน้าแล้วแต่ยังไม่จบไม้
+    in_progress = [
+        r for r in rows
+        if (r.get('bars_evaluated') or 0) > 0 and r.get('status') != 'complete' and not r.get('first_hit')
+    ]
+    # 2) รู้ผลแล้ว (Completed / Closed): ชน TP, SL หรือครบหน้าต่าง horizon
+    completed = [
+        r for r in rows
+        if r.get('status') == 'complete' or r.get('first_hit') in ('TP', 'SL') or (r.get('bars_evaluated') or 0) >= horizon
+    ]
+    # 3) เพิ่งสแกน (New Scans / Day 0): ยังไม่มีแท่งราคาเดินหน้า
+    new_pending = [
+        r for r in rows
+        if (r.get('bars_evaluated') or 0) == 0 and r.get('status') == 'pending' and not r.get('first_hit')
+    ]
+
+    for r in in_progress:
+        r['track_cat'] = 'in_progress'
+    for r in completed:
+        r['track_cat'] = 'completed'
+    for r in new_pending:
+        r['track_cat'] = 'pending'
+
+    # สร้าง recent_tracked โดยคละโควต้าเพื่อความเป็นธรรมของข้อมูล (ไม่ให้วันล่าสุด 60+ ตัวกินหมด)
+    tracked_pool = in_progress[:80] + completed[:80] + new_pending[:80]
+    # เรียงลำดับตามวันที่สแกนล่าสุดลงไป
+    tracked_pool.sort(key=lambda r: (r.get('scan_date') or timezone.localdate()), reverse=True)
+    recent_tracked = tracked_pool
+
     _eval_cutoff = timezone.localdate() - timedelta(days=EVALUATION_WINDOW_DAYS)
     for r in recent_tracked:
         bars = r.get('bars_evaluated') or 0
@@ -112,6 +139,16 @@ def scan_quality_report(request):
         # ดูเหมือนกำลังรออยู่เฉยๆ ทั้งที่รอไปก็ไม่มีอะไรเกิดขึ้น
         r['beyond_window'] = (bars == 0 and r.get('status') == 'pending'
                               and r.get('scan_date') and r['scan_date'] < _eval_cutoff)
+
+    # รายการวันที่สำหรับ Dropdown กรองวันที่
+    available_dates = []
+    seen_dates = set()
+    for r in recent_tracked:
+        d = r.get('scan_date')
+        if d and d not in seen_dates:
+            seen_dates.add(d)
+            available_dates.append(d)
+    available_dates.sort(reverse=True)
 
     return render(request, 'stocks/scan_quality.html', {
         'market': market,
@@ -130,8 +167,45 @@ def scan_quality_report(request):
         'max_bars': max_bars,
         'days_left': days_left,
         'recent_tracked': recent_tracked,
+        'in_progress_count': len(in_progress),
+        'completed_count': len(completed),
+        'new_pending_count': len(new_pending),
+        'available_dates': available_dates,
         'has_data': overall['n'] > 0,
     })
+
+
+@login_required
+def api_evaluate_scan_outcomes(request):
+    """
+    AJAX endpoint: เรียกคำสั่ง evaluate_scan_outcomes เพื่อดึงราคาตลาดจริง
+    จาก Yahoo Finance มาประเมินผล ScanOutcome ล่าสุด
+    """
+    from django.core.management import call_command
+    from django.http import JsonResponse
+    import io
+
+    market = request.GET.get('market', '').upper()
+    if market not in ('SET', 'US'):
+        market = None
+
+    out = io.StringIO()
+    err = io.StringIO()
+    try:
+        kwargs = {'days': EVALUATION_WINDOW_DAYS, 'stdout': out, 'stderr': err}
+        if market:
+            kwargs['market'] = market
+        call_command('evaluate_scan_outcomes', **kwargs)
+        output_msg = out.getvalue().strip()
+        return JsonResponse({
+            'success': True,
+            'message': output_msg or 'อัปเดตราคาตลาดและประเมินผลสำเร็จ',
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f"เกิดข้อผิดพลาดในการอัปเดต: {str(e)}",
+        }, status=500)
 
 
 @login_required

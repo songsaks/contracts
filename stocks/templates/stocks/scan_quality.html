@@ -91,80 +91,7 @@
     </div>
 
     {% if recent_tracked %}
-    <!-- ── ตารางหุ้นที่กำลังติดตามผลจริง (Active Tracking Table) ── -->
-    <div class="sq-card mb-4">
-      <div class="hd d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div>
-          <h6 class="fw-bold"><i class="fas fa-satellite-dish me-1 text-primary"></i> รายการหุ้นที่ระบบกำลังติดตามผลจริง (Active Forward Tracking)</h6>
-          <div class="sub">หุ้นที่ระบบ Precision Scan บันทึกไว้ และดึงราคาตลาดจริงมาวัดผลงานระหว่างทาง</div>
-        </div>
-        <span class="badge bg-secondary-subtle text-secondary">{{ recent_tracked|length }} รายการล่าสุด</span>
-      </div>
-      <div class="table-responsive">
-        <table class="table sq-table table-hover">
-          <thead>
-            <tr>
-              <th>หุ้น</th>
-              <th>วันที่สแกน</th>
-              <th class="text-end">ราคาเข้า</th>
-              <th class="text-end">TP / SL</th>
-              <th class="text-end">MFE (กำไรสูงสุด)</th>
-              <th class="text-end">MAE (ย่อลึกสุด)</th>
-              <th class="text-end">R ล่าสุด</th>
-              <th class="text-center">ความคืบหน้า</th>
-              <th class="text-center">สถานะ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in recent_tracked %}
-            <tr>
-              <td>
-                <span class="fw-bold text-primary">{{ r.symbol }}</span>
-                {% if r.technical_score %}<span class="badge bg-light text-dark ms-1" style="font-size:0.68rem;">Score {{ r.technical_score }}</span>{% endif %}
-              </td>
-              <td class="text-muted" style="font-size:0.8rem;">{{ r.scan_date|date:"d M Y" }}</td>
-              <td class="text-end fw-semibold">{{ r.price_at_scan|floatformat:2 }}</td>
-              <td class="text-end muted" style="font-size:0.78rem;">
-                {% if r.target_price %}<span class="text-success">{{ r.target_price|floatformat:2 }}</span>{% else %}–{% endif %} / 
-                {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
-              </td>
-              <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
-                {% if r.mfe_pct and r.mfe_pct > 0 %}+{{ r.mfe_pct|floatformat:1 }}%{% elif r.mfe_pct %}{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
-              </td>
-              <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
-                {% if r.mae_pct and r.mae_pct > 0 %}+{{ r.mae_pct|floatformat:1 }}%{% elif r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
-              </td>
-              <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
-                {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
-              </td>
-              <td class="text-center">
-                <span class="badge bg-light text-dark border" style="font-size:0.72rem;">
-                  {{ r.bars_evaluated|default:0 }}/{{ horizon }} วัน
-                </span>
-              </td>
-              <td class="text-center">
-                {% if r.first_hit == 'TP' %}
-                  <span class="badge bg-success text-white">Hit TP 🎯</span>
-                {% elif r.first_hit == 'SL' %}
-                  <span class="badge bg-danger text-white">Hit SL 🛑</span>
-                {% elif r.status == 'partial' %}
-                  <span class="badge bg-info-subtle text-info">กำลังติดตาม</span>
-                  {% if r.bars_left %}<div class="text-muted" style="font-size:0.66rem;">อีก {{ r.bars_left }} วันครบ</div>{% endif %}
-                {% elif r.beyond_window %}
-                  {# เก่ากว่าหน้าต่างประเมิน ตัวเติมผลจะไม่แตะอีกแล้ว — ต้องบอก ไม่ใช่ปล่อยให้ดูเหมือนกำลังรอ #}
-                  <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"
-                        title="เก่ากว่าหน้าต่างประเมินผล จะไม่ถูกเติมผลอีก เว้นแต่รันย้อนหลังด้วย --days ที่กว้างกว่านี้">เกินหน้าต่าง</span>
-                {% else %}
-                  <span class="badge bg-secondary-subtle text-muted">รอประเมิน</span>
-                  <div class="text-muted" style="font-size:0.66rem;">ตัวเติมผลรันวันละครั้ง</div>
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      {% include 'stocks/includes/active_tracking_table.html' %}
     {% endif %}
   {% else %}
 
@@ -330,71 +257,7 @@
   </div>
 
   {% if recent_tracked %}
-  <!-- ── รายการหุ้นล่าสุดที่นำมาคำนวณ ── -->
-  <div class="sq-card mt-3">
-    <div class="hd d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <h6 class="fw-bold"><i class="fas fa-satellite-dish me-1 text-primary"></i> รายการหุ้นล่าสุดที่กำลังติดตามผล (Active Tracking)</h6>
-      <span class="badge bg-secondary-subtle text-secondary">{{ recent_tracked|length }} รายการ</span>
-    </div>
-    <div class="table-responsive">
-      <table class="table sq-table table-hover">
-        <thead>
-          <tr>
-            <th>หุ้น</th>
-            <th>วันที่สแกน</th>
-            <th class="text-end">ราคาเข้า</th>
-            <th class="text-end">TP / SL</th>
-            <th class="text-end">MFE (กำไรสูงสุด)</th>
-            <th class="text-end">MAE (ย่อลึกสุด)</th>
-            <th class="text-end">R ล่าสุด</th>
-            <th class="text-center">ความคืบหน้า</th>
-            <th class="text-center">สถานะ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in recent_tracked %}
-          <tr>
-            <td>
-              <span class="fw-bold text-primary">{{ r.symbol }}</span>
-              {% if r.technical_score %}<span class="badge bg-light text-dark ms-1" style="font-size:0.68rem;">Score {{ r.technical_score }}</span>{% endif %}
-            </td>
-            <td class="text-muted" style="font-size:0.8rem;">{{ r.scan_date|date:"d M Y" }}</td>
-            <td class="text-end fw-semibold">{{ r.price_at_scan|floatformat:2 }}</td>
-            <td class="text-end muted" style="font-size:0.78rem;">
-              {% if r.target_price %}<span class="text-success">{{ r.target_price|floatformat:2 }}</span>{% else %}–{% endif %} / 
-              {% if r.stop_loss %}<span class="text-danger">{{ r.stop_loss|floatformat:2 }}</span>{% else %}–{% endif %}
-            </td>
-            <td class="text-end {% if r.mfe_pct and r.mfe_pct > 0 %}pos{% else %}muted{% endif %}">
-              {% if r.mfe_pct and r.mfe_pct > 0 %}+{{ r.mfe_pct|floatformat:1 }}%{% elif r.mfe_pct %}{{ r.mfe_pct|floatformat:1 }}%{% else %}–{% endif %}
-            </td>
-            <td class="text-end {% if r.mae_pct and r.mae_pct < 0 %}neg{% else %}muted{% endif %}">
-              {% if r.mae_pct and r.mae_pct > 0 %}+{{ r.mae_pct|floatformat:1 }}%{% elif r.mae_pct %}{{ r.mae_pct|floatformat:1 }}%{% else %}–{% endif %}
-            </td>
-            <td class="text-end fw-bold {% if r.r_multiple and r.r_multiple > 0 %}pos{% elif r.r_multiple and r.r_multiple < 0 %}neg{% else %}muted{% endif %}">
-              {% if r.r_multiple is not None %}{{ r.r_multiple|floatformat:2 }}R{% else %}–{% endif %}
-            </td>
-            <td class="text-center">
-              <span class="badge bg-light text-dark border" style="font-size:0.72rem;">
-                {{ r.bars_evaluated|default:0 }}/{{ horizon }} วัน
-              </span>
-            </td>
-            <td class="text-center">
-              {% if r.first_hit == 'TP' %}
-                <span class="badge bg-success text-white">Hit TP 🎯</span>
-              {% elif r.first_hit == 'SL' %}
-                <span class="badge bg-danger text-white">Hit SL 🛑</span>
-              {% elif r.status == 'partial' %}
-                <span class="badge bg-info-subtle text-info">กำลังติดตาม</span>
-              {% else %}
-                <span class="badge bg-secondary-subtle text-muted">รอข้อมูล</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
+    {% include 'stocks/includes/active_tracking_table.html' %}
   {% endif %}
 
   <div class="text-muted mt-3" style="font-size:.78rem;">
@@ -499,6 +362,92 @@ function copyAiAnalysis() {
         btn.innerHTML = '<i class="fas fa-check text-success me-1"></i> คัดลอกแล้ว!';
         setTimeout(() => { btn.innerHTML = orig; }, 2000);
     });
+}
+
+// ── Active Tracking Table Filters & Sync ──
+let _currentStatusFilter = 'all';
+
+function setTrackingStatusFilter(status, btn) {
+    _currentStatusFilter = status;
+    document.querySelectorAll('.track-filter-btn').forEach(b => {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-outline-secondary');
+    });
+    btn.classList.remove('btn-outline-secondary');
+    btn.classList.add('btn-primary', 'active');
+    applyTrackingFilters();
+}
+
+function applyTrackingFilters() {
+    const dateSelect = document.getElementById('trackingDateSelect');
+    const dateVal = dateSelect ? dateSelect.value : 'all';
+    const searchInput = document.getElementById('trackingSearchInput');
+    const searchVal = searchInput ? searchInput.value.trim().toUpperCase() : '';
+
+    const rows = document.querySelectorAll('.tracking-table-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const rowStatus = row.getAttribute('data-status');
+        const rowDate = row.getAttribute('data-date');
+        const rowSymbol = (row.getAttribute('data-symbol') || '').toUpperCase();
+
+        const statusMatch = (_currentStatusFilter === 'all') || (rowStatus === _currentStatusFilter);
+        const dateMatch = (dateVal === 'all') || (rowDate === dateVal);
+        const searchMatch = !searchVal || rowSymbol.includes(searchVal);
+
+        if (statusMatch && dateMatch && searchMatch) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const noMatch = document.getElementById('trackingNoMatchRow');
+    if (noMatch) {
+        noMatch.classList.toggle('d-none', visibleCount > 0);
+    }
+
+    const badge = document.getElementById('trackingVisibleBadge');
+    if (badge) {
+        badge.innerText = visibleCount + ' รายการ';
+    }
+}
+
+function syncMarketData() {
+    const btn = document.getElementById('btnSyncMarket');
+    const icon = document.getElementById('iconSyncMarket');
+    if (!btn) return;
+
+    btn.disabled = true;
+    if (icon) icon.className = 'fas fa-spinner fa-spin me-1';
+    const labelSpan = btn.querySelector('span');
+    if (labelSpan) labelSpan.innerText = 'กำลังดึงราคาจาก Yahoo Finance...';
+
+    fetch("{% url 'stocks:api_evaluate_scan_outcomes' %}?market={{ market }}")
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                btn.className = 'btn btn-sm btn-success fw-semibold';
+                if (icon) icon.className = 'fas fa-check-circle me-1';
+                if (labelSpan) labelSpan.innerText = 'อัปเดตเรียบร้อย!';
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
+            } else {
+                alert(data.error || 'ไม่สามารถอัปเดตราคาได้');
+                btn.disabled = false;
+                if (icon) icon.className = 'fas fa-sync-alt me-1';
+                if (labelSpan) labelSpan.innerText = 'ดึงราคาตลาด & วัดผลล่าสุด';
+            }
+        })
+        .catch(err => {
+            alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message);
+            btn.disabled = false;
+            if (icon) icon.className = 'fas fa-sync-alt me-1';
+            if (labelSpan) labelSpan.innerText = 'ดึงราคาตลาด & วัดผลล่าสุด';
+        });
 }
 </script>
 {% endblock %}

@@ -381,7 +381,7 @@ class ReportViewTests(unittest.TestCase):
             user=other, market='SET', symbol='LEAK', scan_date=datetime.date(2026, 8, 1),
             scan_run=django.utils.timezone.now(), price_at_scan=10,
             ret_d20=999.0, r_multiple=99.0, status=so.STATUS_COMPLETE, bars_evaluated=20)
-        ctx = self._call()['ctx']
+        ctx = self._call('?scope=my')['ctx']
         self.assertEqual(ctx['total_rows'], 12, 'ต้องไม่ดึงข้อมูลของ user คนอื่นมาปน')
 
 
