@@ -1655,22 +1655,13 @@ def momentum_scanner(request):
             from datetime import time as _mtime
             from datetime import timedelta as _mtd
 
-            # คำนวณ end date เหมือน entry_finder - ห้ามรวม today's incomplete bar ตอนตลาดเปิด
+            # คำนวณ end date เหมือน Precision Scanner — end date ของ yfinance เป็น exclusive
+            # จึงต้องบวก 1 วันเพื่อให้รวมข้อมูลแท่งเทียนของวันนี้
             import pytz as _mpytz
-            _mnow   = _mdt.now(_mpytz.timezone('Asia/Bangkok'))
-            _mt     = _mnow.time()
-            _market_open_now = (
-                _mnow.weekday() < 5 and
-                (
-                    _mt < _mtime(10, 0) or
-                    (_mtime(10, 0) <= _mt <= _mtime(12, 30)) or
-                    (_mtime(12, 30) < _mt < _mtime(14, 30)) or
-                    (_mtime(14, 30) <= _mt <= _mtime(16, 30))
-                )
-            )
-            _mend_date  = (_mnow.date() - _mtd(days=1)) if _market_open_now else _mnow.date()
+            _mnow       = _mdt.now(_mpytz.timezone('Asia/Bangkok'))
+            _mend_date  = _mnow.date() + _mtd(days=1)
             _mend_str   = _mend_date.strftime('%Y-%m-%d')
-            _mstart_str = (_mend_date - _mtd(days=600)).strftime('%Y-%m-%d')
+            _mstart_str = (_mnow.date() - _mtd(days=600)).strftime('%Y-%m-%d')
 
             def _mom_live(arg):
                 sym, mkt = arg
@@ -3746,19 +3737,10 @@ def entry_finder(request, symbol):
         import pytz as _efpytz
         _ef_bkk = _efpytz.timezone('Asia/Bangkok')
         _ef_now = _efdt.now(_ef_bkk)
-        _ef_t   = _ef_now.time()
-        _ef_market_day = (
-            _ef_now.weekday() < 5 and
-            (
-                _ef_t < _efdtime(10, 0) or                                      # ก่อนเปิด
-                (_efdtime(10, 0) <= _ef_t <= _efdtime(12, 30)) or               # เช้า
-                (_efdtime(12, 30) < _ef_t < _efdtime(14, 30)) or               # พัก
-                (_efdtime(14, 30) <= _ef_t <= _efdtime(16, 30))                 # บ่าย
-            )
-        )
-        _ef_end_date  = (_ef_now.date() - _eftd(days=1)) if _ef_market_day else _ef_now.date()
+        # yfinance history end= is exclusive. เพื่อให้รวมแท่งเทียนของวันนี้เสมอ ให้ใช้ end = วันพรุ่งนี้
+        _ef_end_date  = _ef_now.date() + _eftd(days=1)
         _ef_end_str   = _ef_end_date.strftime('%Y-%m-%d')
-        _ef_start_str = (_ef_end_date - _eftd(days=600)).strftime('%Y-%m-%d')
+        _ef_start_str = (_ef_now.date() - _eftd(days=600)).strftime('%Y-%m-%d')
 
         # Retry up to 4 times with exponential backoff (handles yfinance rate limits)
         import random as _efrnd
@@ -3832,11 +3814,17 @@ def entry_finder(request, symbol):
                     set_df.columns = set_df.columns.droplevel(1)
                 
                 # รวมข้อมูลเพื่อเฉลี่ย ratio (RS Line = Stock / Index)
-                combined = pd.concat([df['Close'], set_df['Close']], axis=1, keys=['stock', 'set']).dropna()
-                combined['rs'] = combined['stock'] / combined['set']
-                
-                rs_subset = combined['rs'].tail(len(history_subset))
-                rs_line_vals = [float(v) for v in rs_subset.values]
+                s_close = df['Close'].copy()
+                set_close = set_df['Close'].copy()
+                if hasattr(s_close.index, 'tz') and s_close.index.tz is not None:
+                    s_close.index = s_close.index.tz_localize(None)
+                if hasattr(set_close.index, 'tz') and set_close.index.tz is not None:
+                    set_close.index = set_close.index.tz_localize(None)
+                combined = pd.concat([s_close, set_close], axis=1, keys=['stock', 'set']).dropna()
+                if not combined.empty:
+                    combined['rs'] = combined['stock'] / combined['set']
+                    rs_subset = combined['rs'].tail(len(history_subset))
+                    rs_line_vals = [float(v) for v in rs_subset.values]
         except Exception as e:
             import logging; logging.getLogger('stocks').error(f"RS Line Error: {e}")
 
@@ -3862,22 +3850,29 @@ def entry_finder(request, symbol):
         except Exception:
             curr_price = hist_close
 
-        # ถ้า live price ต่างจาก hist_close → เพิ่มเป็น data point สุดท้ายในกราฟ
+        # ถ้า live price ต่างจาก hist_close → ปรับปรุงแท่งของวันนี้ในกราฟ หรือเพิ่มเข้าไปหากยังไม่มี
         if abs(curr_price - hist_close) > 0.001:
             _today_str = _ef_now.strftime('%Y-%m-%d')
-            chart_labels.append(_today_str)
-            chart_values.append(round(curr_price, 2))
-            ema10_vals.append(None)
-            ema20_vals.append(None)
-            ema50_vals.append(None)
-            ema200_vals.append(None)
-            ohlcv_data.append({
-                'x': _today_str,
-                'o': round(curr_price, 2),
-                'h': round(curr_price, 2),
-                'l': round(curr_price, 2),
-                'c': round(curr_price, 2),
-            })
+            if chart_labels and chart_labels[-1] == _today_str:
+                chart_values[-1] = round(curr_price, 2)
+                if ohlcv_data:
+                    ohlcv_data[-1]['c'] = round(curr_price, 2)
+                    ohlcv_data[-1]['h'] = max(ohlcv_data[-1]['h'], round(curr_price, 2))
+                    ohlcv_data[-1]['l'] = min(ohlcv_data[-1]['l'], round(curr_price, 2))
+            else:
+                chart_labels.append(_today_str)
+                chart_values.append(round(curr_price, 2))
+                ema10_vals.append(None)
+                ema20_vals.append(None)
+                ema50_vals.append(None)
+                ema200_vals.append(None)
+                ohlcv_data.append({
+                    'x': _today_str,
+                    'o': round(curr_price, 2),
+                    'h': round(curr_price, 2),
+                    'l': round(curr_price, 2),
+                    'c': round(curr_price, 2),
+                })
             chart_labels_json = json.dumps(chart_labels)
             chart_values_json = json.dumps(chart_values)
             ema10_vals_json   = json.dumps(ema10_vals)
@@ -3971,7 +3966,7 @@ def entry_finder(request, symbol):
             'zone_ticks': ef_zone_ticks,
             'zone_baht': ef_zone_baht,
             'zone_status': ef_zone_status,
-            'scan_end_date': _ef_end_str,
+            'scan_end_date': df.index[-1].strftime('%Y-%m-%d') if df is not None and not df.empty else _ef_now.strftime('%Y-%m-%d'),
             'chart_labels': chart_labels_json,
             'chart_values': chart_values_json,
             'ema10_vals': ema10_vals_json,
